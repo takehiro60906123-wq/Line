@@ -1,0 +1,1295 @@
+@charset "UTF-8";
+
+/* =========================================
+   双六モード v3 - マス画像修正 + 宝箱 + ショップ
+   ========================================= */
+
+/* -----------------------------------------
+   トップバー（ゴールカウンター + デッキ残）
+----------------------------------------- */
+/* style-sugoroku.css */
+
+/* --- トップバー（配置エリア） --- */
+.sg-top-bar {
+    position: absolute; top: 0; left: 0; width: 100%; height: 130px;
+    z-index: 90; pointer-events: none;
+    background: linear-gradient(to bottom, #111 60%, rgba(17,17,17,0) 100%);
+    display: flex; justify-content: center; padding-top: 50px; box-sizing: border-box;
+}
+
+/* --- ゴールカウンターのコンテナ --- */
+.sg-goal-counter {
+    display: flex;
+    align-items: flex-end; /* 下揃え */
+    gap: 5px; /* 文字と数字の間隔 */
+    
+    /* 画面全体から浮き上がらせるドロップシャドウ */
+    filter: drop-shadow(0 4px 5px rgba(0,0,0,0.5));
+}
+
+/* --- 「GOALまで」の文字 --- */
+.sg-goal-label {
+    /* クセのない標準フォントに変更 */
+    font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+    font-weight: bold;
+    font-size: 12px; /* 小さく控えめに */
+    color: #fff;
+    
+    /* 黒い縁取り（細め） */
+    -webkit-text-stroke: 3px #000;
+    paint-order: stroke fill;
+}
+
+/* --- 数字部分（ここが重要） --- */
+.sg-goal-val {
+    position: relative;
+    display: inline-block;
+    
+    /* クセのない太字フォントに変更（英数字に強いArial Black等） */
+    font-family: "Arial Black", "Hiragino Kaku Gothic ProN", sans-serif;
+    font-weight: 900;
+    
+    /* サイズを適正化（デカすぎない） */
+    font-size: 42px; 
+    line-height: 1;
+    
+    /* ▼▼▼ 下地：白フチ ▼▼▼ */
+    color: #fff;
+    /* フチの太さもサイズに合わせて調整 */
+    -webkit-text-stroke: 5px #fff; 
+    paint-order: stroke fill;
+    z-index: 1;
+}
+
+/* ▼▼▼ 上乗せ：赤グラデーション ▼▼▼ */
+.sg-goal-val::after {
+    content: attr(data-val);
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 2;
+    
+    /* グラデーション：上(赤) → 下(少し薄い赤) */
+    background: linear-gradient(to bottom, #d00000 20%, #ff6666 90%);
+    
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    
+    -webkit-text-stroke: 0;
+}
+/* 3. デッキ枚数表示：右端に維持（スタイル微調整） */
+.sg-deck-info {
+    position: absolute;
+    right: 15px;
+    top: 15px;
+    
+    font-family: 'Dela Gothic One', cursive;
+    font-size: 14px;
+    color: #eee;
+    
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 20px;
+    padding: 4px 12px;
+    pointer-events: auto;
+}
+
+/* -----------------------------------------
+   ★ マスレーン（背景パネル非表示対応）
+----------------------------------------- */
+/* style-sugoroku.css */
+
+/* style-sugoroku.css */
+
+.sg-square-lane {
+    position: absolute;
+    top: auto;
+    bottom: 190px;
+    left: 0; width: 100%;
+    height: 96px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    z-index: 80;
+
+    /* ▼▼▼ RPG風デザインに変更 ▼▼▼ */
+    /* 背景：深い茶色のグラデーションで木の板や革のような質感に */
+    background: linear-gradient(to bottom, #5a4230 0%, #3a2820 100%);
+
+    /* 枠線：上下に金色の装飾を追加して豪華に */
+    border-top: 2px solid #cca34a;    /* 上の枠 */
+    border-bottom: 3px solid #997a33; /* 下の枠（少し太くして影っぽく） */
+
+    /* 立体感：内側の影で少し凹んだ感じを表現 */
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.6);
+    /* ▲▲▲ 変更ここまで ▲▲▲ */
+
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.sg-square-lane::-webkit-scrollbar { display: none; }
+
+.sg-lane-inner {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 20px;
+    white-space: nowrap;
+}
+
+/* -----------------------------------------
+   ★ マスノード（画像表示修正済み）
+----------------------------------------- */
+.sq-node {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 1px; flex-shrink: 0;
+    position: relative; padding: 4px 2px; min-width: 44px;
+}
+
+/* ★ sq-circle: 土台画像用（background-imageをJS側で設定） */
+.sq-circle {
+    width: 52px;
+    height: 52px;
+    
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+    transition: transform 0.2s;
+}
+
+/* 2. 中のアイコンを大きくし、上に浮かせる */
+.sq-icon-img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    /* デフォルトのふわふわアニメーション */
+    animation: iconFloatY 2s infinite ease-in-out;
+    transition: transform 0.3s ease, filter 0.3s ease, opacity 0.3s ease;
+}
+@keyframes iconFloatY {
+    0%, 100% { transform: translateY(-8px); }
+    50% { transform: translateY(-11px); }
+}
+
+/* --- マスハイライト用のアニメーション制御（sq-reachable / sq-dim で個別設定） --- */
+/* ※ 個別スタイルはファイル末尾で定義 */
+
+/* 3. マス同士の間隔：ギュッと詰める */
+.sq-node {
+    margin: 0 2px; /* 横の間隔を極力減らす */
+    display: flex; flex-direction: column; align-items: center;
+    gap: 1px; flex-shrink: 0;
+    position: relative; padding: 4px 0; min-width: 52px;
+}
+
+/* 4. つなぎ目の線：短くする */
+.sq-connector {
+    width: 12px; /* 30pxから大幅短縮 */
+    height: 2px;
+    background: rgba(212,175,55,0.4);
+    flex-shrink: 0; align-self: center;
+    margin-top: -12px; /* 縦位置調整 */
+}
+
+/* ★ 現在地・通過済み・ターゲット */
+.sq-current .sq-circle {
+    transform: scale(1.2);
+    filter: drop-shadow(0 0 6px rgba(0,206,209,0.7));
+}
+.sq-past .sq-circle {
+    opacity: 0.3;
+    filter: grayscale(0.5);
+}
+.sq-past .sq-label { opacity: 0.25; }
+
+.sq-target .sq-circle {
+    animation: targetPulse 0.5s infinite alternate !important;
+}
+@keyframes targetPulse {
+    0%  { transform: scale(1);   filter: drop-shadow(0 0 4px rgba(255,215,0,0.4)); }
+    100%{ transform: scale(1.25); filter: drop-shadow(0 0 12px rgba(255,215,0,0.9)); }
+}
+
+.sq-label {
+    font-size: 8px; color: #ccc; font-weight: bold;
+    text-align: center; max-width: 44px;
+    overflow: hidden; text-overflow: ellipsis;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+.sq-marker {
+    position: absolute; bottom: -2px;
+    font-size: 9px; color: #00ced1;
+    animation: markerBounce 0.6s infinite alternate;
+    text-shadow: 0 0 6px #00ced1;
+}
+@keyframes markerBounce { 0%{transform:translateY(0);} 100%{transform:translateY(-3px);} }
+
+.sq-connector {
+    width: 10px; height: 2px;
+    background: rgba(212,175,55,0.25);
+    flex-shrink: 0; align-self: center; margin-top: -12px;
+}
+.sq-connector.sq-past { background: rgba(255,255,255,0.08); }
+
+/* -----------------------------------------
+   ゲームエリア（パララックス背景）
+----------------------------------------- */
+.sg-game-area {
+    position: absolute;
+    
+    /* ▼▼▼ 変更ここから ▼▼▼ */
+    top: 82px;      /* 上が空いたので詰める (TopBarの下端) */
+    bottom: 262px;  /* 下にマスレーンが来たのでその分空ける (190px + 72px = 262px) */
+    /* ▲▲▲ 変更ここまで ▲▲▲ */
+
+    left: 0; width: 100%;
+    z-index: 0;
+    background: linear-gradient(to bottom, #87CEEB 0%, #E0F7FA 100%);
+    overflow: hidden;
+}
+
+.bg-layer {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-repeat: repeat-x;
+    background-position: left bottom;
+    background-size: auto 100%;
+    will-change: background-position;
+}
+
+.char-container {
+    position: absolute; bottom: 18%; left: 15%;
+    width: 140px; height: 140px; z-index: 50;
+}
+.char-visual {
+    width: 100%; height: 100%;
+    background-repeat: no-repeat; background-position: center bottom;
+    background-size: contain; image-rendering: pixelated;
+    transform: scaleX(1);
+}
+.anim-idle { animation: float 2s infinite ease-in-out; }
+@keyframes float { 0%,100%{transform:scaleX(-1) translateY(0);} 50%{transform:scaleX(-1) translateY(-5px);} }
+.anim-run { animation: runBob 0.25s infinite steps(2); }
+@keyframes runBob {
+    0%{transform:scaleX(-1) translateY(0) rotate(0deg);}
+    25%{transform:scaleX(-1) translateY(-4px) rotate(3deg);}
+    50%{transform:scaleX(-1) translateY(0) rotate(0deg);}
+    75%{transform:scaleX(-1) translateY(-4px) rotate(-3deg);}
+}
+
+.sg-msg-log {
+    position: absolute; top: 30%; width: 100%;
+    text-align: center; color: #fff; font-size: 16px;
+    font-weight: 900; text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+    transition: opacity 0.3s; z-index: 90;
+    pointer-events: none;
+}
+
+/* -----------------------------------------
+   手札エリア
+----------------------------------------- */
+/* style-sugoroku.css */
+
+.sg-hand-area {
+    position: absolute;
+    bottom: 56px;
+    left: 0; width: 100%;
+    height: 134px; z-index: 70;
+
+    /* ▼▼▼ 勇者コレクター風デザインに変更 ▼▼▼ */
+    
+    /* 背景：高級なカードアルバムのような、深みのあるロイヤルブルー */
+    background: linear-gradient(to bottom, #1a2a50 0%, #0b1221 100%);
+
+    /* 枠線：宝箱の装飾のような太めの金色ライン */
+    border-top: 3px solid #d4af37;
+    
+    /* 立体感：内側に影を落として、カードが置かれている奥行きを表現 */
+    box-shadow: 
+        inset 0 10px 20px rgba(0,0,0,0.5),  /* 内側の影 */
+        0 -4px 15px rgba(0,0,0,0.5);        /* 外側の影 */
+    
+    /* ▲▲▲ 変更ここまで ▲▲▲ */
+
+    display: flex; align-items: center; justify-content: center;
+}
+.sg-hand-cards {
+    display: flex; gap: 10px;
+    padding: 10px 16px;
+}
+.sg-card {
+    /* サイズと基本設定 */
+    width: 70px;
+    height: 100px;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+
+    /* ▼ 背景画像の強制適用 (!importantで確実に上書き) ▼ */
+    background: transparent !important;
+    background-image: url('images/card_design.webp') !important;
+    background-size: contain !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+    
+    /* 枠線や影などのリセットと再設定 */
+    border: none !important;
+    border-radius: 6px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    
+    /* 内部レイアウト */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: 14px; /* 数字の位置調整 */
+    box-sizing: border-box;
+    
+    /* アニメーション */
+    transition: transform 0.1s, filter 0.1s;
+}
+.sg-card:active {
+    transform: translateY(4px); /* 厚みの分だけ沈む */
+    box-shadow: 
+        inset 0 0 0 2px #fff,
+        inset 0 0 0 4px #d4af37,
+        0 0 0 #222,             /* 厚みがなくなる */
+        0 2px 3px rgba(0,0,0,0.5);
+}
+
+/* style-sugoroku.css */
+
+.sg-card-num {
+    font-family: "Reggae One", "Hiragino Mincho ProN", serif; /* 和風フォント */
+    font-size: 36px;
+    font-weight: normal;
+    
+    /* ▼ 文字色：濃い筆文字風 */
+    color: #333;
+    text-shadow: 
+        2px 2px 0 rgba(255,255,255,0.8),
+        0 0 10px rgba(212,175,55, 0.2);
+
+    line-height: 1;
+    z-index: 2;
+    margin-top: -6px; /* 少し上に補正 */
+}
+/* style-sugoroku.css */
+
+.sg-card-sub {
+    /* ▼▼▼ 修正: 非表示にする ▼▼▼ */
+    display: none; 
+    /* ▲▲▲ 修正ここまで ▲▲▲ */
+
+    /* 元のスタイル (一応残しておいてOK) */
+    font-size: 9px; 
+    color: #888; 
+    margin-top: 2px; 
+}
+
+
+/* 選択時の強調表示（枠線ではなく拡大と輝きで表現） */
+.sg-card-selected {
+    transform: translateY(-12px) !important;
+    filter: brightness(1.1);
+    box-shadow: 
+        inset 0 0 0 2px #fff,
+        inset 0 0 0 4px #00ced1, /* 枠が水色に光る */
+        0 14px 0 #222,
+        0 18px 20px rgba(0,206,209,0.4) !important;
+    border-color: #0055aa;
+    z-index: 10;
+}
+
+.sg-card-selected {
+    transform: translateY(-12px) !important;
+    filter: brightness(1.1);
+    box-shadow: 
+        inset 0 0 0 2px #fff,
+        inset 0 0 0 4px #00ced1, /* 枠が水色に光る */
+        0 14px 0 #222,
+        0 18px 20px rgba(0,206,209,0.4) !important;
+    border-color: #0055aa;
+    z-index: 10;
+}
+.sg-card-selected::before {
+    content: 'TAP!';
+    position: absolute;
+    top: -24px; left: 50%;
+    transform: translateX(-50%);
+    background: #f00; color: #fff;
+    font-size: 10px; font-weight: bold;
+    padding: 2px 6px; border-radius: 4px;
+    animation: tapBlink 0.5s infinite alternate;
+}
+@keyframes tapBlink { 0%{opacity:0.3;} 100%{opacity:1;} }
+
+.sg-card-used { animation: cardFly 0.5s ease-in forwards; }
+@keyframes cardFly { 0%{transform:translateY(0) scale(1);opacity:1;} 100%{transform:translateY(-100px) scale(0.3);opacity:0;} }
+.sg-card-new { animation: cardDeal 0.4s ease-out; }
+@keyframes cardDeal { 0%{transform:translateY(40px) scale(0.5);opacity:0;} 100%{transform:translateY(0) scale(1);opacity:1;} }
+.sg-card-empty {
+    background: rgba(20,20,30,0.4);
+    border: 2px dashed rgba(100,100,120,0.2);
+    cursor: default; box-shadow: none;
+}
+.sg-card-empty .sg-card-num { color: #222; font-size: 26px; }
+
+/* -----------------------------------------
+   オーバーレイ
+----------------------------------------- */
+.sg-overlay {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%; z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.75);
+    opacity: 0; transition: opacity 0.25s;
+}
+.sg-overlay.show { opacity: 1; }
+
+/* =========================================
+   ★ 宝箱演出（新規）
+   ========================================= */
+.tbox-container {
+    position: relative;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 30px 40px;
+    border-radius: 16px;
+    animation: tboxAppear 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
+}
+@keyframes tboxAppear {
+    0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+    60%  { transform: scale(1.1) rotate(3deg); }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.tbox-bg-gold    { background: radial-gradient(circle, rgba(60,45,10,0.95), rgba(20,15,5,0.98)); border: 2px solid #d4af37; box-shadow: 0 0 40px rgba(212,175,55,0.3); }
+.tbox-bg-diamond { background: radial-gradient(circle, rgba(15,25,60,0.95), rgba(5,10,30,0.98)); border: 2px solid #4fc3f7; box-shadow: 0 0 40px rgba(79,195,247,0.3); }
+.tbox-bg-candy   { background: radial-gradient(circle, rgba(50,20,40,0.95), rgba(20,8,15,0.98)); border: 2px solid #f48fb1; box-shadow: 0 0 40px rgba(244,143,177,0.3); }
+
+.tbox-glow {
+    position: absolute;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+    animation: tboxGlowPulse 1.5s infinite alternate;
+    pointer-events: none;
+}
+@keyframes tboxGlowPulse {
+    0%  { transform: scale(0.8); opacity: 0.5; }
+    100%{ transform: scale(1.3); opacity: 1; }
+}
+
+.tbox-img {
+    width: 140px; height: 140px;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6));
+    z-index: 1;
+    animation: tboxBounce 1.2s ease-in-out infinite;
+}
+@keyframes tboxBounce {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-8px); }
+}
+
+.tbox-label {
+    margin-top: 14px;
+    font-size: 13px; font-weight: 900;
+    color: rgba(255,255,255,0.6);
+    z-index: 1;
+    animation: tapBlink 0.8s infinite alternate;
+}
+
+.tbox-container.tbox-open {
+    animation: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+
+.tbox-container.tbox-open .tbox-img {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+}
+@keyframes tboxFlash {
+    0%   { filter: brightness(1); }
+    40%  { filter: brightness(3); }
+    100% { filter: brightness(3); opacity: 0; transform: scale(1.2); }
+}
+@keyframes tboxOpenImg {
+    0%   { transform: translateY(0) scale(1); }
+    30%  { transform: translateY(-15px) scale(1.15); }
+    100% { transform: translateY(-15px) scale(1.3); opacity: 0; }
+}
+
+/* =========================================
+   報酬ポップアップ（パーティクル演出付き）
+   ========================================= */
+.reward-popup {
+    position: relative;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 28px 36px; border-radius: 12px;
+    min-width: 220px; overflow: hidden;
+    animation: rewardPop 0.4s ease-out;
+    border: 2px solid rgba(212,175,55,0.4);
+}
+@keyframes rewardPop { 0%{transform:scale(0.5);opacity:0;} 60%{transform:scale(1.08);} 100%{transform:scale(1);opacity:1;} }
+
+.reward-particles {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none; overflow: hidden;
+}
+.reward-particle {
+    position: absolute; top: -20px;
+    font-size: 18px;
+    animation: particleFall 1.8s ease-in forwards;
+    opacity: 0;
+}
+@keyframes particleFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+    15% { opacity: 1; }
+    100% { transform: translateY(280px) rotate(360deg); opacity: 0; }
+}
+
+.reward-bg-blue  { background: linear-gradient(160deg, rgba(15,30,60,0.97), rgba(8,18,40,0.97)); }
+.reward-bg-gold  { background: linear-gradient(160deg, rgba(60,45,10,0.97), rgba(35,25,5,0.97)); border-color: #d4af37; }
+.reward-bg-red   { background: linear-gradient(160deg, rgba(60,15,15,0.97), rgba(40,10,10,0.97)); border-color: #ef5350; }
+.reward-bg-green { background: linear-gradient(160deg, rgba(15,50,25,0.97), rgba(10,35,18,0.97)); border-color: #66bb6a; }
+
+.reward-icon-big {
+    font-size: 52px; margin-bottom: 8px; z-index: 1;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.5));
+    animation: iconBounce 0.6s ease-out;
+}
+@keyframes iconBounce { 0%{transform:translateY(-20px) scale(0.5);opacity:0;} 60%{transform:translateY(4px) scale(1.1);} 100%{transform:translateY(0) scale(1);opacity:1;} }
+
+.reward-char {
+    width: 90px; height: 90px;
+    background-size: contain; background-position: center; background-repeat: no-repeat;
+    margin: 4px 0; z-index: 1;
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.2));
+    animation: charAppear 0.5s ease-out 0.2s backwards;
+}
+@keyframes charAppear { 0%{transform:scale(0.3);opacity:0;} 100%{transform:scale(1);opacity:1;} }
+
+.reward-text {
+    font-size: 17px; font-weight: 900; color: #fff;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
+    text-align: center; margin: 6px 0; z-index: 1; line-height: 1.3;
+}
+.reward-tap {
+    font-size: 11px; color: rgba(255,255,255,0.4);
+    margin-top: 8px; z-index: 1;
+    animation: tapBlink 0.8s infinite alternate;
+}
+
+/* =========================================
+   ★ カードショップ（新規）
+   ========================================= */
+.shop-panel {
+    width: 92%; max-width: 360px;
+    background: linear-gradient(180deg, #1a1510 0%, #0d0a05 100%);
+    border: 2px solid #d4af37;
+    border-radius: 12px;
+    box-shadow: 0 0 30px rgba(212,175,55,0.2);
+    overflow: hidden;
+    animation: rewardPop 0.4s ease-out;
+}
+
+.shop-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid rgba(212,175,55,0.2);
+    text-align: center;
+}
+.shop-title {
+    font-size: 18px; font-weight: 900;
+    color: #d4af37;
+    text-shadow: 0 0 8px rgba(212,175,55,0.4);
+    margin-bottom: 6px;
+}
+.shop-wallet {
+    display: flex; justify-content: center; gap: 16px;
+}
+.shop-wallet-item {
+    font-size: 13px; font-weight: bold;
+    color: #eee;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 3px 12px;
+}
+
+.shop-items {
+    padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 55vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.shop-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(212,175,55,0.15);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.15s, background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.shop-item:active { transform: scale(0.97); }
+.shop-item:not(.shop-sold):not(.shop-cant):hover {
+    background: rgba(212,175,55,0.08);
+}
+
+.shop-item-icon {
+    width: 48px; height: 48px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #1a1a2e, #0f0f1a);
+    border: 2px solid rgba(100,150,200,0.35);
+    display: flex; align-items: center; justify-content: center;
+}
+.shop-item-icon.shop-val-mid  { border-color: rgba(212,175,55,0.5); }
+.shop-item-icon.shop-val-high { border-color: rgba(255,120,80,0.5); }
+
+.shop-card-num {
+    font-size: 24px; font-weight: 900;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+.shop-val-mid  .shop-card-num { color: #d4af37; }
+.shop-val-high .shop-card-num { color: #fca; }
+
+.shop-item-emoji {
+    font-size: 26px;
+}
+
+.shop-item-info {
+    flex: 1; min-width: 0;
+}
+.shop-item-name {
+    font-size: 14px; font-weight: 900; color: #eee;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.shop-item-desc {
+    font-size: 10px; color: #888; margin-top: 2px;
+}
+
+.shop-item-price {
+    font-size: 13px; font-weight: 900;
+    white-space: nowrap;
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+.shop-price-ok {
+    color: #fff;
+    background: linear-gradient(135deg, #2e7d32, #1b5e20);
+    border: 1px solid #4caf50;
+}
+.shop-price-ng {
+    color: #888;
+    background: rgba(60,60,60,0.5);
+    border: 1px solid #444;
+}
+
+.shop-sold .shop-item-icon { opacity: 0.3; filter: grayscale(1); }
+.shop-sold .shop-item-name { color: #555; text-decoration: line-through; }
+.shop-sold .shop-item-desc { color: #444; }
+.shop-sold-label {
+    font-size: 12px; font-weight: 900;
+    color: #4caf50;
+    letter-spacing: 2px;
+}
+.shop-cant {
+    opacity: 0.6;
+}
+
+/* 購入フラッシュ */
+.shop-bought-flash {
+    animation: shopBought 0.4s ease-out;
+}
+@keyframes shopBought {
+    0%   { background: rgba(76,175,80,0.4); }
+    100% { background: rgba(255,255,255,0.04); }
+}
+
+/* 資金不足シェイク */
+.shop-shake {
+    animation: shopShake 0.4s ease-out;
+}
+@keyframes shopShake {
+    0%, 100% { transform: translateX(0); }
+    25%      { transform: translateX(-6px); }
+    50%      { transform: translateX(6px); }
+    75%      { transform: translateX(-4px); }
+}
+
+.shop-close-btn {
+    display: block;
+    width: calc(100% - 24px);
+    margin: 8px 12px 14px;
+    padding: 12px;
+    background: linear-gradient(180deg, #555, #333);
+    border: 2px solid rgba(255,255,255,0.12);
+    color: #ccc;
+    font-size: 14px; font-weight: 900;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #222, 0 4px 8px rgba(0,0,0,0.5);
+    transition: transform 0.1s;
+}
+.shop-close-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 #222;
+}
+
+/* =========================================
+   ★ リザルト画面
+   ========================================= */
+.rs-screen {
+    position: relative;
+    width: 92%; max-width: 380px;
+    max-height: 85vh;
+    display: flex; flex-direction: column;
+    align-items: center;
+    border-radius: 12px;
+    overflow: hidden;
+    animation: rewardPop 0.5s ease-out;
+}
+.rs-win {
+    background: linear-gradient(180deg, #1a1510 0%, #0d0a05 100%);
+    border: 2px solid #d4af37;
+    box-shadow: 0 0 30px rgba(212,175,55,0.2);
+}
+.rs-lose {
+    background: linear-gradient(180deg, #151518 0%, #0a0a0d 100%);
+    border: 2px solid #444;
+}
+
+.rs-title {
+    font-size: 28px; font-weight: 900;
+    letter-spacing: 4px; padding: 18px 0 4px;
+}
+.rs-title-win {
+    color: #d4af37;
+    text-shadow: 0 0 12px rgba(212,175,55,0.4);
+}
+.rs-title-lose {
+    color: #888;
+}
+.rs-subtitle {
+    font-size: 13px; color: #aaa; margin-bottom: 12px;
+}
+
+.rs-section-title {
+    font-size: 11px; color: #d4af37; letter-spacing: 3px;
+    font-weight: 900; padding: 8px 0 6px;
+    border-top: 1px solid rgba(212,175,55,0.2);
+    width: 85%; text-align: center;
+}
+
+.rs-items-scroll {
+    width: 90%; max-height: 200px;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 4px 0; margin-bottom: 8px;
+}
+.rs-items-scroll::-webkit-scrollbar { width: 3px; }
+.rs-items-scroll::-webkit-scrollbar-thumb { background: #d4af37; border-radius: 2px; }
+
+.rs-item {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 6px; padding: 6px 10px;
+}
+.rs-item-unit {
+    border-color: rgba(212,175,55,0.2);
+    background: rgba(212,175,55,0.05);
+}
+.rs-item-anim {
+    opacity: 0; animation: rsItemIn 0.4s ease-out forwards;
+}
+@keyframes rsItemIn { 0%{transform:translateX(-20px);opacity:0;} 100%{transform:translateX(0);opacity:1;} }
+
+.rs-icon { font-size: 22px; flex-shrink: 0; width: 28px; text-align: center; }
+.rs-icon-img { width: 28px; height: 28px; border-radius: 4px; object-fit: cover; vertical-align: middle; }
+.rs-val { font-size: 13px; font-weight: bold; color: #eee; }
+
+.rs-stats {
+    width: 85%; display: flex;
+    justify-content: center; gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 0; margin-top: 4px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.rs-stat {
+    font-size: 11px; color: #888;
+    background: rgba(255,255,255,0.03);
+    border-radius: 4px; padding: 3px 8px;
+}
+
+.rs-btn {
+    margin: 14px 0 18px;
+    background: linear-gradient(180deg, #d32f2f, #b71c1c);
+    border: 2px solid rgba(255,255,255,0.15);
+    color: #fff;
+    font-size: 15px; font-weight: 900;
+    padding: 12px 50px; border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #8b0000, 0 6px 12px rgba(0,0,0,0.5);
+    transition: transform 0.1s;
+}
+.rs-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #8b0000;
+}
+
+/* style-sugoroku.css の末尾に追加 */
+
+/* style-sugoroku.css の末尾にある .sq-dist-val を修正 */
+
+.sq-dist-val {
+    position: absolute;
+    /* 位置調整：アイコンのすぐ下に来るように */
+    bottom: -10px; 
+    left: 50%;
+    transform: translateX(-50%);
+    
+    font-family: 'Dela Gothic One', cursive;
+    font-size: 16px; /* 少し大きくして見やすく */
+    
+    /* ▼▼▼ 色を白に変更 ▼▼▼ */
+    color: #ffffff; 
+    /* ▲▲▲ 変更ここまで ▲▲▲ */
+    
+    /* 白文字なので黒い縁取りをしっかり入れる */
+    text-shadow: 
+        1px 1px 0 #000, -1px -1px 0 #000,
+        -1px 1px 0 #000, 1px -1px 0 #000,
+        0 2px 4px rgba(0,0,0,0.8);
+        
+    z-index: 10;
+    pointer-events: none;
+    
+    
+}
+
+@keyframes distFloat {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-2px); }
+}
+/* ▲▲▲ 追加ここまで ▲▲▲ */
+
+/* style-sugoroku.css - ここからコピペ */
+
+/* --- アニメーションの基本設定 --- */
+.sq-node, .sq-circle, .sq-icon-img {
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+}
+
+/* ▼▼▼ 1. 行けないマス（暗く沈める） ▼▼▼ */
+/* 未来のマスで、かつ行けるマスじゃない場所 */
+.sq-node.sq-dim .sq-circle {
+    filter: brightness(0.4) grayscale(80%) !important; /* 暗くグレーに */
+    transform: translateY(15px) scale(0.85) !important; /* 下に沈めて小さく */
+    opacity: 0.6 !important;
+}
+.sq-node.sq-dim .sq-icon-img {
+    opacity: 0.5;
+    transform: translateY(0); /* 沈んだ土台に合わせる */
+}
+
+/* ▼▼▼ 2. 行けるマス（明るく浮かせる） ▼▼▼ */
+.sq-node.sq-reachable .sq-circle {
+    filter: brightness(1.2);
+    transform: translateY(-15px) scale(1.15); /* 土台を浮かせる */
+    z-index: 100;
+}
+
+.sq-node.sq-reachable .sq-icon-img {
+    filter: drop-shadow(0 10px 8px rgba(0,0,0,0.5));
+    transform: translateY(-5px); /* アイコンをさらに浮かせる */
+}
+/* =========================================
+   ★ 敵出現演出
+   ========================================= */
+.enemy-entrance-container {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.enemy-entrance-shadow {
+    position: absolute;
+    bottom: 15%;
+    left: 50%;
+    width: 80px; height: 20px;
+    background: radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, transparent 70%);
+    transform: translateX(-50%) scaleX(0);
+    transition: transform 0.4s ease-out 0.3s;
+}
+.enemy-entrance-active .enemy-entrance-shadow {
+    transform: translateX(-50%) scaleX(1.5);
+}
+
+.enemy-entrance-sprite {
+    position: absolute;
+    bottom: 18%;
+    right: -150px;
+    width: 100px; height: 100px;
+    transition: right 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.enemy-entrance-boss .enemy-entrance-sprite,
+.enemy-entrance-sprite.enemy-entrance-boss {
+    width: 130px; height: 130px;
+    bottom: 15%;
+}
+.enemy-entrance-active .enemy-entrance-sprite {
+    right: 15%;
+}
+.enemy-entrance-exit .enemy-entrance-sprite {
+    right: -200px;
+    transition: right 0.3s ease-in;
+}
+
+.enemy-entrance-img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6));
+    animation: enemyBounce 0.4s ease-out 0.5s both;
+}
+@keyframes enemyBounce {
+    0%   { transform: scale(0.5) rotate(-10deg); }
+    60%  { transform: scale(1.15) rotate(3deg); }
+    100% { transform: scale(1) rotate(0deg); }
+}
+
+.enemy-entrance-fallback {
+    font-size: 60px;
+    text-align: center;
+    line-height: 100px;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+}
+
+.enemy-entrance-label {
+    position: absolute;
+    top: 35%;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 22px;
+    font-weight: 900;
+    color: #ff4444;
+    text-shadow: 0 0 10px rgba(255,0,0,0.6), 0 2px 4px rgba(0,0,0,0.8);
+    opacity: 0;
+    transform: scale(0.3);
+    transition: opacity 0.3s ease-out 0.4s, transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275) 0.4s;
+}
+.enemy-entrance-active .enemy-entrance-label {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.enemy-entrance-flash {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,50,50,0);
+    transition: background 0.1s;
+}
+.enemy-entrance-active .enemy-entrance-flash {
+    animation: entranceFlash 0.3s ease-out 0.3s;
+}
+@keyframes entranceFlash {
+    0%   { background: rgba(255,50,50,0.3); }
+    100% { background: rgba(255,50,50,0); }
+}
+
+/* =========================================
+   ★ リザルト画面 - 次回情報パネル
+   ========================================= */
+.rs-next-info {
+    width: 85%;
+    margin: 8px auto;
+    padding: 10px;
+    background: linear-gradient(135deg, rgba(212,175,55,0.08), rgba(212,175,55,0.02));
+    border: 1px solid rgba(212,175,55,0.25);
+    border-radius: 8px;
+    opacity: 0;
+    animation: rsItemIn 0.5s ease-out forwards;
+}
+
+.rs-clear-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #d4af37, #b8860b);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 900;
+    padding: 3px 14px;
+    border-radius: 20px;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+    box-shadow: 0 2px 6px rgba(212,175,55,0.3);
+}
+
+.rs-next-title {
+    font-size: 11px;
+    color: #d4af37;
+    letter-spacing: 2px;
+    text-align: center;
+    margin: 6px 0 4px;
+    font-weight: 900;
+}
+
+.rs-next-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rs-next-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 6px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 4px;
+}
+
+.rs-next-label {
+    font-size: 12px;
+    color: #aaa;
+}
+
+.rs-next-val {
+    font-size: 13px;
+    font-weight: 900;
+    color: #eee;
+}
+
+.rs-next-up {
+    color: #4caf50;
+}
+
+.rs-arrow-up {
+    font-size: 10px;
+    color: #ff6b6b;
+    font-weight: 900;
+    animation: arrowBlink 0.8s infinite alternate;
+}
+@keyframes arrowBlink {
+    0%   { opacity: 1; }
+    100% { opacity: 0.4; }
+}
+
+/* =========================================
+   ★ マスタップ - reachableマスにタッチフィードバック
+   ========================================= */
+.sq-node.sq-reachable {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.sq-node.sq-reachable:active .sq-circle {
+    transform: translateY(-18px) scale(1.25) !important;
+    filter: brightness(1.4) !important;
+}
+
+
+
+/* ★ Homeボタン */
+.sg-home-btn {
+    pointer-events: auto;
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    border: 2px solid rgba(255,255,255,0.3);
+    color: #fff;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.sg-home-btn:active {
+    transform: scale(0.9);
+    background: rgba(0,0,0,0.8);
+}
+
+/* ★ 中断確認ダイアログ */
+.sg-quit-dialog {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 2px solid #ffd700;
+    border-radius: 16px;
+    padding: 30px 24px;
+    text-align: center;
+    max-width: 280px;
+    width: 80%;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+}
+.sg-quit-title {
+    font-size: 18px;
+    font-weight: 900;
+    color: #ffd700;
+    margin-bottom: 10px;
+}
+.sg-quit-desc {
+    font-size: 13px;
+    color: #aaa;
+    margin-bottom: 20px;
+}
+.sg-quit-btns {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+.sg-quit-btn {
+    flex: 1;
+    padding: 12px 0;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 900;
+    cursor: pointer;
+}
+.sg-quit-yes {
+    background: linear-gradient(135deg, #ff4444, #cc0000);
+    color: #fff;
+}
+.sg-quit-no {
+    background: linear-gradient(135deg, #4488ff, #2255cc);
+    color: #fff;
+}
+
+/* ギャンブルUI */
+.sg-dialog-box, .sg-gamble-board {
+    background: #1a1a2e; border: 2px solid #ffd700; border-radius: 12px;
+    padding: 20px; text-align: center; width: 90%; max-width: 320px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+}
+.sg-gamble-btns, .sg-gamble-actions {
+    display: flex; gap: 10px; justify-content: center; margin-top: 20px;
+}
+.sg-btn-choice {
+    flex: 1; padding: 10px; background: #0055aa; border: 1px solid #fff;
+    color: #fff; border-radius: 8px; cursor: pointer;
+}
+.sg-btn-cancel, .sg-drop-btn {
+    padding: 8px 16px; background: #555; border: 1px solid #aaa;
+    color: #ddd; border-radius: 8px; cursor: pointer; margin-top: 10px;
+}
+.sg-hl-btn {
+    flex: 1; padding: 15px; font-weight: bold; border-radius: 8px;
+    color: #fff; border: 2px solid #fff; font-size: 16px;
+}
+.sg-hl-btn.high { background: #ff4444; }
+.sg-hl-btn.low { background: #0088cc; }
+
+/* トランプ */
+.sg-cards-area {
+    display: flex; justify-content: center; align-items: center; gap: 15px; margin: 20px 0;
+}
+.sg-card {
+    width: 60px; height: 90px; background: #fff; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: bold; color: #000;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+    flex-direction: column; line-height: 1;
+}
+.sg-card.back { background: #aa0000; color: #fff; border: 2px solid #fff; }
+.sg-card-label { font-size: 10px; color: #aaa; margin-bottom: 4px; }
+
+/* アニメーション */
+@keyframes flashRed { 0%{opacity:0;} 50%{opacity:1;} 100%{opacity:0;} }
+@keyframes flyAway { 0%{transform:translate(0,0) rotate(0deg) scale(1);} 100%{transform:translate(100px,-200px) rotate(360deg) scale(0);} }
+
+
+/* =========================================
+   リザルト画面 (Result Screen)
+   ========================================= */
+.rs-container {
+    width: 90%; max-width: 360px;
+    background: #111;
+    border-radius: 12px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.8);
+    overflow: hidden;
+    border: 2px solid #555;
+    animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex; flex-direction: column;
+}
+.rs-container.win { border-color: #ffd700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); }
+.rs-container.lose { border-color: #ff4444; box-shadow: 0 0 20px rgba(255, 68, 68, 0.3); }
+
+/* ヘッダー */
+.rs-header {
+    padding: 20px 10px; text-align: center;
+    background: linear-gradient(to bottom, #333, #111);
+    border-bottom: 1px solid #444;
+}
+.rs-container.win .rs-header { background: linear-gradient(to bottom, #554400, #221a00); }
+.rs-container.lose .rs-header { background: linear-gradient(to bottom, #550000, #220000); }
+
+.rs-title { font-size: 28px; font-weight: 900; letter-spacing: 1px; margin-bottom: 5px; text-shadow: 0 2px 0 #000; }
+.rs-container.win .rs-title { color: #ffd700; background: linear-gradient(to bottom, #fff, #ffd700); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.rs-container.lose .rs-title { color: #ff4444; }
+
+.rs-subtitle { font-size: 12px; color: #aaa; font-weight: bold; }
+
+/* ボディ */
+.rs-body { padding: 15px; background: rgba(0,0,0,0.8); flex: 1; max-height: 40vh; overflow-y: auto; }
+.rs-label { font-size: 11px; color: #888; border-bottom: 1px solid #444; margin-bottom: 10px; letter-spacing: 2px; }
+
+/* アイテムリスト */
+.rs-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
+.rs-item {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px;
+    border: 1px solid #333;
+}
+.rs-item-anim { opacity: 0; transform: translateX(-20px); animation: slideInItem 0.3s forwards; }
+
+.rs-icon { font-size: 20px; }
+.rs-img-icon { width: 36px; height: 36px; object-fit: cover; border-radius: 4px; border: 1px solid #666; }
+.rs-val { font-size: 16px; font-weight: bold; color: #fff; margin-left: auto; }
+.rs-text-col { display: flex; flex-direction: column; }
+.rs-name { font-size: 12px; font-weight: bold; color: #ddd; }
+.rs-count { font-size: 11px; color: #00ffaa; }
+
+/* 次回情報 */
+.rs-next-info {
+    background: rgba(0, 50, 100, 0.3);
+    border: 1px solid #0055aa; border-radius: 6px;
+    padding: 10px; margin-top: 10px; text-align: center;
+}
+.rs-next-title { font-size: 12px; color: #00ced1; font-weight: bold; margin-bottom: 5px; letter-spacing: 1px; }
+.rs-next-row { font-size: 13px; color: #fff; display: inline-block; margin: 0 5px; }
+.rs-next-row .val { color: #ffd700; font-weight: bold; }
+.rs-next-desc { font-size: 10px; color: #aaa; margin-top: 4px; }
+
+/* OKボタン */
+.rs-ok-btn {
+    width: 100%; padding: 18px;
+    background: #111; color: #fff;
+    font-size: 16px; font-weight: bold; letter-spacing: 2px;
+    border: none; border-top: 1px solid #444;
+    cursor: pointer; transition: background 0.2s;
+}
+.rs-ok-btn:active { background: #333; }
+
+/* アニメーション定義 */
+@keyframes popIn { 0%{transform:scale(0.8); opacity:0;} 100%{transform:scale(1); opacity:1;} }
+@keyframes slideInItem { 0%{transform:translateX(-20px); opacity:0;} 100%{transform:translateX(0); opacity:1;} }

@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>時空大戦絵巻</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0055aa">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="時空大戦">
+<link rel="apple-touch-icon" href="icon.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Reggae+One&display=swap" rel="stylesheet">
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(() => console.log('Service Worker Registered'));
+    });
+  }
+</script>
+<link rel="stylesheet" href="style-base.css">
+<link rel="stylesheet" href="style-gacha.css">
+<link rel="stylesheet" href="style-battle.css">
+<link rel="stylesheet" href="style-sugoroku.css">
+<link rel="stylesheet" href="style-formation.css">
+
+<link rel="icon" href="data:,">
+
+<script src="sound_manager.js"></script>
+
+<style>
+    /* グローバルヘッダー (ステータス表示用) */
+    .global-header {
+    position: fixed;
+    top: 0; left: 0; width: 100%;
+    
+    /* ★修正: safe-area-inset-topでノッチ対応 */
+    height: calc(var(--header-h, 50px) + env(safe-area-inset-top, 0px));
+    
+    background: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.9) 80%, rgba(0,0,0,0.7) 100%);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end; 
+    padding: 0 10px;
+    
+    /* ★修正: 上部にセーフエリア分の余白 */
+    padding-top: env(safe-area-inset-top, 0px);
+    
+    box-sizing: border-box;
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+    pointer-events: none; 
+}
+
+/* ★追加: PWAスタンドアロンモード時のヘッダー微調整 */
+.pwa-standalone .global-header {
+    /* スタンドアロンモードではノッチのみ考慮 */
+}
+
+/* ★追加: ブラウザモード時（URLバーがある場合）*/
+.pwa-browser .global-header {
+    /* ブラウザモードでは追加調整不要（URLバーの下にヘッダーが来る） */
+}
+    .gh-right { display: flex; align-items: center; gap: 10px; pointer-events: auto; }
+    
+    .gh-resource {
+        display: flex; align-items: center;
+        background: rgba(0,0,0,0.6); border: 1px solid #666;
+        border-radius: 20px; padding: 3px 10px 3px 3px;
+        height: 32px; min-width: 100px;
+    }
+    .gh-icon {
+        width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+        font-size: 17px; background: #333; border-radius: 50%; margin-right: 6px; border: 1px solid #888;
+    }
+    .gh-val { color: #fff; font-weight: bold; font-family: monospace; font-size: 13px; flex: 1; text-align: right; }
+    .gh-plus {
+        width: 22px; height: 22px; background: #00ced1; color: #000;
+        border-radius: 4px; display: flex; align-items: center; justify-content: center;
+        font-weight: bold; font-size: 16px; margin-left: 6px; cursor: pointer;
+    }
+
+ /* ★修正: 画面コンテンツ位置調整 (ヘッダー + セーフエリア) */
+.screen {
+    padding-top: calc(var(--header-h, 50px) + env(safe-area-inset-top, 0px)) !important;
+}
+
+/* ★追加: バトル画面はフルスクリーン（ヘッダーなし）*/
+#screen-battle {
+    padding-top: env(safe-area-inset-top, 0px) !important;
+}
+    
+  /* ★修正: ホームロゴ位置 */
+.home-logo-area {
+    margin-top: calc(20px + env(safe-area-inset-top, 0px));
+}
+
+/* ホーム画面キャラクター配置 */
+.home-char-anim {
+    position: absolute;
+    
+    /* ★修正1: 位置を少し下げる（床に足を着けるため） */
+    bottom: 200px; 
+    
+    /* ★修正2: 左端からの距離（少し左に寄せる） */
+    left: 10px;
+    
+    /* ★修正3: サイズを小さくする（160px → 90px くらいに） */
+    width: 140px; 
+    height: auto;
+    
+    /* 重なり順などの設定はそのまま */
+    z-index: 20;
+    pointer-events: none;
+    /* 影をつけて馴染ませる（お好みで） */
+    filter: drop-shadow(4px 7px 5px rgba(0,0,0,0.8));
+}
+
+/* 画面サイズに応じた微調整（必要な場合） */
+@media (max-width: 380px) {
+    .home-char-anim {
+        width: 140px;
+        bottom: 120px;
+        left: 0;
+    }
+
+}
+</style>
+
+<script src="data.js"></script>
+<script src="card_system.js"></script>
+<script src="managers.js"></script>
+<script src="scene_card_equip.js"></script>
+<script src="scene_formation_redesign.js"></script>
+<script src="scene_enhance.js"></script>
+<script src="battle_state.js"></script>
+<script src="battle_view.js"></script>
+<script src="battle_effect.js"></script>
+<script src="scene_battle.js"></script>
+<script src="scene_gacha.js"></script>
+<script src="scene_zukan.js"></script>
+<script src="data_sugoroku_stages.js"></script> 
+<script src="scene_sugoroku.js"></script>
+<script src="sugoroku_map.js"></script>
+<script src="sugoroku_ui.js"></script>
+<script src="main.js"></script>
+
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <meta name="mobile-web-app-capable" content="yes">
+</head>
+<body>
+
+<div class="app-background"></div>
+
+<div id="global-header" class="global-header">
+    <div class="gh-right">
+        <div class="gh-resource">
+            <div class="gh-icon">💰</div>
+            <span class="gh-val" id="gh-gold">0</span>
+            <div class="gh-plus">+</div>
+        </div>
+        <div class="gh-resource">
+            <div class="gh-icon" style="color:#0ff;">💎</div>
+            <span class="gh-val" id="gh-gem">0</span>
+            <div class="gh-plus" onclick="alert('課金画面へ(未実装)')">+</div>
+        </div>
+    </div>
+</div>
+
+<div id="global-footer" class="global-footer">
+    <button class="gf-btn" onclick="changeScene('edit')"><div class="gf-icon">🏯</div><div class="gf-text">編成</div></button>
+    <button class="gf-btn" onclick="changeScene('enhance')"><div class="gf-icon">✨</div><div class="gf-text">強化</div></button>
+    <button class="gf-btn main-btn" onclick="changeScene('home')"><div class="gf-icon">🏠</div><div class="gf-text">ホーム</div></button>
+    <button class="gf-btn" onclick="changeScene('cards')"><div class="gf-icon">🃏</div><div class="gf-text">装備</div></button>
+    <button class="gf-btn" onclick="changeScene('gacha')"><div class="gf-icon">🛒</div><div class="gf-text">召喚</div></button>
+    <button class="gf-btn" onclick="changeScene('zukan')"><div class="gf-icon">📜</div><div class="gf-text">記録</div></button>
+</div>
+
+<div id="screen-home" class="screen active">
+
+    <div class="home-logo-area"></div>
+    <img src="images/my_character.webp" class="home-char-anim" alt="Home Character">
+    
+    <div class="home-quest-btn-container">
+
+        <button class="btn-quest-big" style="margin-bottom: 15px; background: linear-gradient(135deg, #4a00e0, #8e2de2); border-color: #c0c0ff;" onclick="changeScene('tower')">
+            <div class="qb-icon">🗺</div>
+            <div class="qb-text">久遠の塔</div>
+        </button>
+        
+        <button class="btn-quest-big" onclick="goToSugoroku()">
+            <div class="qb-icon">🎲</div>
+            <div class="qb-text">双六</div>
+        </button>
+    </div>
+    <div style="text-align:center; margin-top:20px; padding-bottom:80px;">
+        <div style="color:#888; font-size:11px; margin-bottom:8px;">編成枠: <span id="home-slot-info"></span></div>
+        <button onclick="if(confirm('全データをリセットしますか？\nこの操作は取り消せません！')){app.data.resetAllData();}" style="background:rgba(0,0,0,0.4); border:1px solid #555; color:#888; font-size:11px; padding:6px 20px; border-radius:12px; cursor:pointer;">🗑 データリセット</button>
+    </div>
+</div>
+
+<div id="screen-map-select" class="screen">
+    <div class="header-bar">
+        <button class="btn-back" onclick="goHome()">🏠</button>
+        <span class="header-title">出撃エリア選択</span>
+    </div>
+    <div class="map-select-container">
+        <div id="stage-list" class="stage-list-scroll">
+            </div>
+    </div>
+</div>
+
+<style>
+/* マップ選択画面用スタイル */
+.map-select-container {
+    width: 100%; height: 100%;
+    padding: 10px; box-sizing: border-box;
+    overflow-y: auto;
+    background: #222;
+}
+.stage-card {
+    position: relative;
+    width: 100%; height: 100px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    background-size: cover; background-position: center;
+    border: 2px solid #555;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    overflow: hidden;
+    transition: transform 0.1s;
+}
+.stage-card:active { transform: scale(0.98); }
+.stage-card-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(to right, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
+    padding: 10px; box-sizing: border-box;
+    display: flex; flex-direction: column; justify-content: center;
+}
+.stage-title { font-size: 18px; font-weight: bold; color: #fff; text-shadow: 0 0 5px #000; margin-bottom: 4px; }
+.stage-desc { font-size: 11px; color: #ccc; line-height: 1.4; max-width: 70%; }
+.stage-level { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: #0ff; font-weight: bold; font-size: 12px; padding: 2px 6px; border-radius: 4px; border: 1px solid #0ff; }
+
+/* ロック状態 */
+.stage-card.locked { filter: grayscale(100%); pointer-events: none; opacity: 0.6; }
+.lock-cover {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    color: #888; font-weight: bold; font-size: 20px;
+}
+</style>
+
+<div id="screen-edit" class="screen">
+    <div class="formation-top-area">
+        <div class="selected-card-detail">
+            <div class="selected-card-image" id="selected-card-img">
+                </div>
+            <div class="selected-card-rarity" id="selected-card-rarity">
+                </div>
+        </div>
+        
+        <div class="selected-card-stats" id="selected-card-stats">
+            <div class="stat-name-row">
+                <div class="stat-name" id="selected-name">キャラクターを選択</div>
+                <div class="stat-subinfo">
+                    <span id="selected-level">レベル 1/50</span>
+                    <span id="selected-size">サイズ 1x1</span>
+                </div>
+            </div>
+            
+            <div class="stat-row">
+                <span class="stat-label">HP</span>
+                <span class="stat-value hp" id="selected-hp">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">攻撃力</span>
+                <span class="stat-value atk" id="selected-atk">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">素早さ</span>
+                <span class="stat-value spd" id="selected-spd">0</span>
+            </div>
+            
+            <div class="passive-row" id="selected-passive" style="display:none;">
+                <span class="passive-icon">⚡</span>
+                <span class="passive-text" id="passive-text">パッシブ</span>
+            </div>
+            
+        </div>
+    </div>
+    
+    <div class="formation-middle-area">
+        <div class="formation-board-large" id="edit-board-large">
+            <div class="grid-bg">
+                <div class="grid-cell front" data-idx="0">F1</div>
+                <div class="grid-cell front" data-idx="1">F2</div>
+                <div class="grid-cell front" data-idx="2">F3</div>
+                <div class="grid-cell front" data-idx="3">F4</div>
+                <div class="grid-cell back" data-idx="4">B1</div>
+                <div class="grid-cell back" data-idx="5">B2</div>
+                <div class="grid-cell back" data-idx="6">B3</div>
+                <div class="grid-cell back" data-idx="7">B4</div>
+            </div>
+            <div id="edit-units-layer-large"></div>
+        </div>
+        
+        <div class="deck-total-stats">
+            <div class="deck-stat-item">
+                <span class="deck-stat-label">所持カード</span>
+                <span class="deck-stat-value" id="owned-card-count">0</span>
+            </div>
+            <div class="deck-stat-item">
+                <span class="deck-stat-label">総HP</span>
+                <span class="deck-stat-value hp" id="total-hp-new">0</span>
+            </div>
+            <div class="deck-stat-item">
+                <span class="deck-stat-label">総攻撃力</span>
+                <span class="deck-stat-value atk" id="total-atk-new">0</span>
+            </div>
+            <div class="deck-stat-item">
+                <span class="deck-stat-label">平均SP</span>
+                <span class="deck-stat-value sp" id="avg-sp-new">0.0</span>
+            </div>
+            <div class="deck-stat-item">
+                <span class="deck-stat-label">枠</span>
+                <span class="deck-stat-value" id="slot-count-info" style="color:#ffd700;">0/4</span>
+            </div>
+        </div>
+        
+        <div class="formation-controls">
+            <button class="btn-clear-all" onclick="clearFormation()">全解除</button>
+            <button class="btn-start-battle" id="btn-start-new" disabled>出陣開始</button>
+        </div>
+    </div>
+    
+    <div class="formation-bottom-area">
+        <div class="owned-cards-label">
+            <span>所持カード</span>
+            <span class="owned-count" id="card-count-label">0体</span>
+        </div>
+        
+        <div class="cards-horizontal-scroll" id="formation-cards-horizontal">
+            </div>
+        
+        <div class="filter-buttons-area" id="filter-buttons">
+            <button class="filter-btn active" data-filter="all">ALL</button>
+            <button class="filter-btn" data-filter="0">👼 神</button>
+            <button class="filter-btn" data-filter="1">👑 覇王</button>
+            <button class="filter-btn" data-filter="2">👸 姫</button>
+            <button class="filter-btn" data-filter="3">⚔️ 武将</button>
+            <button class="filter-btn" data-filter="4">⚙️ 豪族</button>
+            <button class="filter-btn" data-filter="5">👻 妖怪</button>
+            <button class="filter-btn" data-filter="rarity">レアリティの高い順</button>
+        </div>
+    </div>
+</div>
+
+<div id="screen-enhance" class="screen">
+    <div class="header-bar"><button class="btn-back" onclick="goHome()">🏠</button><span class="header-title">武将強化</span></div>
+    
+    <div class="enhance-layout-panel tall-panel" id="enh-panel"></div>
+
+    <div class="inventory-area enhance-list-area">
+        <div class="card-list grid-5-col" id="enhance-list"></div>
+    </div>
+</div>
+
+<div id="screen-gacha" class="screen">
+    <div class="header-bar">
+        <button class="btn-back" onclick="goHome()">🏠</button>
+        <span class="header-title">召喚の儀</span>
+    </div>
+
+    <div class="gacha-container">
+        <div class="gacha-banner">
+            <div class="banner-text">時空の英雄を<br>呼び覚ませ</div>
+        </div>
+
+        <div class="gacha-controls"></div>
+    </div>
+
+    <div id="gacha-result" class="gacha-result-overlay" style="display:none;"></div>
+</div>
+
+<div id="screen-zukan" class="screen">
+    <div class="header-bar">
+        <button class="btn-back" onclick="goHome()">🏠</button>
+        <span class="header-title">武将名鑑</span>
+    </div>
+</div>
+
+<div id="screen-cards" class="screen">
+    <div class="header-bar">
+        <button class="btn-back" onclick="goHome()">🏠</button>
+        <span class="header-title">装備カード</span>
+    </div>
+    <div class="card-screen-body">
+        <div id="card-screen-content"></div>
+    </div>
+</div>
+
+<div id="screen-battle" class="screen">
+    <div class="battle-field" id="field">
+        <button id="btn-speed" class="btn-speed" onclick="toggleSpeed()">x1.0</button>
+        <div class="order-bar-container"><div class="order-label">NEXT:</div><div class="order-list" id="order-list"></div></div>
+        <div class="cutin-layer" id="cutin-layer"></div>
+        
+        <div class="battle-area-container battle-area-enemy" id="enemy-area">
+            <div class="battle-board" id="enemy-board"></div>
+        </div>
+        
+        <div class="battle-area-container battle-area-player" id="player-area">
+            <div class="battle-board" id="player-board"></div>
+        </div>
+    </div>
+    <div style="background:#111; padding:10px; text-align:center; border-top:1px solid #333;">
+        <button class="btn-mini" onclick="backToEdit()">撤退</button>
+    </div>
+</div>
+
+<div id="screen-sugoroku" class="screen">
+    <div class="header-bar">
+        <button class="btn-back" onclick="goHome()">🏠</button>
+        <span class="header-title">東海道双六</span>
+    </div>
+
+    <div class="sg-container">
+        <div class="sg-scroll-area">
+            <div id="sugoroku-track" class="sg-track"></div>
+        </div>
+
+        <div class="sg-ctrl-panel">
+            <div class="sg-info-box">
+                <div id="sg-msg-log" class="sg-log"></div>
+            </div>
+            <div class="sg-dice-box">
+                <div id="sg-dice-val" class="sg-remain">残り: --回</div>
+                <div id="sg-dice-visual" class="sg-dice">🎲</div>
+                <button class="btn-red sg-roll-btn" onclick="app.sugorokuScreen.rollDice()">サイコロを振る</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="scene_tower.js"></script>
+<div id="screen-tower" class="screen">
+        <div class="header-bar">
+            <button class="btn-back" onclick="app.changeScene('screen-home')">🏠</button>
+            <div class="header-title">久遠の塔</div>
+            <div style="width:40px;"></div>
+        </div>
+
+        <div class="tower-container" style="flex:1; display:flex; flex-direction:column; align-items:center; width:100%; overflow-y:auto; padding-top:10px;">
+            
+            <div id="tower-floor-num" class="tower-floor-display" style="margin-bottom: 10px;">
+                第 1 階層
+            </div>
+
+            <div class="tower-panel" style="width:90%; max-width:400px; background:rgba(0,0,0,0.6); border:1px solid #a0f; padding:20px; border-radius:12px;">
+                <div id="tower-enemy-info" style="width:100%;">
+                    </div>
+            </div>
+
+            <button class="btn-tower-challenge" onclick="app.towerScreen.startBattle()">
+                挑戦開始
+                <span class="btn-sub-text">消費スタミナ: 0</span>
+            </button>
+
+        </div>
+        
+        </div>
+</div>
+
+<style>
+/* --- 塔画面のスタイル修正 --- */
+
+/* 1. 背景画像をセットし、雰囲気を暗くする */
+#screen-tower {
+    /* お好みの塔の画像を images フォルダに入れてファイル名を指定してください */
+    /* もし画像がない場合は、仮で暗いグラデーションにします */
+    background: linear-gradient(to bottom, #050510, #1a0b2e); 
+    /* 画像がある場合は以下を有効にしてください */
+    background-image: url('images/bg_tower_top.webp'); 
+    background-size: cover;
+    background-position: center bottom;
+    color: #fff;
+}
+
+/* 2. 不要な「東京タワーアイコン」を消す */
+.tower-icon-large {
+    display: none !important;
+}
+
+/* 3. かっこいい「挑戦ボタン」のデザイン定義 */
+.btn-tower-challenge {
+    position: relative;
+    width: 260px;
+    padding: 15px 0;
+    margin: 20px auto;
+    
+    /* 紫～ピンクの怪しいグラデーション */
+    background: linear-gradient(135deg, #b000e0 0%, #6a00ff 100%);
+    border: 2px solid #deaaff;
+    border-radius: 50px;
+    
+    /* 文字スタイル */
+    color: #fff;
+    font-size: 24px;
+    font-weight: 900;
+    font-family: sans-serif;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px #e0f, 0 2px 0 #000;
+    
+    /* 発光エフェクト */
+    box-shadow: 
+        0 0 20px rgba(160, 0, 255, 0.6), 
+        inset 0 2px 10px rgba(255, 255, 255, 0.4);
+    
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.1s;
+}
+
+/* ボタンのキラッと光るアニメーション */
+.btn-tower-challenge::after {
+    content: '';
+    position: absolute;
+    top: -50%; left: -100%;
+    width: 50%; height: 200%;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.6), transparent);
+    transform: rotate(25deg);
+    animation: shineFlow 3s infinite ease-in-out;
+}
+
+@keyframes shineFlow {
+    0% { left: -100%; }
+    20% { left: 200%; }
+    100% { left: 200%; }
+}
+
+.btn-tower-challenge:active {
+    transform: scale(0.95);
+    filter: brightness(0.8);
+}
+
+.btn-sub-text {
+    display: block;
+    font-size: 11px;
+    font-weight: normal;
+    color: #e0ccff;
+    margin-top: 2px;
+    letter-spacing: 0;
+    text-shadow: none;
+    opacity: 0.9;
+}
+
+/* =============================================
+   ★塔 敵プレビュー (カードグリッド)
+   ============================================= */
+.tower-section-label {
+    font-size: 12px;
+    font-weight: bold;
+    color: #ff6666;
+    letter-spacing: 2px;
+    text-align: center;
+    margin-bottom: 6px;
+    text-shadow: 0 0 8px rgba(255,0,0,0.3);
+}
+
+/* カードグリッド (4列) */
+.tower-card-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    width: 100%;
+    padding: 0;
+}
+
+/* 個別カード */
+.tower-enemy-card {
+    position: relative;
+    aspect-ratio: 3 / 4;
+    background: #222;
+    border: 2px solid #555;
+    border-radius: 6px;
+    background-size: cover, cover;
+    background-position: center, center;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+
+/* UR光沢エフェクト */
+.tower-enemy-card.rarity-ur {
+    border-color: #e100ff;
+    box-shadow: 0 0 8px rgba(225,0,255,0.4), 0 2px 6px rgba(0,0,0,0.5);
+}
+.tower-enemy-card.rarity-ur::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -150%;
+    width: 100%; height: 100%;
+    background: linear-gradient(105deg,
+        rgba(255,255,255,0) 10%,
+        rgba(255,230,150,0.4) 30%,
+        rgba(255,255,255,1.0) 50%,
+        rgba(255,230,150,0.4) 70%,
+        rgba(255,255,255,0) 90%);
+    transform: skewX(-20deg);
+    pointer-events: none;
+    animation: towerKiraShine 3.5s infinite ease-in-out;
+    z-index: 10;
+    filter: drop-shadow(0 0 5px rgba(255,215,0,0.8));
+}
+@keyframes towerKiraShine {
+    0% { left: -150%; opacity: 0; }
+    15% { opacity: 1; }
+    35% { left: 150%; opacity: 1; }
+    100% { left: 150%; opacity: 0; }
+}
+
+/* Lvバッジ (左上) */
+.tec-lv-badge {
+    position: absolute;
+    top: 2px; left: 2px;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 3px;
+    z-index: 20;
+}
+
+/* タイプアイコン (右上) */
+.tec-type-badge {
+    position: absolute;
+    top: 1px; right: 2px;
+    font-size: 12px;
+    z-index: 20;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
+}
+
+/* フッター (星) */
+.tec-footer {
+    position: absolute;
+    bottom: 0; left: 0; width: 100%;
+    height: 20px;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    font-size: 11px;
+    letter-spacing: -1px;
+    z-index: 20;
+    border-radius: 0 0 4px 4px;
+}
+
+/* 画像なし時の名前表示 */
+.tec-name-fallback {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    text-align: center;
+    text-shadow: 0 1px 3px #000;
+    z-index: 5;
+    width: 90%;
+    word-break: break-all;
+}
+
+/* 敵ステータスバー */
+.tower-enemy-stats {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    padding: 6px 0 4px;
+    font-size: 13px;
+}
+.tes-item {
+    color: #ddd;
+}
+
+/* 敵入替えボタン */
+.btn-tower-reroll {
+    display: block;
+    width: 100%;
+    padding: 8px 0;
+    margin: 4px 0 10px;
+    background: rgba(80,80,120,0.6);
+    border: 1px solid rgba(150,150,255,0.4);
+    border-radius: 6px;
+    color: #ccc;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-tower-reroll:active {
+    background: rgba(100,100,160,0.8);
+    transform: scale(0.97);
+}
+
+/* 報酬セクション */
+.tower-reward {
+    text-align: center;
+    padding: 8px 0 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+
+</style>
+
+
+</body>
+
+
+</html>

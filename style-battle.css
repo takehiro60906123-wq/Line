@@ -1,0 +1,335 @@
+@charset "UTF-8";
+
+/* =========================================
+   バトル画面
+   ========================================= */
+#screen-battle { 
+    padding-bottom: 0; z-index: 8000; 
+    background-color: #000;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.battle-field { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
+.order-bar-container { position: absolute; top: 50px; width: 100%; height: 30px; background: rgba(0,0,0,0.8); display: flex; align-items: center; border-top:1px solid #fff; border-bottom:1px solid #fff; z-index: 50; }
+.order-label { color: #00ced1; font-weight: bold; font-size: 11px; margin-left: 8px; margin-right: 5px; }
+.order-list { display: flex; gap: 5px; }
+.micro-card { width: 20px; height: 26px; background: #fff; border: 1px solid #999; color:#000; display: flex; justify-content: center; align-items: center; font-size: 12px; }
+.micro-card.active-turn { background: #00ced1; border-color: #00ced1; transform: scale(1.3); z-index: 10; }
+.micro-card.is-enemy { border: 2px solid #f00; }
+
+.btn-speed {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #0ff;
+    border: 1px solid #0ff;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 100;
+}
+
+.battle-area-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.battle-board { 
+    width: 300px; height: 180px; margin: 10px auto; position: relative; 
+    border: 1px dashed #555; transform-origin: center; transform: scale(min(1, calc(95vw / 300))); 
+}
+
+/* =========================================
+   エリア配置調整 (敵・味方を下に移動)
+   ========================================= */
+
+/* ★敵エリア: 数値を増やすと下に移動 */
+.battle-area-enemy {
+    position: absolute;
+    top: 95px !important;  /* 50px -> 90px */
+    left: 0;
+    right: 0;
+    z-index: 10;
+}
+
+/* ★プレイヤーエリア: 数値を減らすと下に移動 */
+.battle-area-player {
+    position: absolute;
+    bottom: 55px !important; /* 70px -> 20px */
+    left: 0;
+    right: 0;
+    z-index: 10;
+}
+
+/* =========================================
+   HPゲージ (スリム & シャープ化)
+   ========================================= */
+.hp-wrap, .hp-plate {
+    width: 50px !important; 
+    height: 4px !important; /* 細く */
+    background: #ff0000 !important;
+    border: 1px solid #000000 !important; 
+    border-radius: 1px; /* 角ばらせる */
+    margin-bottom: 2px; 
+    position: absolute; 
+    bottom: 5px; 
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 auto !important;
+    box-shadow: none !important; 
+    overflow: hidden;
+    z-index: 20;
+}
+
+.hp-val, .hp-fill {
+    height: 100%;
+    width: 100%;
+    background-color: #ffff00 !important;
+    background: #ffff00 !important;
+    box-shadow: 0 0 4px #ffff00;
+    transition: width 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+}
+
+.hp-val::after, .hp-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 40%;
+    background: rgba(255,255,255,0.4);
+    border-radius: 2px 2px 0 0;
+}
+
+[data-side="player"] .hp-val,
+[data-side="player"] .hp-fill,
+[data-side="enemy"] .hp-val,
+[data-side="enemy"] .hp-fill {
+    background-color: #ffff00 !important;
+    background: #ffff00 !important;
+    box-shadow: 0 0 4px #ffff00;
+}
+
+.cutin-layer { position: absolute; top: 20%; width: 100%; pointer-events: none; z-index: 100; display: flex; flex-direction: column; gap: 5px; }
+.cutin-msg { background: rgba(0,0,0,0.8); color: #fff; border-left: 4px solid #00ced1; padding: 5px 20px; margin-bottom: 5px; font-weight: bold; width: fit-content; animation: slideIn 0.2s; }
+.dmg-txt { position: absolute; color: #fff; font-size: 24px; font-weight: 900; text-shadow: 2px 2px 0 #000; z-index: 200; animation: floatUp 0.8s forwards; }
+@keyframes floatUp { to { transform: translateY(-40px); opacity: 0; } }
+@keyframes slideIn { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* =========================================
+   リザルト画面
+   ========================================= */
+.result-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); z-index: 12000;
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn 0.5s;
+}
+
+.result-panel {
+    width: 95%; max-width: 400px; max-height: 90%;
+    background: linear-gradient(to bottom, #222, #111);
+    border: 2px solid #ffd700; border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+#battle-result-overlay button {
+    display: block !important;
+    margin: 20px auto 10px auto !important; /* 左右の余白を自動(auto)にして中央に配置 */
+    text-align: center !important;
+}
+
+#battle-result-overlay div {
+    text-align: center; /* テキストなども念のため中央揃え */
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* =========================================
+   高レアリティ演出 (Rarity 4 & 5)
+   ========================================= */
+
+/* --- レアリティ4 (SR): 金色の闘気 --- */
+.unit-container.rarity-4 .unit-img-box {
+    filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.5));
+    animation: aura-gold 2s infinite alternate ease-in-out;
+}
+
+/* ★修正: 足元リングを消去 (content: none) */
+.unit-container.rarity-4::after {
+    content: none; 
+}
+
+@keyframes aura-gold {
+    0% { filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.3)) brightness(1); }
+    100% { filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.9)) brightness(1.1); }
+}
+
+/* --- レアリティ5 (SSR): 虹色の覇気 --- */
+.unit-container.rarity-5 .unit-img-box {
+    filter: drop-shadow(0 0 5px rgba(200, 100, 255, 0.6));
+    animation: aura-rainbow 3s infinite alternate;
+}
+
+.unit-container.rarity-5::before {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 50%;
+    width: 80%; height: 80%;
+    transform: translateX(-50%);
+    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+    z-index: 0;
+    animation: god-pulse 2s infinite;
+    pointer-events: none;
+}
+
+@keyframes aura-rainbow {
+    0% { filter: drop-shadow(0 0 4px rgba(0, 255, 255, 0.6)) brightness(1); }
+    50% { filter: drop-shadow(0 0 8px rgba(255, 0, 255, 0.7)) brightness(1.1); }
+    100% { filter: drop-shadow(0 0 4px rgba(255, 255, 0, 0.6)) brightness(1); }
+}
+
+@keyframes god-pulse {
+    0% { opacity: 0.3; transform: translateX(-50%) scale(0.8); }
+    50% { opacity: 0.6; transform: translateX(-50%) scale(1.0); }
+    100% { opacity: 0.3; transform: translateX(-50%) scale(0.8); }
+}
+
+@keyframes spin-ring {
+    0% { transform: translateX(-50%) scaleY(0.5) rotate(0deg); }
+    100% { transform: translateX(-50%) scaleY(0.5) rotate(360deg); }
+}
+
+/* 敵ステータスバーを最上部に固定 */
+#bs-top {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    z-index: 500 !important;
+    border-top: none !important;
+}
+
+/* 味方バーも最下部にビタ付け固定 */
+#bs-bot {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    z-index: 500 !important;
+    border-bottom: none !important;
+}
+
+/* =========================================
+   Reggae One (肉厚・2.5秒フローティング版)
+   ========================================= */
+
+.dmg-pop {
+    /* フォント設定 */
+    font-family: 'Reggae One', sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 28px !important;
+    letter-spacing: -1px;
+    
+    /* 色設定（白文字・黒フチ0.5px） */
+    color: #ffffff !important;
+    -webkit-text-stroke: 0.5px #000 !important;
+    text-shadow: none !important;
+
+    /* 配置設定 */
+    position: absolute;
+    white-space: nowrap !important;
+    text-align: center;
+    line-height: 1.0;
+    z-index: 10010;
+    pointer-events: none;
+    
+    /* ★変更: 2.5秒かけてゆっくり上に消えていく */
+    animation: floatUpSlow 2.5s linear forwards !important;
+}
+
+/* --- アニメーション定義: ゆっくり上昇 --- */
+@keyframes floatUpSlow {
+    0% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    10% {
+        /* 最初だけ少しスッと上がる */
+        transform: translateY(-20px);
+        opacity: 1;
+    }
+    85% {
+        /* ほとんどの時間はここでゆっくり上昇（読める時間） */
+        transform: translateY(-50px);
+        opacity: 1; 
+    }
+    100% {
+        /* 最後だけフワッと消える */
+        transform: translateY(-70px);
+        opacity: 0;
+    }
+}
+
+/* --- 各種文字設定 --- */
+.dmg-pop.crit { font-size: 38px !important; color: #ff5500 !important; z-index: 10020; }
+.dmg-pop.heal { color: #ffff00 !important; z-index: 10050; }
+.dmg-pop.weak { font-size: 32px !important; color: #ff2222 !important; }
+
+/* バフ・デバフ */
+.dmg-pop[data-text*="UP"],
+.dmg-pop[data-text*="DOWN"] {
+    font-size: 24px !important;
+    color: #ffffff !important;
+    z-index: 10060;
+}
+
+/* その他 */
+.dmg-pop.miss, .dmg-pop.resist, .dmg-pop[data-text*="MISS"] { 
+    color: #cccccc !important; font-size: 24px !important; 
+}
+
+/* --- その他 (弱点・ミスなど) --- */
+.dmg-pop.weak { 
+    font-size: 32px !important; 
+    color: #ff2222 !important; 
+    -webkit-text-stroke: 0.5px #000000 !important;
+}
+
+.dmg-pop.miss, 
+.dmg-pop.resist,
+.dmg-pop[data-text*="MISS"],
+.dmg-pop[data-text*="DODGE"],
+.dmg-pop[data-text*="耐性"] { 
+    color: #cccccc !important; 
+    font-size: 24px !important; 
+    -webkit-text-stroke: 0.5px #000000 !important;
+}
+/* アニメーション定義（維持） */
+@keyframes popUpSlow { 
+    0% { transform: translateY(0) scale(0.5); opacity: 0; } 
+    10% { transform: translateY(-25px) scale(1.15); opacity: 1; } 
+    80% { transform: translateY(-30px) scale(1.0); opacity: 1; }
+    100% { transform: translateY(-50px) scale(1.0); opacity: 0; }
+}
+
+/* ★追加: 回避アニメーション (右に40px移動して戻る) */
+@keyframes dodge-right { 
+    0% { transform: translateX(0); } 
+    20% { transform: translateX(50px); } /* 瞬時に右へ */
+    100% { transform: translateX(0); }   /* スローで戻る */
+}
+
+.anim-dodge { 
+    animation: dodge-right 0.4s cubic-bezier(0.1, 0.7, 0.1, 1); 
+}

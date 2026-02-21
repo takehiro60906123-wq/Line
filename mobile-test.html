@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>時空大戦絵巻 - iPhone 15 Simulator</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+        background: #222;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        font-family: sans-serif;
+        color: #fff;
+    }
+    
+    .device-frame {
+        position: relative;
+        background: #000;
+        border-radius: 54px;
+        padding: 12px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+        border: 4px solid #333;
+    }
+    
+    .device-screen {
+        position: relative;
+        background: #fff;
+        border-radius: 44px;
+        overflow: hidden;
+        /* iPhone 15 論理サイズ */
+        width: 393px;
+        height: 852px;
+    }
+    
+    /* Dynamic Island (ノッチ) */
+    .notch {
+        position: absolute;
+        top: 11px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 126px;
+        height: 37px;
+        background: #000;
+        border-radius: 20px;
+        z-index: 10000;
+        pointer-events: none;
+    }
+    
+    iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        display: block;
+        background: #000;
+    }
+    
+    /* ホームバー */
+    .home-indicator {
+        position: absolute;
+        bottom: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 140px;
+        height: 5px;
+        background: #fff;
+        border-radius: 3px;
+        opacity: 0.5;
+        z-index: 10000;
+        pointer-events: none;
+    }
+</style>
+</head>
+<body>
+
+<div class="device-frame" id="device-frame">
+    <div class="device-screen">
+        <div class="notch"></div>
+        <iframe id="game-frame" src="index.html?notch=1"></iframe>
+        <div class="home-indicator"></div>
+    </div>
+</div>
+
+<script>
+    const TARGET_WIDTH = 393;
+    const TARGET_HEIGHT = 852;
+
+    function adjustLayout() {
+        const frame = document.getElementById('device-frame');
+        const windowWidth = window.innerWidth - 40;
+        const windowHeight = window.innerHeight - 40;
+        const frameWidth = TARGET_WIDTH + 30;
+        const frameHeight = TARGET_HEIGHT + 30;
+        const scale = Math.min(windowWidth / frameWidth, windowHeight / frameHeight, 1.1);
+        frame.style.transform = `scale(${scale})`;
+    }
+
+    window.addEventListener('resize', adjustLayout);
+    adjustLayout();
+</script>
+
+</body>
+</html>

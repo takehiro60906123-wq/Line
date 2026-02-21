@@ -1,0 +1,874 @@
+@charset "UTF-8";
+
+/* =========================================
+   編成画面 - 共通CSS
+   ========================================= */
+
+/* =========================================
+   編成画面 (Formation) - レイアウト最適化
+   ========================================= */
+.edit-container { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; padding: 2px 0; }
+.deck-status-bar { 
+    background: #000; border: 1px solid #333; padding: 1px 4px; 
+    display: flex; justify-content: space-around; 
+    font-size: 9px; color: #aaa; margin: 0 5px 2px 5px; 
+    flex: 0 0 auto; height: 20px; align-items: center; 
+}
+.dsb-item { display: flex; align-items: center; gap: 2px; }
+.dsb-label { font-size: 9px; }
+.dsb-val { color: #fff; font-weight: bold; font-size: 11px; }
+
+/* タブエリア - 高さを縮小 */
+.tab-area { 
+    flex: 0 0 auto; display: flex; gap: 2px; padding: 4px 5px; 
+    background: #000; border-bottom: 1px solid #333; 
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    flex-wrap: wrap; /* 折り返し許可 */
+}
+.tab-btn { 
+    background: #222; color: #999; border: 1px solid #444; 
+    padding: 3px 8px; border-radius: 4px; cursor: pointer; 
+    font-size: 11px; white-space: nowrap; flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+.tab-btn.active { background: #00ced1; color: #000; border-color: #00ced1; font-weight: bold; }
+.tab-btn:active { transform: scale(0.95); }
+
+/* 盤面のレスポンシブ対応強化 - さらにコンパクト化 */
+.formation-board { 
+    width: 280px; height: 168px; background: #222; border: 2px solid #555; position: relative; 
+    background-image: linear-gradient(45deg, #2a2a2a 25%, transparent 25%, transparent 75%, #2a2a2a 75%), linear-gradient(45deg, #2a2a2a 25%, transparent 25%, transparent 75%, #2a2a2a 75%); 
+    background-size: 20px 20px; 
+    transform-origin: top center; 
+    /* 画面幅に合わせて縮小 */
+    transform: scale(min(1, calc(95vw / 280))); 
+    margin-bottom: 2px;
+}
+
+.grid-bg { position: absolute; top:0; left:0; width:100%; height:100%; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr); z-index: 1; }
+.grid-cell { border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 9px; color: #555; pointer-events: auto; }
+.grid-cell.front { background: rgba(100,50,50,0.2); } 
+.grid-cell.back { background: rgba(50,50,100,0.2); }
+.grid-cell.valid { border: 1px solid #0f0; background: rgba(0,255,0,0.2); box-shadow: inset 0 0 10px #0f0; }
+
+.unit-card { 
+    position: absolute; border: 1px solid #fff; background: #333; background-size: cover; 
+    display: flex; align-items: flex-end; justify-content: center; font-size: 9px; color: #fff; 
+    text-shadow: 1px 1px 0 #000; box-shadow: 2px 2px 5px #000; z-index: 10;
+}
+/* カードサイズを盤面に合わせて調整 (280px / 4 = 70px) */
+.size-S1x1 { width: 68px; height: 82px; } 
+.size-V1x2 { width: 68px; height: 166px; z-index: 10; } 
+.size-H2x1 { width: 138px; height: 82px; z-index: 10; } 
+.size-L2x2 { width: 138px; height: 166px; z-index: 20; }
+
+.btn-mini { background: #000; color: #aaa; border: 1px solid #333; font-size: 9px; padding: 2px 6px; cursor: pointer; margin-right: 4px; } 
+.btn-red { background: linear-gradient(#f00, #900); border: 1px solid #fff; color: #fff; padding: 3px 16px; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.btn-red:disabled { filter: grayscale(100%); opacity: 0.5; }
+
+/* 空メッセージ */
+.empty-msg {
+    text-align: center; 
+    color: #666; 
+    font-size: 12px; 
+    padding: 10px;
+}
+
+
+
+/* =========================================
+   ステータス詳細カラー
+   ========================================= */
+.c-hp { color: #00ff00; }
+.c-atk { color: #ff4444; }
+.c-spd { color: #ffeb3b; }
+
+/* =========================================
+   編成画面 - 新デザイン (参考画像準拠)
+   ========================================= */
+
+/* 編成画面全体 */
+#screen-edit.active {
+    display: flex;
+    flex-direction: column;
+}
+
+#screen-edit {
+    background: url('images/bg_main.webp') center/cover no-repeat !important;
+}
+
+/* ヘッダー削除（グローバルヘッダーのみ使用） */
+#screen-edit .header-bar {
+    display: none;
+}
+
+/* 上部エリア - カード詳細とステータス */
+.formation-top-area {
+    display: flex;
+    background: rgba(15, 20, 40, 0.85);
+    backdrop-filter: blur(6px);
+    padding: 6px;
+    gap: 8px;
+    flex: 0 0 auto;
+    border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+    min-height: 60px;
+  /* max-height: 110px;*/
+}
+
+/* 左側：選択中カード詳細 */
+.selected-card-detail {
+    width: 120px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.selected-card-image {
+    width: 100%;
+    aspect-ratio: 3/4;
+    background: #222;
+    border: 2px solid #ffd700;
+    border-radius: 6px;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+}
+
+.selected-card-image .card-level-badge {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.selected-card-rarity {
+    display: flex;
+    justify-content: center;
+    gap: 2px;
+    font-size: 14px;
+}
+
+/* 右側：ステータス情報 */
+.selected-card-stats {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: #fff;
+    font-size: 11px;
+}
+
+.stat-name-row {
+    background: rgba(0,0,0,0.6);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border-left: 3px solid #00ced1;
+}
+
+.stat-name {
+    font-size: 13px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 2px;
+}
+
+.stat-subinfo {
+    display: flex;
+    gap: 10px;
+    font-size: 10px;
+    color: #aaa;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0,0,0,0.4);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.stat-label {
+    color: #ccc;
+    font-size: 11px;
+}
+
+.stat-value {
+    font-weight: bold;
+    font-size: 13px;
+    color: #fff;
+}
+
+.stat-value.hp { color: #00ff00; }
+.stat-value.atk { color: #ff4444; }
+.stat-value.spd { color: #ffeb3b; }
+
+.passive-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,140,0,0.2);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,140,0,0.5);
+}
+
+.passive-icon {
+    font-size: 14px;
+}
+
+.passive-text {
+    font-size: 10px;
+    color: #ffa500;
+    font-weight: bold;
+}
+
+/* アクションボタンエリア（非使用） */
+.formation-action-buttons {
+    display: none;
+}
+
+/* 中央エリア - 編成ボードとステータス */
+.formation-middle-area {
+    flex: 0 0 auto;
+    background: transparent;
+    padding: 4px 8px;
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow: hidden;
+}
+
+/* 編成ボード（大きく表示） */
+.formation-board-large {
+    width: 100%;
+    max-width: 360px;
+    height: 140px;
+    aspect-ratio: 4/2;
+    margin: 0 auto;
+    background: rgba(20, 20, 30, 0.7);
+    border: 3px solid rgba(255, 215, 0, 0.4);
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.6), inset 0 0 30px rgba(0,0,0,0.3);
+}
+
+/* ユニットレイヤー（はみ出し許可） */
+#edit-units-layer-large {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    overflow: hidden;
+    pointer-events: none;
+}
+#edit-units-layer-large > * {
+    pointer-events: auto;
+}
+
+.formation-board-large .grid-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 2px;
+    padding: 2px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.formation-board-large .grid-cell {
+    background: rgba(60, 60, 90, 0.35);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: rgba(255,255,255,0.3);
+    position: relative;
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+
+.formation-board-large .grid-cell.front {
+    background: rgba(100,60,60,0.35);
+}
+
+/* タイプ別セル色 */
+.formation-board-large .grid-cell.type-color-0 {
+    background: rgba(180, 0, 255, 0.35);
+    border-color: rgba(180, 0, 255, 0.5);
+    box-shadow: inset 0 0 12px rgba(180, 0, 255, 0.2);
+}
+.formation-board-large .grid-cell.type-color-1 {
+    background: rgba(255, 140, 0, 0.35);
+    border-color: rgba(255, 140, 0, 0.5);
+    box-shadow: inset 0 0 12px rgba(255, 140, 0, 0.2);
+}
+.formation-board-large .grid-cell.type-color-2 {
+    background: rgba(255, 105, 180, 0.35);
+    border-color: rgba(255, 105, 180, 0.5);
+    box-shadow: inset 0 0 12px rgba(255, 105, 180, 0.2);
+}
+.formation-board-large .grid-cell.type-color-3 {
+    background: rgba(76, 175, 80, 0.35);
+    border-color: rgba(76, 175, 80, 0.5);
+    box-shadow: inset 0 0 12px rgba(76, 175, 80, 0.2);
+}
+.formation-board-large .grid-cell.type-color-4 {
+    background: rgba(96, 125, 139, 0.35);
+    border-color: rgba(96, 125, 139, 0.5);
+    box-shadow: inset 0 0 12px rgba(96, 125, 139, 0.2);
+}
+.formation-board-large .grid-cell.type-color-5 {
+    background: rgba(121, 85, 72, 0.35);
+    border-color: rgba(121, 85, 72, 0.5);
+    box-shadow: inset 0 0 12px rgba(121, 85, 72, 0.2);
+}
+
+.formation-board-large .grid-cell.valid {
+    background: rgba(0,255,0,0.2);
+    border-color: #0f0;
+    box-shadow: inset 0 0 10px rgba(0,255,0,0.3);
+}
+
+/* ボード上のユニット（外枠なし） */
+.formation-board-large .board-unit {
+    position: absolute;
+    border: none;
+    border-radius: 0;
+    background-size: contain;
+    background-position: bottom center;
+    background-repeat: no-repeat;
+    cursor: pointer;
+    z-index: 10;
+    overflow: visible;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.8));
+    transition: transform 0.2s;
+}
+/* キャラ足元の楕円影 */
+.formation-board-large .board-unit::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 12px;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 40%, transparent 70%);
+    border-radius: 50%;
+    z-index: -1;
+    pointer-events: none;
+}
+.formation-board-large .board-unit:active {
+    transform: scale(0.95);
+}
+
+/* ボード上キャラ選択時のハイライト */
+.formation-board-large .board-unit.selected {
+    filter: drop-shadow(0 0 8px #00ffff) drop-shadow(0 4px 6px rgba(0,0,0,0.8));
+    z-index: 25;
+}
+.formation-board-large .board-unit.selected::before {
+    content: '▼';
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #00ffff;
+    font-size: 12px;
+    text-shadow: 0 0 6px #00ffff;
+    animation: bounceArrow 0.8s infinite;
+    z-index: 30;
+    pointer-events: none;
+}
+@keyframes bounceArrow {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-4px); }
+}
+
+/* ボード上レアリティ星 */
+.board-unit-stars {
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: -1px;
+    text-shadow: 0 0 6px #000, 1px 1px 0 #000, -1px -1px 0 #000, 0 2px 4px rgba(0,0,0,0.8);
+    pointer-events: none;
+    z-index: 25;
+    background: linear-gradient(transparent, rgba(0,0,0,0.6));
+    padding: 2px 0;
+    border-radius: 0 0 4px 4px;
+}
+
+/* カードサイズ - 枠からはみ出す迫力ある表示 */
+.formation-board-large .size-S1x1 {
+    width: calc(25% + 4px);
+    height: calc(50% + 30px);  /* 上に30pxはみ出す */
+    margin-top: -30px;
+}
+
+.formation-board-large .size-V1x2 {
+    width: calc(25% + 8px);
+    height: calc(100% + 30px); /* 上にはみ出す */
+    margin-top: -30px;
+    z-index: 15;
+}
+
+.formation-board-large .size-H2x1 {
+    width: calc(50% + 8px);
+    height: calc(50% + 40px);  /* 上に40pxはみ出す */
+    margin-top: -40px;
+    z-index: 15;
+}
+
+.formation-board-large .size-L2x2 {
+    width: calc(50% + 16px);
+    height: calc(100% + 50px); /* 大型は上に50pxはみ出す */
+    margin-top: -50px;
+    z-index: 20;
+}
+
+/* 詳細パネル内「編成から外す」ボタン */
+.btn-deck-remove {
+    width: 100%;
+    padding: 7px 0;
+    background: linear-gradient(135deg, #ff4444, #cc0000);
+    border: 2px solid rgba(255, 100, 100, 0.6);
+    color: #fff;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: center;
+    box-shadow: 0 3px 0 #880000;
+    transition: transform 0.1s, box-shadow 0.1s;
+    margin-top: 4px;
+}
+.btn-deck-remove:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #880000;
+}
+
+#deck-remove-area {
+    margin-top: auto;
+}
+
+/* デッキ総合ステータス */
+.deck-total-stats {
+    display: flex;
+    justify-content: space-around;
+    background: rgba(15, 15, 30, 0.8);
+    backdrop-filter: blur(4px);
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.deck-stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.deck-stat-label {
+    font-size: 10px;
+    color: #bbb;
+    font-weight: bold;
+}
+
+.deck-stat-value {
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.deck-stat-value.hp { color: #00ff00; }
+.deck-stat-value.atk { color: #ff4444; }
+.deck-stat-value.sp { color: #00ced1; }
+
+/* 編成コントロールボタン */
+.formation-controls {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 0;
+    padding-bottom: 8px; /* スマホで下部が隠れないように */
+}
+
+.btn-clear-all {
+    padding: 6px 16px;
+    background: rgba(60, 60, 80, 0.7);
+    border: 1px solid rgba(150, 150, 180, 0.5);
+    color: #ccc;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.btn-start-battle {
+    padding: 8px 32px;
+    background: linear-gradient(135deg, #ff2222, #aa0000);
+    border: 2px solid #ffd700;
+    color: #fff;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #660000;
+}
+
+.btn-start-battle:disabled {
+    filter: grayscale(100%);
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-start-battle:active:not(:disabled) {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 #660000;
+}
+
+/* 下部エリア - 所持カード一覧 */
+.formation-bottom-area {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    background: rgba(10, 10, 20, 0.85);
+    backdrop-filter: blur(4px);
+    border-top: 2px solid rgba(255, 215, 0, 0.3);
+    overflow: hidden;
+    min-height: 100px;
+}
+
+/* 所持カードラベル */
+.owned-cards-label {
+    background: rgba(0, 0, 0, 0.5);
+    color: #ccc;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: bold;
+    border-bottom: 1px solid #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.owned-count {
+    color: #00ced1;
+    font-size: 12px;
+}
+
+/* カード一覧（横スクロール表示） */
+.cards-horizontal-scroll {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto;
+    background: linear-gradient(180deg, rgba(20, 20, 40, 0.6) 0%, rgba(10, 10, 20, 0.8) 100%);
+    align-items: flex-start;
+    min-height: 80px;
+}
+
+.cards-horizontal-scroll::-webkit-scrollbar {
+    height: 4px;
+}
+
+.cards-horizontal-scroll::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 2px;
+}
+
+.card-item-horizontal {
+    width: 70px;
+    min-width: 70px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    cursor: pointer;
+    position: relative;
+}
+
+.card-item-image {
+    width: 100%;
+    aspect-ratio: 3/4;
+    background: #222;
+    border: 2px solid #555;
+    border-radius: 6px;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    transition: transform 0.2s, border-color 0.2s;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 編成中マーク（緑チェック） */
+.card-deck-mark {
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: #00ff00;
+    border: 2px solid #fff;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #000;
+    font-size: 12px;
+    font-weight: bold;
+    z-index: 3;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.card-deck-mark::before {
+    content: '✓';
+}
+
+/* カード一覧のサイズ枠 */
+.card-item-shape {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    z-index: 3;
+}
+
+/* ボード上の削除ボタン */
+.board-remove-btn {
+    position: absolute; top: -5px; right: -5px;
+    width: 20px; height: 20px;
+    background: #ff0000; color: #fff;
+    border: 2px solid #fff; border-radius: 50%;
+    font-size: 12px; line-height: 1;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 30; padding: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.card-item-horizontal.selected .card-item-image {
+    border-color: #00ffff;
+    box-shadow: 0 0 12px #00ffff;
+    transform: translateY(-4px);
+}
+
+.card-item-horizontal.in-deck .card-item-image {
+    opacity: 0.5;
+    filter: brightness(0.5);
+}
+
+.card-item-level {
+    position: absolute;
+    top: 2px;      /* bottom → top に変更 */
+    left: 2px;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: bold;
+    z-index: 2;    /* 追加: 他の要素より前面に */
+}
+
+.card-item-rarity {
+    position: absolute;  /* 追加 */
+    bottom: 2px;         /* 追加 */
+    left: 0;             /* 追加 */
+    width: 100%;         /* 追加 */
+    text-align: left;    /* center → left に変更 */
+    padding-left: 2px;   /* 追加 */
+    font-size: 10px;
+    color: #ffd700;
+    text-shadow: 1px 1px 0 #000;
+    letter-spacing: -2px;
+    background: rgba(0,0,0,0.6);  /* 追加: 視認性向上 */
+    z-index: 2;                    /* 追加 */
+}
+
+/* フィルターボタンエリア */
+.filter-buttons-area {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.5);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.filter-btn {
+    padding: 6px 12px;
+    background: rgba(40, 40, 60, 0.7);
+    border: 2px solid rgba(100, 100, 140, 0.4);
+    border-radius: 6px;
+    color: #aaa;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.filter-btn.active {
+    background: #00ced1;
+    border-color: #00ced1;
+    color: #000;
+}
+
+.filter-btn:active {
+    transform: scale(0.95);
+}
+
+/* レスポンシブ調整 */
+@media (max-width: 400px) {
+    .formation-top-area {
+        min-height: 70px;
+        max-height: 100px;
+        padding: 4px;
+    }
+    
+    .selected-card-detail {
+        width: 90px;
+    }
+    
+    .stat-name {
+        font-size: 11px;
+    }
+    
+    .card-item-horizontal {
+        width: calc((100% - 25px) / 6);
+    }
+    
+    .formation-board-large {
+        max-width: 100%;
+    }
+}
+
+/* 空状態メッセージ */
+.empty-selection-msg {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #555;
+    font-size: 12px;
+    text-align: center;
+    padding: 20px;
+}
+
+/* 閉じカッコの修正（前回分） */
+.empty-selection-msg .icon {
+    font-size: 40px;
+    margin-bottom: 8px;
+    opacity: 0.5;
+}
+
+/* =========================================
+   所持カード一覧：光沢エフェクト (Kira-Kira Effect)
+   ========================================= */
+
+/* 光がはみ出さないようにマスクする */
+.card-item-horizontal .list-card,
+.f-detail-img {                       /* ←ここを修正しました */
+    position: relative;
+    overflow: hidden; 
+    z-index: 1;
+}
+
+/* 共通：光沢の本体（斜めの光） */
+.card-item-horizontal .list-card::after,
+.f-detail-img::after {                /* ←ここを修正しました */
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%; 
+    width: 100%;
+    height: 100%;
+    
+    /* 通常の光（少し控えめな白） */
+    background: linear-gradient(
+        105deg, 
+        rgba(255,255,255,0) 20%, 
+        rgba(255,255,255,0.1) 40%, 
+        rgba(255,255,255,0.5) 50%, 
+        rgba(255,255,255,0.1) 60%, 
+        rgba(255,255,255,0) 80%
+    );
+    
+    transform: skewX(-20deg);
+    pointer-events: none;
+    
+    /* 全員同じタイミングで光る */
+    animation: kiraShine 3.5s infinite ease-in-out;
+    z-index: 10;
+}
+
+/* ★高レア(UR)専用：激しい光（黄金・極太） */
+.card-item-horizontal .list-card.rarity-ur::after,
+.f-detail-img.rarity-ur::after {      /* ←ここを修正しました */
+    background: linear-gradient(
+        105deg, 
+        rgba(255,255,255,0) 10%, 
+        rgba(255, 230, 150, 0.4) 30%, 
+        rgba(255, 255, 255, 1.0) 50%, 
+        rgba(255, 230, 150, 0.4) 70%, 
+        rgba(255,255,255,0) 90%
+    );
+    filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.8));
+}
+
+/* 光が左から右へ走り抜けるアニメーション */
+@keyframes kiraShine {
+    0% { left: -150%; opacity: 0; }
+    15% { opacity: 1; }
+    35% { left: 150%; opacity: 1; }
+    100% { left: 150%; opacity: 0; }
+}
+
+/* 編成中のカードは光を弱く */
+.card-item-horizontal .list-card.in-deck::after {
+    opacity: 0.2;
+    filter: none;
+}
+/* チャージターン表示 */
+.f-sec-charge {
+    font-size: 11px;
+    color: #ffdd00;
+    margin-top: 2px;
+    font-weight: bold;
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+}

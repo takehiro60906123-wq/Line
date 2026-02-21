@@ -1,0 +1,36 @@
+@charset "UTF-8";
+
+/* =========================================
+   ガチャ画面
+   ========================================= */
+.gacha-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(#333, #000); }
+.gacha-banner { 
+    width: 90%; height: 200px; background: url('images/home_bg.webp') center/cover; 
+    border: 2px solid #ffd700; border-radius: 8px; display: flex; align-items: center; justify-content: center; 
+    margin-bottom: 30px; box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); 
+}
+.banner-text { font-size: 24px; font-weight: 900; color: #fff; text-shadow: 0 0 10px #000, 2px 2px 0 #f00; text-align: center; letter-spacing: 5px; }
+
+.gacha-btn { 
+    width: 200px; height: 60px; background: linear-gradient(to bottom, #b71c1c, #500); 
+    border: 2px solid #ffd700; border-radius: 30px; color: #fff; cursor: pointer; 
+    display: flex; flex-direction: column; align-items: center; justify-content: center; 
+    box-shadow: 0 5px 15px rgba(255,0,0,0.4); transition: transform 0.1s; 
+    -webkit-tap-highlight-color: transparent;
+}
+.gacha-btn:active { transform: scale(0.95); }
+.g-label { font-size: 18px; font-weight: bold; }
+.g-cost { font-size: 12px; color: #ffeb3b; }
+
+.gacha-result-overlay { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.85); z-index: 11000; /* ヘッダーより上に */
+    display: flex; align-items: center; justify-content: center; animation: fadeIn 0.3s; 
+}
+
+.gacha-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+}
