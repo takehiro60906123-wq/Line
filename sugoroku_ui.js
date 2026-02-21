@@ -17,7 +17,7 @@ class SugorokuUI {
         if (!c) return;
         c.innerHTML = `
             <div class="sg-top-bar" id="sg-top-bar">
-                <button class="sg-home-btn" id="sg-home-btn" onclick="app.sugorokuScreen.confirmGoHome()">🏠</button>
+                <button class="sg-home-btn" id="sg-home-btn">🏠</button>
                 <div class="sg-goal-counter" id="sg-goal-counter">ゴールまで --</div>
                 <div class="sg-deck-info">🃁 <span id="sg-deck-count">0</span></div>
             </div>
@@ -35,6 +35,18 @@ class SugorokuUI {
             </div>
             <div id="sg-overlay" class="sg-overlay" style="display:none;"></div>
         `;
+
+        
+        
+
+        const homeBtn = document.getElementById('sg-home-btn');
+        if (homeBtn) {
+            homeBtn.addEventListener('click', () => {
+                if (this.ctrl && typeof this.ctrl.confirmGoHome === 'function') {
+                    this.ctrl.confirmGoHome();
+                }
+            });
+        }
     }
 
     // ========================================
@@ -218,11 +230,20 @@ class SugorokuUI {
         let h = '';
         hand.forEach((v, i) => {
             const cc = v >= 5 ? 'sg-card-high' : v >= 3 ? 'sg-card-mid' : 'sg-card-low';
-            h += `<div class="sg-card ${cc} ${i===newIdx?'sg-card-new':''}" data-idx="${i}" onclick="app.sugorokuScreen.onCardSelect(${i})">
+            h += `<div class="sg-card ${cc} ${i===newIdx?'sg-card-new':''}" data-idx="${i}">
                     <div class="sg-card-num">${v}</div><div class="sg-card-sub">${v}マス</div></div>`;
         });
         for (let i = hand.length; i < 4; i++) h += `<div class="sg-card sg-card-empty"><div class="sg-card-num">-</div></div>`;
         box.innerHTML = h;
+        
+        box.querySelectorAll('.sg-card[data-idx]').forEach(card => {
+            card.addEventListener('click', () => {
+                const idx = parseInt(card.dataset.idx, 10);
+                if (!Number.isNaN(idx) && this.ctrl && typeof this.ctrl.onCardSelect === 'function') {
+                    this.ctrl.onCardSelect(idx);
+                }
+            });
+        });
     }
 
     highlightCard(idx) {

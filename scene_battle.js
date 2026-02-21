@@ -1438,6 +1438,24 @@ class BattleScreen {
         };
         this.resultLoopId = requestAnimationFrame(loop);
     }
+        _runBattleCloseCallback(isWin) {
+        const cb = this.currentOptions && this.currentOptions.onBattleClose;
+        if (typeof cb === 'function') {
+            cb(!!isWin);
+            return true;
+        }
+
+        // 互換: 旧コールバック経路
+        if (typeof window.battleCallback === 'function') {
+            window.battleCallback(!!isWin);
+            window.battleCallback = null;
+            return true;
+        }
+
+        return false;
+    }
+
+
 
 closeResult() {
         if(app.sound) app.sound.tap();
@@ -1450,13 +1468,8 @@ closeResult() {
         this.active = false;
         
         // ★重要: 双六などから呼び出された場合のコールバック実行
-        if (typeof window.battleCallback === 'function') {
-            const isWin = (this.lastBattleResult === 'win');
-            window.battleCallback(isWin); // ここで双六に戻り、gameClear()が呼ばれる
-            window.battleCallback = null;
-            return;
-        }
-
+      const isWin = (this.lastBattleResult === 'win');
+        if (this._runBattleCloseCallback(isWin)) return;
         // タワーモードの場合
         if (this.currentOptions && this.currentOptions.mode === 'tower') {
             if (this.lastBattleResult === 'win') {
@@ -1495,10 +1508,7 @@ closeResult() {
 
     backToEdit() { 
         this.active = false; 
-        if (typeof window.battleCallback === 'function') {
-            window.battleCallback(false);
-            window.battleCallback = null;
-        } else {
+       if (!this._runBattleCloseCallback(false)) {
             app.changeScene('screen-edit'); 
         }
     }

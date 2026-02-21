@@ -21,10 +21,23 @@ class SugorokuScreen {
         // ★ 冒険ログ（リザルト用）
         this.adventureLog = this._emptyLog();
 
-        this.stageConfigs = {
-            1: { name: '始まりの草原', totalSquares: 40, deckSize: 40,
+         this.stageConfigs = this._loadStageConfigs();
+    }
+
+
+
+    _loadStageConfigs() {
+        if (typeof SUGOROKU_STAGES !== 'undefined' && SUGOROKU_STAGES && Object.keys(SUGOROKU_STAGES).length > 0) {
+            return SUGOROKU_STAGES;
+        }
+
+        console.warn('[Sugoroku] SUGOROKU_STAGES が未定義のためフォールバック設定を使用します');
+        return {
+            1: {
+                name: '始まりの草原', totalSquares: 40, deckSize: 40,
                 enemyLv: 5, bossLv: 10, bossId: 2,
                 battleBg: 'images/bg_stage1.webp',
+                sugorokuBattleBg: 'images/bg_stage1.webp',
                 bgPath: 'images/stage/stage1/',
                 layers: [
                     { file: 'layer1.webp', speed: 0.0, isFront: false },
@@ -34,84 +47,7 @@ class SugorokuScreen {
                     { file: 'layer5.webp', speed: 1.0, isFront: false },
                     { file: 'layer6.webp', speed: 1.2, isFront: true }
                 ]
-            },
-            2: { name: '迷いの森', totalSquares: 45, deckSize: 42,
-                enemyLv: 12, bossLv: 20, bossId: 13,
-                battleBg: 'images/bg_stage2.webp',
-                bgPath: 'images/stage/stage2/',
-                layers: [
-                    { file: 'layer1.webp', speed: 0.0, isFront: false },
-                    { file: 'layer2.webp', speed: 0.1, isFront: false },
-                    { file: 'layer3.webp', speed: 0.3, isFront: false },
-                    { file: 'layer4.webp', speed: 0.6, isFront: false },
-                    { file: 'layer5.webp', speed: 1.0, isFront: false },
-                    { file: 'layer6.webp', speed: 1.2, isFront: true }
-                ]
-            },
-            3: { name: '古代遺跡', totalSquares: 50, deckSize: 44,
-                enemyLv: 20, bossLv: 30, bossId: 24,
-                battleBg: 'images/bg_stage3.webp',
-                bgPath: 'images/stage/stage3/',
-                layers: [
-                    { file: 'layer1.webp', speed: 0.0, isFront: false },
-                    { file: 'layer2.webp', speed: 0.1, isFront: false },
-                    { file: 'layer3.webp', speed: 0.3, isFront: false },
-                    { file: 'layer4.webp', speed: 0.6, isFront: false },
-                    { file: 'layer5.webp', speed: 1.0, isFront: false },
-                    { file: 'layer6.webp', speed: 1.2, isFront: true }
-                ]
-            },
-            4: { name: '灼熱の火山', totalSquares: 55, deckSize: 46,
-                enemyLv: 28, bossLv: 40, bossId: 54,
-                battleBg: 'images/bg_stage4.webp',
-                bgPath: 'images/stage/stage4/',
-                layers: [
-                    { file: 'layer1.webp', speed: 0.0, isFront: false },
-                    { file: 'layer2.webp', speed: 0.1, isFront: false },
-                    { file: 'layer3.webp', speed: 0.3, isFront: false },
-                    { file: 'layer4.webp', speed: 0.6, isFront: false },
-                    { file: 'layer5.webp', speed: 1.0, isFront: false },
-                    { file: 'layer6.webp', speed: 1.2, isFront: true }
-                ]
-            },
-            5: { name: '氷雪の峠', totalSquares: 55, deckSize: 46,
-                enemyLv: 35, bossLv: 50, bossId: 43,
-                battleBg: 'images/bg_stage5.webp',
-                bgPath: 'images/stage/stage5/',
-                layers: [
-                    { file: 'layer1.webp', speed: 0.0, isFront: false },
-                    { file: 'layer2.webp', speed: 0.1, isFront: false },
-                    { file: 'layer3.webp', speed: 0.3, isFront: false },
-                    { file: 'layer4.webp', speed: 0.6, isFront: false },
-                    { file: 'layer5.webp', speed: 1.0, isFront: false },
-                    { file: 'layer6.webp', speed: 1.2, isFront: true }
-                ]
-            },
-            6: { name: '魔王の城', totalSquares: 60, deckSize: 48,
-                enemyLv: 42, bossLv: 60, bossId: 46,
-                battleBg: 'images/bg_stage6.webp',
-                bgPath: 'images/stage/stage6/',
-                layers: [
-                    { file: 'layer1.webp', speed: 0.0, isFront: false },
-                    { file: 'layer2.webp', speed: 0.1, isFront: false },
-                    { file: 'layer3.webp', speed: 0.3, isFront: false },
-                    { file: 'layer4.webp', speed: 0.6, isFront: false },
-                    { file: 'layer5.webp', speed: 1.0, isFront: false },
-                    { file: 'layer6.webp', speed: 1.2, isFront: true }
-                ]
-            },
-            7: { name: '天空の神殿', totalSquares: 65, deckSize: 50,
-                enemyLv: 50, bossLv: 75, bossId: 6,
-                battleBg: 'images/bg_stage7.webp',
-                bgPath: 'images/stage/stage7/',
-                layers: [
-                    { file: 'layer1.webp', speed: 0.0, isFront: false },
-                    { file: 'layer2.webp', speed: 0.1, isFront: false },
-                    { file: 'layer3.webp', speed: 0.3, isFront: false },
-                    { file: 'layer4.webp', speed: 0.6, isFront: false },
-                    { file: 'layer5.webp', speed: 1.0, isFront: false },
-                    { file: 'layer6.webp', speed: 1.2, isFront: true }
-                ]
+           
             }
         };
     }
@@ -946,7 +882,7 @@ class SugorokuScreen {
         this.startBattle({ 
             enemyLv: isMidBoss ? Math.floor(lv*1.5) : lv, 
             fixedEnemyId: enemyId, 
-            bgImg: c.battleBg || 'images/bg_battle.webp',
+             bgImg: c.sugorokuBattleBg || c.battleBg || 'images/bg_battle.webp',
             playerCount: playerCount
         });
     }
@@ -974,7 +910,7 @@ class SugorokuScreen {
         this.startBattle({ 
             enemyLv: bossLv, 
             fixedEnemyId: c.bossId||14, 
-            bgImg: c.battleBg || 'images/bg_battle.webp',
+            bgImg: c.sugorokuBattleBg || c.battleBg || 'images/bg_battle.webp',
             playerCount: playerCount,
             isBossBattle: true
         });
