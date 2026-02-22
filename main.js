@@ -353,6 +353,11 @@ class GameApp {
         if(id === 'sugoroku') targetId = 'screen-sugoroku';
         if(id === 'tower') targetId = 'screen-tower';
         if(id === 'map-select') targetId = 'screen-map-select'; 
+         const currentSceneId = this.sceneManager ? this.sceneManager.currentSceneId : (document.querySelector('.screen.active')?.id || null);
+        if (currentSceneId === 'screen-zukan' && targetId !== 'screen-zukan' && this.zukanScreen && this.zukanScreen.onLeave) {
+            this.zukanScreen.onLeave();
+        }
+
         
         const onSceneReady = () => {
             if(targetId === 'screen-edit' && this.formationScreen) this.formationScreen.onEnter(options);

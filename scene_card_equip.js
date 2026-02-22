@@ -124,22 +124,19 @@ class CardEquipScreen {
         return cards;
     }
 
-     _getCenterEffectIcon(effectType) {
-        const iconMap = {
-            ATK_UP:'👊', CRIT_UP:'✨', CRIT_DMG_UP:'💥', RED_LIFESTEAL:'🩸', RED_DESPERATION:'🔥', TYPE_SLAYER:'⚔️', EXTRA_ATTACK:'🗡️', GENDER_SLAYER:'🎯', GLASS_CANNON:'🪓',
-            HP_UP:'🛡️', DMG_CUT:'🧱', TYPE_RESIST:'🌀', DODGE_UP:'💨', YELLOW_SHIELD:'🔰', HEAL_BOOST:'💚', FRONT_RESIST:'🛡️', BACK_RESIST:'🔷', TANK_MODE:'🏰',
-            SPD_UP:'🌪️', CHARGE_DOWN:'⏱️', INIT_CHARGE:'⚡', STATUS_RES:'🧬', SKILL_LV_UP:'📘', POWER_UP:'💠', HEAVY_SKILL:'☄️', PROB_SKILL:'🎲',
-            ALL_UP:'🌟', FIERCE:'😈', FORTRESS:'🗿', GALE:'🌀', SHIELD:'🛡️', DESPERATION:'🔥', LIFESTEAL:'🩸'
-        };
-        return iconMap[effectType] || '✦';
+    _getCenterEffectIcon(effectType) {
+        const iconPath = this._getEffectIconPath(effectType);
+        if (!iconPath) return '';
+        return `<div class="zc-center-icon" style="background-image:url('${iconPath}')"></div>`;
     }
+
+    
 
     // =============================================
     // カード1枚のHTML
     // =============================================
     _renderCardItem(card, options = {}) {
         const cm = app.data.cardManager;
-        const eff = CARD_EFFECTS[card.effectType];
         if (!eff) return '';
         const rank = cm.getCardRank(card);
         const isSelected = options.selectedId === card.cardId;
@@ -237,40 +234,39 @@ class CardEquipScreen {
         if (!effectType) return '';
         return `images/icons/icon_${effectType}.webp`;
     }
-    _renderRichCard(c, options = {}) {
-       
-        const eff = CARD_EFFECTS[c.effectType];
-        
-        
-        const stars = '★'.repeat(c.awakening) + '☆'.repeat(5 - c.awakening);
-        
-        const isEquipped = this._isCardEquipped(c.cardId);
-        const isSelected = options.selectedId === c.cardId;
-        const clickFn = options.onClick || `app.cardScreen.showCardModal('${c.cardId}')`;
-        const extraHtml = options.extraHtml || '';
-        const iconPath = this._getEffectIconPath(c.effectType);
 
-        // 図鑑と同じ背景画像パス
-        const cardImagePath = `images/card_bg_${c.color}.webp`;
-
-        // 図鑑の list-card および zukan-card-item クラスをそのまま適用
-        return `
-        <div class="list-card zukan-card-item ${isEquipped ? 'equipped' : ''} ${isSelected ? 'selected' : ''}" 
-             onclick="${clickFn}"
-             style="background: url('${cardImagePath}') center/contain no-repeat !important; 
-                    border: ${isSelected ? '2px solid #ffd700' : 'none'} !important; 
-                    background-color: transparent !important;">
-            
-            <div class="zc-stars">${stars}</div>
-            <div class="zc-lv">lv.${c.level}</div>
-           <div class="zc-center-icon">${this._getCenterEffectIcon(c.effectType)}</div>
-             <div class="zc-eff-icon" style="background-image:url('${iconPath}')"></div>
-            <div class="zc-name">${eff ? eff.name : '?'}</div>
-            
-            ${isEquipped ? '<div class="zc-eq-badge">装備中</div>' : ''}
-            ${extraHtml}
-        </div>`;
+   _getCardDisplayLevel(card) {
+        if (card?.color === 'purple') return 20;
+        const level = Number(card?.level);
+        return Number.isFinite(level) && level > 0 ? level : 1;
     }
+
+    _renderRichCard(c, options = {}) {
+    const stars = '★'.repeat(c.awakening) + '☆'.repeat(5 - c.awakening);
+    const isEquipped = this._isCardEquipped(c.cardId);
+    const isSelected = options.selectedId === c.cardId;
+    const clickFn = options.onClick || `app.cardScreen.showCardModal('${c.cardId}')`;
+    const extraHtml = options.extraHtml || '';
+    const centerIconHtml = this._getCenterEffectIcon(c.effectType);
+
+    // 図鑑と同じ背景画像パス
+    const cardImagePath = `images/card_bg_${c.color}.webp`;
+
+    // 図鑑の list-card および zukan-card-item クラスをそのまま適用
+    return `
+    <div class="list-card zukan-card-item ${isEquipped ? 'equipped' : ''} ${isSelected ? 'selected' : ''}" 
+         onclick="${clickFn}"
+         style="background: url('${cardImagePath}') center/contain no-repeat !important; 
+                border: ${isSelected ? '2px solid #ffd700' : 'none'} !important; 
+                background-color: transparent !important;">
+        <div class="zc-stars">${stars}</div>
+        <div class="zc-lv">Lv.${this._getCardDisplayLevel(c)}</div>
+        ${centerIconHtml}
+        ${isEquipped ? '<div class="zc-eq-badge">装備中</div>' : ''}
+        ${extraHtml}
+    </div>`;
+}
+
 
     // =============================================
     // Tab: カード一覧
@@ -412,7 +408,7 @@ _renderListTab() {
                     const stars = '★'.repeat(card.awakening) + '☆'.repeat(5 - card.awakening);
                     const eff = CARD_EFFECTS[card.effectType];
                     const cardImagePath = `images/card_bg_${card.color}.webp`;
-                    const iconPath = this._getEffectIconPath(card.effectType);
+                  
                     
                     return `
                     <div class="eq-slot-wrapper">
@@ -422,8 +418,7 @@ _renderListTab() {
                              style="background: url('${cardImagePath}') center/contain no-repeat !important; background-color: transparent !important; border:none !important; margin:0 auto; width: 100%; aspect-ratio: 3/4; overflow: visible !important;">
                             <div class="zc-stars">${stars}</div>
                             <div class="zc-lv">lv.${card.level}</div>
-                            <div class="zc-center-icon">${this._getCenterEffectIcon(card.effectType)}</div>
-                            <div class="zc-eff-icon" style="background-image:url('${iconPath}')"></div>
+                                ${this._getCenterEffectIcon(card.effectType)}
                             <div class="zc-name">${eff ? eff.name : '?'}</div>
                             
                             <button onclick="event.stopPropagation(); app.cardScreen.unequipSlot('${this.selectedUnitUid}','${slot.id}')"
@@ -1251,7 +1246,7 @@ _renderListTab() {
             overflow-y: auto;
             display: grid;
             grid-template-columns: repeat(4, 1fr); /* 4列グリッド（スマホで見やすいサイズ） */
-            gap: 12px 6px;
+            gap: 50px 6px;
             padding: 10px;
             align-content: start;
         }
@@ -1277,21 +1272,18 @@ _renderListTab() {
 
         /* 図鑑のテキストとアイコン装飾 */
         .zc-stars { position: absolute; top: 3px; left: 0; width: 100%; text-align: center; font-size: 8px; color: #ffd700; text-shadow: 1px 1px 0 #000; letter-spacing: -1px; z-index: 2; }
-        .zc-lv { position: absolute; top: 15px; left: 3px; font-size: 10px; font-weight: 900; color: #fff; text-shadow: 1px 1px 2px #000; z-index: 2; font-family: Arial, sans-serif; }
+         .zc-lv { position: absolute; top: 14px; left: 3px; font-size: 10px; font-weight: 900; color: #fff; text-shadow: 1px 1px 2px #000; z-index: 4; font-family: Arial, sans-serif; background: rgba(0,0,0,0.58); padding: 1px 4px; border-radius: 4px; line-height: 1.1; }
         .zc-rank { display: none; }
-        .zc-center-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(2); font-size: 16px; line-height: 1; z-index: 2; text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none; }
-        
-        .zc-eff-icon {
+        .zc-center-icon {
             position: absolute;
             left: 50%;
-            top: 54%;
+            top: 45%;
             transform: translate(-50%, -50%);
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            background: rgba(0,0,0,0.45) center/75% no-repeat;
-            border: 1px solid rgba(255,255,255,0.6);
-            box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+            width: 100px;
+            height: 100px;
+            background-position: center;
+            background-size: contain;
+            background-repeat: no-repeat;
             z-index: 3;
             pointer-events: none;
         }

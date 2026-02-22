@@ -40,6 +40,12 @@ class ZukanScreen {
         }
     }
 
+    _getCardDisplayLevel(card) {
+        if (card?.color === 'purple') return 20;
+        const level = Number(card?.level);
+        return Number.isFinite(level) && level > 0 ? level : 1;
+    }
+
     // ★報酬状態のチェック
     getRewardStatus(unitId) {
         if (!app.data.zukanRewards) app.data.zukanRewards = {};
@@ -338,22 +344,20 @@ class ZukanScreen {
                 // ▲▲▲ ここまで変更 ▲▲▲
 
                 if (discovered) {
-                    const rank = cm.getCardRank(best); // SSS, SS, S, A, B など
-                    // ランクの頭文字1文字だけ取得
-                    const rankChar = rank.charAt(0);
+                    
                     // 星の文字列
                     const stars = '★'.repeat(best.awakening) + '☆'.repeat(5 - best.awakening);
-
+  const iconPath = `images/icons/icon_${best.effectType}.webp`;
                     el.innerHTML = `
                         <div class="zc-stars">${stars}</div>
-                        <div class="zc-lv">lv.${best.level}</div>
-                        <div class="zc-rank rank-${rankChar}">${rankChar}</div>
-                        <div class="zc-name">${effDef.name}</div>
+                       <div class="zc-lv">lv.${this._getCardDisplayLevel(best)}</div>
+                        <div class="zc-center-icon" style="background-image:url('${iconPath}')"></div>
+
                     `;
                 } else {
                     el.innerHTML = `
                         <div class="lock-icon">🔒</div>
-                        <div class="zc-name" style="color:#888;">???</div>
+
                     `;
                 }
 
@@ -615,9 +619,20 @@ class ZukanScreen {
         }
     }
 
+     hideDetailModal() {
+        const modal = document.getElementById('zukan-detail-modal');
+        if (!modal) return;
+        modal.style.display = 'none';
+        modal.innerHTML = '';
+    }
+
+    onLeave() {
+        this.hideDetailModal();
+    }
+
     closeDetail() {
         app.sound.tap();
-        document.getElementById('zukan-detail-modal').style.display = 'none';
+         this.hideDetailModal();
         this.renderList();
     }
 
@@ -721,23 +736,18 @@ class ZukanScreen {
                 z-index: 2;
                 font-family: Arial, sans-serif;
             }
-            .zc-rank {
+            .zc-center-icon {
                 position: absolute;
-                top: 13px; right: 3px;
-                width: 20px; height: 20px;
-                border-radius: 50%;
-                border: 2px solid #fff;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 13px;
-                font-weight: 900;
-                color: #fff;
-                background: rgba(0,0,0,0.6);
-                box-shadow: 0 2px 4px rgba(0,0,0,0.8);
-                text-shadow: 1px 1px 0 #000;
-                z-index: 2;
-                font-family: Arial, sans-serif;
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%, -50%);
+                width: 60px;
+                height: 60px;
+                background-position: center;
+                background-size: contain;
+                background-repeat: no-repeat;
+                z-index: 3;
+                pointer-events: none;
             }
             .zc-name {
                 position: absolute;
@@ -755,12 +765,7 @@ class ZukanScreen {
                 box-sizing: border-box;
             }
             
-            /* ランク別の色 */
-            .zc-rank.rank-S { border-color: #ffd700; color: #ffd700; }
-            .zc-rank.rank-A { border-color: #ff6666; color: #ff6666; }
-            .zc-rank.rank-B { border-color: #66ccff; color: #66ccff; }
-            .zc-rank.rank-C { border-color: #66ff66; color: #66ff66; }
-            .zc-rank.rank-D { border-color: #aaaaaa; color: #aaaaaa; }
+           
 
             /* ポップアップ(詳細) */
             .enhance-layout-panel.popup-mode {
