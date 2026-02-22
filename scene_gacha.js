@@ -5,6 +5,10 @@ class GachaScreen {
     constructor() {
         this.singleCost = 300;
         this.tenCost = 3000;
+        this.cardSingleCost = 200;
+        this.cardTenCost = 1800;
+        this.gachaMode = 'unit'; // unit | card
+        this.isModeSwitching = false;
         this.isFever = false;
         
         // 画像パス設定
@@ -61,13 +65,14 @@ class GachaScreen {
     }
 
     renderMachine() {
-        const container = document.querySelector('.gacha-controls');
-        if(!container) return;
-
         const mainContainer = document.querySelector('.gacha-container');
+        if(!mainContainer) return;
+
+        const modeCaption = this.gachaMode === 'card' ? 'カード召喚モード' : '英雄召喚モード';
+
         // ★修正: wrapperにID 'g-machine' を付与
         mainContainer.innerHTML = `
-            <div class="gacha-machine-wrapper" id="g-machine">
+            <div class="gacha-machine-wrapper mode-${this.gachaMode}" id="g-machine">
                 <img src="${this.imgBody}" class="g-body-img" id="g-body">
                 <div class="g-handle-wrapper">
                     <img src="${this.imgHandle}" class="g-handle-img" id="g-handle">
@@ -76,14 +81,19 @@ class GachaScreen {
             </div>
 
             <div class="gacha-btn-area">
+                <div class="gacha-mode-switch">
+                    <button class="g-mode-btn ${this.gachaMode === 'unit' ? 'active' : ''}" onclick="app.gachaScreen.setMode('unit')">英雄召喚</button>
+                    <button class="g-mode-btn ${this.gachaMode === 'card' ? 'active' : ''}" onclick="app.gachaScreen.setMode('card')">カード召喚</button>
+                </div>
+                <div class="gacha-mode-caption">${modeCaption}</div>
                 <div class="g-btn-row">
                     <button class="gacha-btn" onclick="app.gachaScreen.playGacha(1)">
-                        <div class="g-label">1回召喚</div>
-                        <div class="g-cost">💎${this.singleCost}</div>
+                        <div class="g-label">${this.gachaMode === 'card' ? 'カード1枚' : '1回召喚'}</div>
+                        <div class="g-cost">💎${this.gachaMode === 'card' ? this.cardSingleCost : this.singleCost}</div>
                     </button>
                     <button class="gacha-btn ten-pull" onclick="app.gachaScreen.playGacha(10)">
-                        <div class="g-label">10連召喚</div>
-                        <div class="g-cost">💎${this.tenCost}</div>
+                        <div class="g-label">${this.gachaMode === 'card' ? 'カード10連' : '10連召喚'}</div>
+                        <div class="g-cost">💎${this.gachaMode === 'card' ? this.cardTenCost : this.tenCost}</div>
                     </button>
                 </div>
                 <div class="rate-link" onclick="app.gachaScreen.showRateList()">
@@ -118,14 +128,49 @@ class GachaScreen {
         return pool[Math.floor(Math.random() * pool.length)];
     }
 
+    async setMode(mode) {
+        if (this.gachaMode === mode || this.isModeSwitching) return;
+        this.isModeSwitching = true;
+        if (app.sound) app.sound.tap();
+
+        const currentMachine = document.getElementById('g-machine');
+        if (currentMachine) {
+            currentMachine.classList.add('machine-leave');
+            await this.sleep(220);
+        }
+
+        this.gachaMode = mode;
+        this.resetViews();
+        this.renderMachine();
+        this.updateUI();
+
+        const nextMachine = document.getElementById('g-machine');
+        if (nextMachine) {
+            nextMachine.classList.add('machine-enter');
+            requestAnimationFrame(() => nextMachine.classList.add('machine-enter-active'));
+            setTimeout(() => {
+                nextMachine.classList.remove('machine-enter', 'machine-enter-active');
+            }, 260);
+        }
+
+        this.isModeSwitching = false;
+    }
+
     async playGacha(count) {
+        if (this.gachaMode === 'card') {
+            return this.playCardGacha(count);
+        }
+        return this.playUnitGacha(count);
+    }
+
+    async playUnitGacha(count) {
         if (!app.data.consumeGems((count === 10) ? this.tenCost : this.singleCost)) {
             alert("ジェムが足りません！");
             return;
         }
         this.updateUI();
 
-        const btns = document.querySelectorAll('.gacha-btn');
+        const btns = document.querySelectorAll('.gacha-btn, .g-mode-btn');
         btns.forEach(b => b.disabled = true);
 
         const results = [];
@@ -142,6 +187,47 @@ class GachaScreen {
         await this.runMachineAnimation(results, maxRarityCode);
 
         this.showCardRevealView(results);
+        btns.forEach(b => b.disabled = false);
+    }
+
+    async playCardGacha(count) {
+        if (!app.data || !app.data.cardManager) {
+            alert('カードシステムが初期化されていません');
+            return;
+        }
+
+        const cost = (count === 10) ? this.cardTenCost : this.cardSingleCost;
+        if (!app.data.consumeGems(cost)) {
+            alert('ジェムが足りません！');
+            return;
+        }
+        this.updateUI();
+
+        const btns = document.querySelectorAll('.gacha-btn, .g-mode-btn');
+        btns.forEach(b => b.disabled = true);
+
+        const drawCount = count;
+        const results = [];
+        let maxRarityCode = 'R';
+
+        for (let i = 0; i < drawCount; i++) {
+            const card = app.data.dropCard();
+            if (!card) {
+                alert('カード所持上限です。カード画面で整理してください。');
+                break;
+            }
+            results.push({ card });
+            if (card.level >= 16) maxRarityCode = 'UR';
+            else if (card.level >= 11 && maxRarityCode !== 'UR') maxRarityCode = 'SSR';
+        }
+
+        if (results.length === 0) {
+            btns.forEach(b => b.disabled = false);
+            return;
+        }
+
+        await this.runMachineAnimation(results, maxRarityCode);
+        this.showEquipCardRevealView(results);
         btns.forEach(b => b.disabled = false);
     }
 
@@ -183,7 +269,7 @@ class GachaScreen {
 
         // 3. カード排出
         for(let i=0; i<results.length; i++) {
-            this.spitOutCard(results[i].unit.base.cost);
+            this.spitOutCard(this.getResultVisualCost(results[i]));
             const interval = (results.length === 1) ? 800 : 150; 
             await this.sleep(interval);
         }
@@ -259,6 +345,20 @@ class GachaScreen {
         setTimeout(() => { card.remove(); }, 800);
     }
 
+    getResultVisualCost(result) {
+        if (result && result.unit && result.unit.base) {
+            return result.unit.base.cost;
+        }
+        if (result && result.card) {
+            const lv = result.card.level || 1;
+            if (lv >= 16) return 5;
+            if (lv >= 11) return 4;
+            if (lv >= 6) return 3;
+            return 2;
+        }
+        return 2;
+    }
+
     showCardRevealView(results) {
         const resLayer = document.getElementById('gacha-result');
         resLayer.style.display = 'flex';
@@ -310,6 +410,89 @@ class GachaScreen {
 
         resLayer.appendChild(container);
         resLayer.appendChild(ctrlPanel);
+    }
+
+
+    showEquipCardRevealView(results) {
+        const resLayer = document.getElementById('gacha-result');
+        resLayer.style.display = 'flex';
+        resLayer.innerHTML = '';
+
+        const container = document.createElement('div');
+        container.className = 'reveal-container grid-view';
+
+        results.forEach((res) => {
+            const cardWrap = document.createElement('div');
+            cardWrap.className = 'card-wrapper';
+            cardWrap.onclick = () => {
+                if (!cardWrap.classList.contains('flipped')) {
+                    this.flipEquipCard(cardWrap, res);
+                }
+            };
+
+            const back = document.createElement('div');
+            back.className = 'card-back';
+            const visualCost = this.getResultVisualCost(res);
+            if (visualCost >= 5) back.classList.add('back-ur');
+            else if (visualCost >= 4) back.classList.add('back-ssr');
+
+            cardWrap.appendChild(back);
+            container.appendChild(cardWrap);
+        });
+
+        const ctrlPanel = document.createElement('div');
+        ctrlPanel.className = 'reveal-controls';
+
+        const btnAll = document.createElement('button');
+        btnAll.className = 'btn-mini btn-reveal-all';
+        btnAll.innerText = '一括公開';
+        btnAll.onclick = () => {
+            const wraps = document.querySelectorAll('.card-wrapper');
+            wraps.forEach((w, i) => {
+                if (!w.classList.contains('flipped')) {
+                    setTimeout(() => this.flipEquipCard(w, results[i]), i * 80);
+                }
+            });
+        };
+
+        const btnClose = document.createElement('button');
+        btnClose.className = 'btn-red btn-result-close';
+        btnClose.innerText = '閉じる';
+        btnClose.style.display = 'none';
+        btnClose.onclick = () => this.closeResult();
+
+        this.closeBtnRef = btnClose;
+        ctrlPanel.appendChild(btnAll);
+        ctrlPanel.appendChild(btnClose);
+
+        resLayer.appendChild(container);
+        resLayer.appendChild(ctrlPanel);
+    }
+
+    flipEquipCard(wrapper, res) {
+        if (wrapper.classList.contains('flipped')) return;
+        wrapper.classList.add('flipped');
+        app.sound.tap();
+
+        const card = res.card;
+        const cm = app.data.cardManager;
+        const effect = CARD_EFFECTS[card.effectType];
+        const rank = cm ? cm.getCardRank(card) : 'B';
+        const iconPath = `images/icons/icon_${card.effectType}.webp`;
+
+        const front = document.createElement('div');
+        front.className = 'equip-card-front';
+        front.style.backgroundImage = `url('images/card_bg_${card.color}.webp')`;
+        front.innerHTML = `
+            <div class="ecf-rank">${rank}</div>
+            <div class="ecf-lv">Lv.${card.level}</div>
+            <div class="ecf-icon" style="background-image:url('${iconPath}')"></div>
+            <div class="ecf-name">${effect ? effect.name : card.effectType}</div>
+        `;
+        wrapper.appendChild(front);
+
+        const allFlipped = document.querySelectorAll('.card-wrapper.flipped').length === document.querySelectorAll('.card-wrapper').length;
+        if (allFlipped) this.showCloseButton();
     }
 
     flipCard(wrapper, res) {
@@ -498,6 +681,24 @@ class GachaScreen {
     showRateList() {
         const modal = document.getElementById('gacha-rate-modal');
         modal.style.display = 'flex';
+
+        if (this.gachaMode === 'card') {
+            const colorWeights = (typeof CARD_DROP_CONFIG !== 'undefined') ? CARD_DROP_CONFIG.colorWeights : {};
+            const levelWeights = (typeof CARD_DROP_CONFIG !== 'undefined') ? CARD_DROP_CONFIG.levelWeights : [];
+            const colorRows = Object.entries(colorWeights).map(([k, v]) => `<li>${k}: ${v}%</li>`).join('');
+            const levelRows = levelWeights.map(l => `<li>Lv${l.min}-${l.max}: ${l.weight}%</li>`).join('');
+            modal.innerHTML = `
+                <div style="background:#222; padding:20px; border:1px solid #fff; color:#fff; max-width:90%;">
+                    <h3 style="margin-top:0;">カード召喚 提供割合</h3>
+                    <div>色抽選</div>
+                    <ul>${colorRows || '<li>設定なし</li>'}</ul>
+                    <div>レベル抽選</div>
+                    <ul>${levelRows || '<li>設定なし</li>'}</ul>
+                    <button onclick="this.parentElement.parentElement.style.display='none'">閉じる</button>
+                </div>`;
+            return;
+        }
+
         modal.innerHTML = `<div style="background:#222; padding:20px; border:1px solid #fff; color:#fff;">提供割合(省略)<br><button onclick="this.parentElement.parentElement.style.display='none'">閉じる</button></div>`;
     }
 
@@ -518,12 +719,89 @@ class GachaScreen {
                 background: transparent !important; 
             }
 
+            .gacha-mode-switch {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                width: 100%;
+                margin-bottom: 8px;
+            }
+            .gacha-mode-caption {
+                margin: 2px 0 10px;
+                font-size: 12px;
+                color: #ffe082;
+                font-weight: bold;
+                text-align: center;
+                text-shadow: 1px 1px 0 #000;
+            }
+            .g-mode-btn {
+                border: 1px solid #666;
+                border-radius: 16px;
+                background: rgba(0,0,0,0.45);
+                color: #ddd;
+                padding: 6px 10px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            .g-mode-btn.active {
+                background: rgba(255, 215, 0, 0.2);
+                border-color: #ffd700;
+                color: #fff;
+            }
+            .g-mode-btn:disabled { opacity: 0.6; }
+            .equip-card-front {
+                position: absolute;
+                inset: 0;
+                border: 2px solid #fff;
+                border-radius: 4px;
+                background-size: cover;
+                background-position: center;
+                overflow: hidden;
+                transform: rotateY(180deg);
+            }
+            .ecf-rank, .ecf-lv, .ecf-name {
+                position: absolute;
+                background: rgba(0,0,0,0.72);
+                color: #fff;
+                font-weight: bold;
+                text-shadow: 1px 1px 0 #000;
+            }
+            .ecf-rank { top: 4px; right: 4px; width: 42px; height: 42px; padding: 0; border-radius: 50%; border: 3px solid #fff; display:flex; align-items:center; justify-content:center; color: #fff; font-size: 28px; background: rgba(0,0,0,0.2); }
+            .ecf-lv { top: 26px; left: 8px; padding: 2px 6px; border-radius: 6px; text-transform: lowercase; font-size: 16px; }
+            .ecf-icon {
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 68%;
+                height: 46%;
+                background: center/contain no-repeat;
+                filter: drop-shadow(0 2px 3px rgba(0,0,0,0.65));
+            }
+            .ecf-name { left: 0; right: 0; bottom: 0; padding: 6px; font-size: 11px; text-align: center; }
+
             /* --- マシン本体 --- */
             .gacha-machine-wrapper {
                 position: relative;
                 width: 280px; height: 350px;
                 margin-top: -30px;
                 display: flex; justify-content: center; align-items: center;
+            }
+            .gacha-machine-wrapper.mode-card {
+                filter: hue-rotate(165deg) saturate(1.15);
+            }
+            .gacha-machine-wrapper.machine-leave {
+                opacity: 0;
+                transform: translateX(-28px) scale(0.92);
+                transition: transform 0.22s ease, opacity 0.22s ease;
+            }
+            .gacha-machine-wrapper.machine-enter {
+                opacity: 0;
+                transform: translateX(32px) scale(0.92);
+            }
+            .gacha-machine-wrapper.machine-enter-active {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+                transition: transform 0.24s ease, opacity 0.24s ease;
             }
             .g-body-img {
                 width: 100%; height: auto;

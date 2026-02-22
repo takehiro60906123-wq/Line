@@ -124,6 +124,16 @@ class CardEquipScreen {
         return cards;
     }
 
+     _getCenterEffectIcon(effectType) {
+        const iconMap = {
+            ATK_UP:'👊', CRIT_UP:'✨', CRIT_DMG_UP:'💥', RED_LIFESTEAL:'🩸', RED_DESPERATION:'🔥', TYPE_SLAYER:'⚔️', EXTRA_ATTACK:'🗡️', GENDER_SLAYER:'🎯', GLASS_CANNON:'🪓',
+            HP_UP:'🛡️', DMG_CUT:'🧱', TYPE_RESIST:'🌀', DODGE_UP:'💨', YELLOW_SHIELD:'🔰', HEAL_BOOST:'💚', FRONT_RESIST:'🛡️', BACK_RESIST:'🔷', TANK_MODE:'🏰',
+            SPD_UP:'🌪️', CHARGE_DOWN:'⏱️', INIT_CHARGE:'⚡', STATUS_RES:'🧬', SKILL_LV_UP:'📘', POWER_UP:'💠', HEAVY_SKILL:'☄️', PROB_SKILL:'🎲',
+            ALL_UP:'🌟', FIERCE:'😈', FORTRESS:'🗿', GALE:'🌀', SHIELD:'🛡️', DESPERATION:'🔥', LIFESTEAL:'🩸'
+        };
+        return iconMap[effectType] || '✦';
+    }
+
     // =============================================
     // カード1枚のHTML
     // =============================================
@@ -223,18 +233,22 @@ class CardEquipScreen {
    // =============================================
     // ★共通: 画像付きリッチカード描画メソッド (完全図鑑互換版)
     // =============================================
+     _getEffectIconPath(effectType) {
+        if (!effectType) return '';
+        return `images/icons/icon_${effectType}.webp`;
+    }
     _renderRichCard(c, options = {}) {
-        const cm = app.data.cardManager;
+       
         const eff = CARD_EFFECTS[c.effectType];
         
-        const rank = cm.getCardRank(c);
-        const rankChar = rank.charAt(0); // SSSやSSから頭文字(S, A, B...)を取得
+        
         const stars = '★'.repeat(c.awakening) + '☆'.repeat(5 - c.awakening);
         
         const isEquipped = this._isCardEquipped(c.cardId);
         const isSelected = options.selectedId === c.cardId;
         const clickFn = options.onClick || `app.cardScreen.showCardModal('${c.cardId}')`;
         const extraHtml = options.extraHtml || '';
+        const iconPath = this._getEffectIconPath(c.effectType);
 
         // 図鑑と同じ背景画像パス
         const cardImagePath = `images/card_bg_${c.color}.webp`;
@@ -249,7 +263,8 @@ class CardEquipScreen {
             
             <div class="zc-stars">${stars}</div>
             <div class="zc-lv">lv.${c.level}</div>
-            <div class="zc-rank rank-${rankChar}">${rankChar}</div>
+           <div class="zc-center-icon">${this._getCenterEffectIcon(c.effectType)}</div>
+             <div class="zc-eff-icon" style="background-image:url('${iconPath}')"></div>
             <div class="zc-name">${eff ? eff.name : '?'}</div>
             
             ${isEquipped ? '<div class="zc-eq-badge">装備中</div>' : ''}
@@ -393,11 +408,11 @@ _renderListTab() {
                 const card = cardId ? cm.getCard(cardId) : null;
 
                 if (card) {
-                    const rank = cm.getCardRank(card);
-                    const rankChar = rank.charAt(0);
+                    
                     const stars = '★'.repeat(card.awakening) + '☆'.repeat(5 - card.awakening);
                     const eff = CARD_EFFECTS[card.effectType];
                     const cardImagePath = `images/card_bg_${card.color}.webp`;
+                    const iconPath = this._getEffectIconPath(card.effectType);
                     
                     return `
                     <div class="eq-slot-wrapper">
@@ -407,7 +422,8 @@ _renderListTab() {
                              style="background: url('${cardImagePath}') center/contain no-repeat !important; background-color: transparent !important; border:none !important; margin:0 auto; width: 100%; aspect-ratio: 3/4; overflow: visible !important;">
                             <div class="zc-stars">${stars}</div>
                             <div class="zc-lv">lv.${card.level}</div>
-                            <div class="zc-rank rank-${rankChar}">${rankChar}</div>
+                            <div class="zc-center-icon">${this._getCenterEffectIcon(card.effectType)}</div>
+                            <div class="zc-eff-icon" style="background-image:url('${iconPath}')"></div>
                             <div class="zc-name">${eff ? eff.name : '?'}</div>
                             
                             <button onclick="event.stopPropagation(); app.cardScreen.unequipSlot('${this.selectedUnitUid}','${slot.id}')"
@@ -1262,20 +1278,29 @@ _renderListTab() {
         /* 図鑑のテキストとアイコン装飾 */
         .zc-stars { position: absolute; top: 3px; left: 0; width: 100%; text-align: center; font-size: 8px; color: #ffd700; text-shadow: 1px 1px 0 #000; letter-spacing: -1px; z-index: 2; }
         .zc-lv { position: absolute; top: 15px; left: 3px; font-size: 10px; font-weight: 900; color: #fff; text-shadow: 1px 1px 2px #000; z-index: 2; font-family: Arial, sans-serif; }
-        .zc-rank { position: absolute; top: 13px; right: 3px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.6); box-shadow: 0 2px 4px rgba(0,0,0,0.8); text-shadow: 1px 1px 0 #000; z-index: 2; font-family: Arial, sans-serif; }
-        .zc-name { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.75); color: #fff; font-size: 10px; text-align: center; padding: 4px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; z-index: 2; box-sizing: border-box; }
+        .zc-rank { display: none; }
+        .zc-center-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(2); font-size: 16px; line-height: 1; z-index: 2; text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none; }
+        
+        .zc-eff-icon {
+            position: absolute;
+            left: 50%;
+            top: 54%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.45) center/75% no-repeat;
+            border: 1px solid rgba(255,255,255,0.6);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+            z-index: 3;
+            pointer-events: none;
+        }
         
         /* 装備画面・分解画面 特有のバッジ */
         .zc-eq-badge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,150,0,0.85); color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; border: 1px solid #fff; z-index: 5; pointer-events: none; text-shadow: 1px 1px 0 #000; }
         .sci-frag-badge { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); background: rgba(0,255,100,0.9); color: #000; font-size: 9px; font-weight: bold; padding: 1px 4px; border-radius: 3px; white-space: nowrap; z-index: 3; box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
 
-        /* ランク別の色 */
-        .zc-rank.rank-S { border-color: #ffd700; color: #ffd700; }
-        .zc-rank.rank-A { border-color: #ff6666; color: #ff6666; }
-        .zc-rank.rank-B { border-color: #66ccff; color: #66ccff; }
-        .zc-rank.rank-C { border-color: #66ff66; color: #66ff66; }
-        .zc-rank.rank-D { border-color: #aaaaaa; color: #aaaaaa; }
-
+       
         /* 覚醒・分解画面用 スクロール制限 */
         .aw-scroll-override {
             max-height: 220px;
@@ -1306,15 +1331,28 @@ _renderListTab() {
             padding: 6px;
             background: rgba(0,0,0,0.3);
             align-content: start;
+            /* aspect-ratio未対応環境でも行が潰れないように最低行高を確保 */
+            grid-auto-rows: minmax(120px, auto);
         }
 
         /* キャラクターリストアイテム (強化画面風流用) */
         .list-card {
             width: 100%; aspect-ratio: 3/4;
+            min-height: 120px;
             position: relative; border: 1px solid #555; border-radius: 4px;
             overflow: hidden; cursor: pointer;
             box-shadow: 0 4px 6px rgba(0,0,0,0.5);
             background-color: #222;
+        }
+
+          /* 旧WebView向け: aspect-ratio非対応時の縦横比フォールバック */
+        @supports not (aspect-ratio: 1 / 1) {
+            .eq-unit-grid-scroll > .list-card,
+            .card-list-rich-scroll > .list-card.zukan-card-item {
+                height: 0;
+                min-height: 0;
+                padding-top: 133.333%;
+            }
         }
         .list-card.selected { border-color: #ffd700; box-shadow: 0 0 8px #ffd700; filter: brightness(1.2); }
         .lc-lv-badge-top { position: absolute; top: 0; left: 0; background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; padding: 2px 4px; font-weight: bold; z-index: 2; border-bottom-right-radius: 4px; }

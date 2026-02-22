@@ -110,13 +110,14 @@ class GameApp {
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(() => this.handleResize(), 100);
         });
-        window.addEventListener('orientationchange', () => {
-            setTimeout(() => this.updateViewportHeight(), 200);
-        });
+        window.addEventListener('pageshow', () => this.scheduleViewportSync());
         if (window.visualViewport) {
             window.visualViewport.addEventListener('resize', () => this.updateViewportHeight());
+            
+       
         }
-        
+        // 初期表示時にも複数フレームで再計算して黒帯発生を抑制
+        this.scheduleViewportSync();
         // ★修正ポイント: テーマ適用を実行
         this.injectPowerProTheme();
     }
@@ -229,7 +230,8 @@ class GameApp {
                 
                 /* ★ここを修正しました★ */
                 /* 「-15px」を削除し、セーフエリア分をそのまま確保 */
-                padding-bottom: env(safe-area-inset-bottom, 20px) !important;
+                padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+                
                 
                 z-index: 99999 !important;
             }
@@ -272,7 +274,7 @@ class GameApp {
             #screen-home {
                 padding-top: calc(var(--header-h, 50px) + env(safe-area-inset-top, 0px)) !important;
                 /* フッター+セーフエリア分の余白を確保して、コンテンツが隠れないようにする */
-                padding-bottom: calc(60px + env(safe-area-inset-bottom, 20px)) !important;
+              padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
             }
             
             #screen-battle {
@@ -300,14 +302,24 @@ class GameApp {
     }
 
     updateViewportHeight() {
-        // height: 100vh の代わりに innerHeight を使うことで、
-        // アドレスバー等の影響による黒帯発生を防ぐ
-        const vh = window.innerHeight;
-        const vw = window.innerWidth;
+        // 端末によっては初期表示時の innerHeight が小さく、下部に黒帯が出ることがある。
+        // visualViewport が利用可能な場合はその値も比較して、より安定した高さを採用する。
+        const vv = window.visualViewport;
+        const vvHeight = vv ? Math.round(vv.height) : 0;
+        const innerHeight = Math.round(window.innerHeight || 0);
+        const vh = Math.max(innerHeight, vvHeight, 1);
+        const vw = Math.round(window.innerWidth || (vv ? vv.width : 0) || 1);
         
         document.documentElement.style.setProperty('--vh', (vh * 0.01) + 'px');
         document.documentElement.style.setProperty('--app-height', vh + 'px');
         document.documentElement.style.setProperty('--app-width', vw + 'px');
+    }
+
+     scheduleViewportSync() {
+        this.updateViewportHeight();
+        requestAnimationFrame(() => this.updateViewportHeight());
+        setTimeout(() => this.updateViewportHeight(), 120);
+        setTimeout(() => this.updateViewportHeight(), 360);
     }
 
     handleResize() {

@@ -451,11 +451,27 @@ class SugorokuUI {
             ov.style.display = 'flex';
             requestAnimationFrame(() => ov.classList.add('show'));
 
-            const close = () => { ov.classList.remove('show'); setTimeout(() => { ov.style.display = 'none'; resolve(); }, 200); };
+ let closed = false;
+            const close = () => {
+                if (closed) return;
+                closed = true;
+                ov.classList.remove('show');
+                setTimeout(() => {
+                    ov.style.display = 'none';
+                    resolve();
+                }, 200);
+            };
+
+            // ★テンポ改善:
+            // 以前は報酬表示後800ms待たないとタップで閉じられず、
+            // 「GET後にカード表示まで待つ」体感遅延が発生していた。
+            // 150msでタップ可能にしつつ、誤タップは最小限に抑える。
             setTimeout(() => {
                 ov.addEventListener('click', close, { once: true });
-                setTimeout(close, 3500);
-            }, 800);
+                }, 150);
+
+            // 自動クローズも短縮（3.5s -> 2.4s）
+            setTimeout(close, 2400);
         });
     }
 
