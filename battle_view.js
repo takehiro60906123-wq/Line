@@ -45,31 +45,23 @@ class BattleVisuals {
         if(!document.getElementById('bs-top')) {
             const topBar = document.createElement('div');
             topBar.id = 'bs-top';
-            topBar.className = 'battle-status-bar bs-enemy';
+           topBar.className = 'battle-party-bar bs-merged';
             topBar.innerHTML = `
-                <div class="bs-label-side">ENEMY</div>
-                <div class="bs-stats-group">
-                    <div class="bs-stat-item"><span class="bs-icon">⚔️</span><span id="bs-atk-e" class="bs-val">0</span></div>
-                    <div class="bs-stat-item"><span class="bs-icon">💖</span><span id="bs-hp-e" class="bs-val">0/0</span></div>
+               <div class="party-panel party-player-panel">
+                    <div class="party-label">プレイヤーパーティー</div>
+                    <div id="party-player-icons" class="party-icons"></div>
+                </div>
+                <div class="party-panel party-enemy-panel">
+                    <div class="party-label">エネミーパーティー</div>
+                    <div id="party-enemy-icons" class="party-icons"></div>
                 </div>
             `;
             screen.insertBefore(topBar, screen.firstChild);
         }
 
         // --- ステータスバー（味方） ---
-        if(!document.getElementById('bs-bot')) {
-            const botBar = document.createElement('div');
-            botBar.id = 'bs-bot';
-            botBar.className = 'battle-status-bar bs-player';
-            botBar.innerHTML = `
-                <div class="bs-stats-group">
-                    <div class="bs-stat-item"><span class="bs-icon">💖</span><span id="bs-hp-p" class="bs-val">0/0</span></div>
-                    <div class="bs-stat-item"><span class="bs-icon">⚔️</span><span id="bs-atk-p" class="bs-val">0</span></div>
-                </div>
-                <div class="bs-label-side">PLAYER</div>
-            `;
-            screen.appendChild(botBar);
-        }
+         const oldBottomBar = document.getElementById('bs-bot');
+        if (oldBottomBar) oldBottomBar.remove();
 
         // --- コントロールバー ---
         if(!document.getElementById('battle-ctrl-bar')) {
@@ -86,6 +78,11 @@ class BattleVisuals {
             const ctrlBar = document.createElement('div');
             ctrlBar.id = 'battle-ctrl-bar';
             ctrlBar.className = 'battle-ctrl-bar';
+             // ▼操作バーの位置はここで指定（px）
+            const ctrlBarBottom = 88;
+            ctrlBar.style.setProperty('--ctrl-bar-bottom', `${ctrlBarBottom}px`);
+
+    
             
             const btnSpd = document.createElement('button');
             btnSpd.className = 'b-ctrl-btn btn-spd';
@@ -106,29 +103,50 @@ class BattleVisuals {
     updateBattleStatus(units) {
         if(!units) return;
 
-        const eUnits = units.filter(u => u.side === 'enemy');
-        let eHpNow = 0, eHpMax = 0, eAtk = 0;
-        eUnits.forEach(u => {
-            eHpNow += u.battleHp; eHpMax += u.maxHp; if(!u.isDead) eAtk += u.atk;
-        });
-
-        const pUnits = units.filter(u => u.side === 'player');
-        let pHpNow = 0, pHpMax = 0, pAtk = 0;
-        pUnits.forEach(u => {
-            pHpNow += u.battleHp; pHpMax += u.maxHp; if(!u.isDead) pAtk += u.atk;
-        });
-
-        const elHpE = document.getElementById('bs-hp-e');
-        const elAtkE = document.getElementById('bs-atk-e');
-        const elHpP = document.getElementById('bs-hp-p');
-        const elAtkP = document.getElementById('bs-atk-p');
-
-        if(elHpE) elHpE.innerText = `${eHpNow}/${eHpMax}`;
-        if(elAtkE) elAtkE.innerText = eAtk;
-        if(elHpP) elHpP.innerText = `${pHpNow}/${pHpMax}`;
-        if(elAtkP) elAtkP.innerText = pAtk;
+       this.renderPartyIcons('enemy', units.filter(u => u.side === 'enemy'));
+        this.renderPartyIcons('player', units.filter(u => u.side === 'player'));
 
         this.updateBuffAuras(units);
+    }
+
+    renderPartyIcons(side, units) {
+        const holder = document.getElementById(side === 'enemy' ? 'party-enemy-icons' : 'party-player-icons');
+        if (!holder) return;
+
+        const sorted = [...units].sort((a, b) => a.anchorIdx - b.anchorIdx);
+        const frontRow = sorted.filter(u => Math.floor((u.anchorIdx || 0) / 4) === 0);
+        const backRow = sorted.filter(u => Math.floor((u.anchorIdx || 0) / 4) !== 0);
+
+        const renderIcon = (u) => {
+            const hasImage = (typeof IMG_DATA !== 'undefined' && !!IMG_DATA[u.base.id]);
+            const hpRate = Math.max(0, Math.min(100, (u.battleHp / u.maxHp) * 100));
+            const chargeMax = u.chargeMax || 99;
+            const hasSkill = !(chargeMax >= 99 || !u.base.skill || u.base.skill.type === 'NONE');
+            const remain = hasSkill ? Math.max(0, chargeMax - (u.chargeCount || 0)) : '';
+
+            return `
+                <div class="party-icon ${u.isDead ? 'is-dead' : ''}">
+                    <div class="party-icon-image" style="${hasImage ? `background-image:url('${IMG_DATA[u.base.id]}')` : ''}">
+                        ${hasImage ? '' : `<span class="party-icon-fallback">${u.base.name}</span>`}
+                    </div>
+                    <div class="party-icon-ui">
+                        <div class="party-hp-track"><div class="party-hp-fill ${side}" style="width:${hpRate}%"></div></div>
+                    </div>
+                    ${hasSkill ? `<div class="party-skill-count">${remain}</div>` : ''}
+                </div>
+            `;
+        };
+
+        holder.innerHTML = `
+            <div class="party-row party-row-front">
+                <div class="party-row-label">前列</div>
+                <div class="party-row-icons">${frontRow.map(renderIcon).join('')}</div>
+            </div>
+            <div class="party-row party-row-back">
+                <div class="party-row-label">後列</div>
+                <div class="party-row-icons">${backRow.map(renderIcon).join('')}</div>
+            </div>
+        `;
     }
 
     initBoard(units) {
@@ -377,20 +395,8 @@ class BattleVisuals {
         if(!u || !u.elem) return;
         const cd = u.elem.querySelector('.charge-countdown');
         if(!cd) return;
-        const chargeMax = u.chargeMax || 99;
-        if (chargeMax >= 99 || !u.base.skill || u.base.skill.type === 'NONE') {
-            cd.style.display = 'none';
-            return;
-        }
-        cd.style.display = 'flex';
-        const remaining = Math.max(0, chargeMax - (u.chargeCount || 0));
-        cd.textContent = remaining;
-        cd.className = 'charge-countdown';
-        if (remaining <= 1) {
-            cd.classList.add('charge-imminent');
-        } else if (remaining <= 2) {
-            cd.classList.add('charge-soon');
-        }
+        // 要望対応: 戦闘中ユニット上のチャージ表示は非表示
+        cd.style.display = 'none';
     }
 
     setDead(u) {
@@ -609,33 +615,58 @@ class BattleVisuals {
             
             .battle-field { flex: 1; width: 100%; position: relative; display: flex; flex-direction: column; justify-content: space-between; padding: 10px 0 100px 0; }
             
-            .battle-status-bar { width: 100%; height: 32px; background: linear-gradient(to bottom, #222, #000); border-top: 1px solid #555; border-bottom: 1px solid #555; display: flex; justify-content: space-between; align-items: center; padding: 0 10px; box-sizing: border-box; color: #fff; z-index: 50; }
-            .bs-enemy { border-bottom: 2px solid #f00; }
-            .bs-player { border-top: 2px solid #00ced1; margin-bottom: 0px; }
+            .battle-party-bar { width: 100%; min-height: 110px; background: linear-gradient(180deg, rgba(0,35,55,0.88), rgba(0,20,35,0.82)); border-top: 2px solid #27d7ff; border-bottom: 2px solid #27d7ff; box-shadow: 0 6px 14px rgba(0,0,0,0.45); display: flex; justify-content: space-between; align-items: stretch; padding: 6px 8px; box-sizing: border-box; color: #fff; z-index: 50; gap: 8px; }
+            .party-panel { width: calc(50% - 4px); display: flex; flex-direction: column; gap: 3px; padding: 2px 4px; border-radius: 6px; }
+          .party-player-panel { border: 1px solid rgba(70,220,255,0.6); }
+            .party-enemy-panel { border: 1px solid rgba(255,140,140,0.6); }
             
-            .bs-label-side { font-weight: 900; font-size: 14px; letter-spacing: 1px; }
-            .bs-enemy .bs-label-side { color: #ff6666; text-shadow: 0 0 5px #f00; }
-            .bs-player .bs-label-side { color: #66ffff; text-shadow: 0 0 5px #0ff; }
-            .bs-stats-group { display: flex; gap: 15px; align-items: center; }
-            .bs-stat-item { display: flex; align-items: center; gap: 4px; font-size: 12px; }
-            .bs-val { font-family: monospace; font-weight: bold; font-size: 14px; color: #fff; }
-
+              .party-label { font-weight: 900; font-size: 12px; letter-spacing: 1px; white-space: nowrap; text-shadow: 0 0 5px #000; }
+            .party-player-panel .party-label { color: #7bf7ff; text-align: right; }
+            .party-enemy-panel .party-label { color: #ff9b9b; text-align: left; }
+            .party-icons { flex: 1; display: flex; flex-direction: column; gap: 4px; justify-content: center; padding: 0; }
+            .party-row { display: flex; align-items: center; gap: 6px; min-height: 42px; }
+            .party-player-panel .party-row { flex-direction: row-reverse; }
+            .party-row-label { width: 26px; font-size: 10px; font-weight: 700; color: #ddd; text-align: center; letter-spacing: 1px; }
+            .party-row-icons { flex: 1; display: flex; gap: 6px; align-items: center; justify-content: flex-start; min-height: 40px; }
+               .party-player-panel .party-row-icons { justify-content: flex-end; }
+            .party-enemy-panel .party-row-icons { justify-content: flex-start; }
+            .party-icon { position: relative; width: 40px; height: 40px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.45); background: #111; overflow: hidden; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.45); }
+            .party-icon.is-dead { filter: grayscale(1) brightness(0.45); }
+            .party-icon-image { width: 100%; height: 100%; background-size: cover; background-position: center; }
+            .party-icon-fallback { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; text-align: center; font-size: 8px; font-weight: bold; padding: 2px; }
+            .party-icon-ui { position: absolute; left: 4px; right: 4px; bottom: 3px; }
+            .party-hp-track { width: 100%; height: 6px; border-radius: 0; background: rgba(0,0,0,0.8); overflow: hidden; border: 1px solid #555; }
+            .party-hp-fill { height: 100%; }
+            .party-hp-fill.enemy { background: #ffe600; }
+            .party-hp-fill.player { background: #ffe600; }
+            .party-skill-count { position: absolute; top: 2px; right: 2px; min-width: 15px; height: 15px; border-radius: 999px; background: rgba(0,0,0,0.75); color: #fff; font-size: 9px; font-weight: 900; line-height: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.7); text-shadow: 1px 1px 0 #000; }
             .battle-ctrl-bar {
-                position: fixed; bottom: 80px; 
-                left: 0; width: 100%; height: 50px;
-                display: flex; justify-content: center; align-items: center; gap: 30px;
-                z-index: 2000; pointer-events: none;
+             position: fixed;
+               left: 50%;
+                bottom: 85px;
+                transform: translateX(-50%);
+                width: auto;
+                height: auto;
+                display: flex;
+               flex-direction: row;
+                justify-content: center;
+                align-items: center;
+                gap: 12px;
+                z-index: 2000;
+                pointer-events: none;
             }
+            
             .b-ctrl-btn {
                 pointer-events: auto;
-                width: 140px; height: 42px;
+
+               width: 108px; height: 34px;
                 border-radius: 6px; 
                 border: none;
                 font-family: "Hiragino Kaku Gothic ProN", sans-serif;
-                font-weight: 900; font-size: 16px; color: #fff;
-                display: flex; align-items: center; justify-content: center; gap: 8px;
+                font-weight: 900; font-size: 13px; color: #fff;
+                display: flex; align-items: center; justify-content: center; gap: 6px;
                 cursor: pointer; transition: all 0.15s;
-                box-shadow: 0 5px 15px rgba(0,0,0,0.6);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.6);
                 backdrop-filter: blur(4px);
                 text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
                 border: 2px solid rgba(255,255,255,0.3);
@@ -659,8 +690,9 @@ class BattleVisuals {
             .order-bar-container { display: none !important; }
 
             .battle-area-container { width: 100%; height: 220px; display: flex; justify-content: center; pointer-events: none; }
-            .battle-area-enemy { position: fixed; top: 35px; left: 0; right: 0; }
-            .battle-area-player { position: fixed; bottom: 130px; left: 0; right: 0; }
+           .battle-area-enemy { position: fixed; top: 170px; left: 0; right: 0; }
+         
+            .battle-area-player { position: fixed; bottom: 170px; left: 0; right: 0; }
             .battle-board { border: none !important; background: transparent !important; }
             .unit-container { position: absolute; pointer-events: auto; background: transparent !important; border: none !important; }
             .unit-container.size-S1x1 { width: 100px; height: 120px; }
@@ -678,6 +710,7 @@ class BattleVisuals {
             .hp-plate { width: 80%; height: 6px; background: rgba(0,0,0,0.8); border: 1px solid #555; border-radius: 0; overflow: hidden; }
             .hp-fill { height: 100%; transition: width 0.2s; }
            .charge-countdown { 
+           display: none !important;
                 position: absolute; 
                 top: 0px; 
                 right: 0px; 
