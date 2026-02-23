@@ -1571,7 +1571,7 @@ closeResult() {
         .bs-enemy .bs-label-side { color: #ff6666; text-shadow: 0 0 5px #f00; }
         .bs-player .bs-label-side { color: #66ffff; text-shadow: 0 0 5px #0ff; }
         
-        .battle-area-enemy { position: absolute; top: 50px; left: 0; right: 0; }
+       .battle-area-enemy { position: absolute; top: 180px; left: 0; right: 0; }
         .battle-area-player { position: absolute; bottom: 70px; left: 0; right: 0; }
         
         .hp-plate { width: 80%; height: 6px; background: rgba(0,0,0,0.8); border: 1px solid #555; border-radius: 3px; overflow: hidden; }

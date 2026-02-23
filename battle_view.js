@@ -113,22 +113,42 @@ class BattleVisuals {
         const holder = document.getElementById(side === 'enemy' ? 'party-enemy-icons' : 'party-player-icons');
         if (!holder) return;
 
-        const sorted = [...units].sort((a, b) => a.anchorIdx - b.anchorIdx);
-        const frontRow = sorted.filter(u => Math.floor((u.anchorIdx || 0) / 4) === 0);
-        const backRow = sorted.filter(u => Math.floor((u.anchorIdx || 0) / 4) !== 0);
+       const grid = Array.from({ length: 2 }, () => Array(4).fill(null));
+        const sorted = [...units].sort((a, b) => (a.anchorIdx || 0) - (b.anchorIdx || 0));
 
-        const renderIcon = (u) => {
+        sorted.forEach(u => {
+            const anchor = u.anchorIdx || 0;
+            const r = Math.floor(anchor / 4);
+            const c = anchor % 4;
+            const sw = Math.max(1, Math.min(2, (u.base.shape && u.base.shape.w) || 1));
+            const sh = Math.max(1, Math.min(2, (u.base.shape && u.base.shape.h) || 1));
+
+            for (let rr = r; rr < Math.min(2, r + sh); rr++) {
+                for (let cc = c; cc < Math.min(4, c + sw); cc++) {
+                    grid[rr][cc] = {
+                        u,
+                        root: rr === r && cc === c,
+                        originR: r,
+                        originC: c,
+                        sw,
+                        sh
+                    };
+                }
+            }
+        });
+         const renderUnitIcon = (u, sw, sh) => {
             const hasImage = (typeof IMG_DATA !== 'undefined' && !!IMG_DATA[u.base.id]);
             const hpRate = Math.max(0, Math.min(100, (u.battleHp / u.maxHp) * 100));
             const chargeMax = u.chargeMax || 99;
             const hasSkill = !(chargeMax >= 99 || !u.base.skill || u.base.skill.type === 'NONE');
             const remain = hasSkill ? Math.max(0, chargeMax - (u.chargeCount || 0)) : '';
-
+const shapeBadge = (sw > 1 || sh > 1) ? `<span class="party-shape-badge">${sw}x${sh}</span>` : '';
             return `
-                <div class="party-icon ${u.isDead ? 'is-dead' : ''}">
+                    <div class="party-icon ${u.isDead ? 'is-dead' : ''} span-w-${sw}">
                     <div class="party-icon-image" style="${hasImage ? `background-image:url('${IMG_DATA[u.base.id]}')` : ''}">
                         ${hasImage ? '' : `<span class="party-icon-fallback">${u.base.name}</span>`}
                     </div>
+                    ${shapeBadge}
                     <div class="party-icon-ui">
                         <div class="party-hp-track"><div class="party-hp-fill ${side}" style="width:${hpRate}%"></div></div>
                     </div>
@@ -137,14 +157,38 @@ class BattleVisuals {
             `;
         };
 
+         const renderRow = (rowIdx) => {
+            const cells = [];
+            for (let c = 0; c < 4; c++) {
+                const occ = grid[rowIdx][c];
+                if (!occ) {
+                    cells.push('<div class="party-slot-empty"></div>');
+                    continue;
+                }
+
+                if (occ.root) {
+                    cells.push(renderUnitIcon(occ.u, occ.sw, occ.sh));
+                    c += occ.sw - 1;
+                    continue;
+                }
+
+                const isVerticalStart = rowIdx > occ.originR && c === occ.originC;
+                if (isVerticalStart) {
+                    cells.push(`<div class="party-icon-cont span-w-${occ.sw}"><span>↕ ${occ.sw}x${occ.sh}</span></div>`);
+                    c += occ.sw - 1;
+                }
+            }
+            return cells.join('');
+        };
+
         holder.innerHTML = `
             <div class="party-row party-row-front">
                 <div class="party-row-label">前列</div>
-                <div class="party-row-icons">${frontRow.map(renderIcon).join('')}</div>
+             <div class="party-row-icons">${renderRow(0)}</div>
             </div>
             <div class="party-row party-row-back">
                 <div class="party-row-label">後列</div>
-                <div class="party-row-icons">${backRow.map(renderIcon).join('')}</div>
+                <div class="party-row-icons">${renderRow(1)}</div>
             </div>
         `;
     }
@@ -627,13 +671,17 @@ class BattleVisuals {
             .party-row { display: flex; align-items: center; gap: 6px; min-height: 42px; }
             .party-player-panel .party-row { flex-direction: row-reverse; }
             .party-row-label { width: 26px; font-size: 10px; font-weight: 700; color: #ddd; text-align: center; letter-spacing: 1px; }
-            .party-row-icons { flex: 1; display: flex; gap: 6px; align-items: center; justify-content: flex-start; min-height: 40px; }
-               .party-player-panel .party-row-icons { justify-content: flex-end; }
-            .party-enemy-panel .party-row-icons { justify-content: flex-start; }
-            .party-icon { position: relative; width: 40px; height: 40px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.45); background: #111; overflow: hidden; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.45); }
+              .party-row-icons { flex: 1; display: grid; grid-template-columns: repeat(4, 40px); gap: 6px; align-items: center; justify-content: flex-start; min-height: 40px; }
+            .party-player-panel .party-row-icons { justify-content: end; }
+            .party-enemy-panel .party-row-icons { justify-content: start; }
+            .party-slot-empty { width: 40px; height: 40px; border: 1px dashed rgba(255,255,255,0.15); border-radius: 6px; background: rgba(255,255,255,0.04); }
+            .party-icon { position: relative; width: 40px; height: 40px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.45); background: #111; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.45); }
+            .party-icon.span-w-2, .party-icon-cont.span-w-2 { width: 86px; grid-column: span 2; }
             .party-icon.is-dead { filter: grayscale(1) brightness(0.45); }
             .party-icon-image { width: 100%; height: 100%; background-size: cover; background-position: center; }
             .party-icon-fallback { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; text-align: center; font-size: 8px; font-weight: bold; padding: 2px; }
+               .party-shape-badge { position: absolute; left: 2px; top: 2px; font-size: 8px; font-weight: 900; padding: 0 3px; border-radius: 3px; color: #fff; background: rgba(20,20,20,0.85); border: 1px solid rgba(255,255,255,0.7); }
+            .party-icon-cont { height: 40px; border-radius: 6px; border: 1px dashed rgba(255,255,255,0.45); display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.28); color: #ddd; font-size: 9px; font-weight: 700; }
             .party-icon-ui { position: absolute; left: 4px; right: 4px; bottom: 3px; }
             .party-hp-track { width: 100%; height: 6px; border-radius: 0; background: rgba(0,0,0,0.8); overflow: hidden; border: 1px solid #555; }
             .party-hp-fill { height: 100%; }
@@ -690,7 +738,7 @@ class BattleVisuals {
             .order-bar-container { display: none !important; }
 
             .battle-area-container { width: 100%; height: 220px; display: flex; justify-content: center; pointer-events: none; }
-           .battle-area-enemy { position: fixed; top: 170px; left: 0; right: 0; }
+            .battle-area-enemy { position: fixed; top: 300px; left: 0; right: 0; }
          
             .battle-area-player { position: fixed; bottom: 170px; left: 0; right: 0; }
             .battle-board { border: none !important; background: transparent !important; }

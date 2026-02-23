@@ -52,7 +52,7 @@
 /* ★敵エリア: 数値を増やすと下に移動 */
 .battle-area-enemy {
     position: absolute;
-    top: 95px !important;  /* 50px -> 90px */
+    top: 180px !important;  /* 50px -> 90px */
     left: 0;
     right: 0;
     z-index: 10;

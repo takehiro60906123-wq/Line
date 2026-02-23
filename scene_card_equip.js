@@ -142,12 +142,7 @@ class CardEquipScreen {
         const isSelected = options.selectedId === card.cardId;
         const isEquipped = this._isCardEquipped(card.cardId);
 
-        let awakenStars = '';
-        for (let i = 0; i < 5; i++) {
-            awakenStars += i < card.awakening
-                ? '<span class="aw-star filled">★</span>'
-                : '<span class="aw-star">☆</span>';
-        }
+         const awakenStars = this._renderStarIcons(card.awakening, 5, { activeKind: 'awaken', inactiveKind: 'normal' });
 
         const clickFn = options.onClick || `app.cardScreen.selectCard('${card.cardId}')`;
 
@@ -177,12 +172,7 @@ class CardEquipScreen {
         const desc = cm.getCardDescription(card);
         const calcEff = cm.calcCardEffect(card);
 
-        let awakenStars = '';
-        for (let i = 0; i < 5; i++) {
-            awakenStars += i < card.awakening
-                ? '<span class="aw-star-lg filled">★</span>'
-                : '<span class="aw-star-lg">☆</span>';
-        }
+       const awakenStars = this._renderStarIcons(card.awakening, 5, { activeKind: 'awaken', inactiveKind: 'normal' });
 
         // 覚醒ボーナス一覧
         let awakenList = '';
@@ -241,9 +231,27 @@ class CardEquipScreen {
         return Number.isFinite(level) && level > 0 ? level : 1;
     }
 
+    _getStarIconPath(kind = 'normal') {
+        return kind === 'awaken'
+            ? 'images/icons/star_awaken.webp'
+            : 'images/icons/star_normal.webp';
+    }
+
+    _renderStarIcons(filledCount, total = 5, options = {}) {
+        const activeKind = options.activeKind || 'awaken';
+        const inactiveKind = options.inactiveKind || 'normal';
+        let html = '';
+        for (let i = 0; i < total; i++) {
+            const filled = i < filledCount;
+            const kind = filled ? activeKind : inactiveKind;
+            const src = this._getStarIconPath(kind);
+            html += `<span class="star-icon ${filled ? 'filled' : 'empty'} ${kind}"><img src="${src}" alt="*"></span>`;
+        }
+        return html;
+    }
+
     _renderRichCard(c, options = {}) {
-    const stars = '★'.repeat(c.awakening) + '☆'.repeat(5 - c.awakening);
-    const isEquipped = this._isCardEquipped(c.cardId);
+   const stars = this._renderStarIcons(c.awakening, 5, { activeKind: 'awaken', inactiveKind: 'normal' });
     const isSelected = options.selectedId === c.cardId;
     const clickFn = options.onClick || `app.cardScreen.showCardModal('${c.cardId}')`;
     const extraHtml = options.extraHtml || '';
@@ -340,7 +348,7 @@ _renderListTab() {
                 return `images/bg/bg_${c}_${r}.webp`;
             };
             const bgUrl = getBg(base.type, base.cost);
-            const stars = '★'.repeat(base.cost);
+            const stars = this._renderStarIcons(base.cost, 5, { activeKind: 'normal', inactiveKind: 'normal' });
             
             return `
             <div class="list-card ${isSelected ? 'selected' : ''}" 
@@ -405,7 +413,7 @@ _renderListTab() {
 
                 if (card) {
                     
-                    const stars = '★'.repeat(card.awakening) + '☆'.repeat(5 - card.awakening);
+                   const stars = this._renderStarIcons(card.awakening, 5, { activeKind: 'awaken', inactiveKind: 'normal' });
                     const eff = CARD_EFFECTS[card.effectType];
                     const cardImagePath = `images/card_bg_${card.color}.webp`;
                   
@@ -513,6 +521,64 @@ _renderListTab() {
 
     pickCard(unitUid, cardId) {
         const overlay = document.getElementById('card-picker-overlay');
+        if (overlay) overlay.remove();
+
+          const cm = app.data.cardManager;
+        const card = cm ? cm.getCard(cardId) : null;
+        const unit = app.data.getUnitInstance(unitUid);
+        if (!card || !unit) {
+            alert('カード情報の取得に失敗しました。');
+            this.render();
+            return;
+        }
+
+        this.openEquipConfirm(unitUid, card);
+    }
+
+    openEquipConfirm(unitUid, card) {
+        const unit = app.data.getUnitInstance(unitUid);
+        const base = unit ? unit.base : null;
+        const cm = app.data.cardManager;
+        if (!unit || !base || !cm || !card) {
+            alert('装備確認の表示に失敗しました。');
+            this.render();
+            return;
+        }
+
+        const colorLabel = { red: '🟥 赤', yellow: '🟨 黄', blue: '🟦 青', purple: '🟪 紫' }[card.color] || card.color;
+        const desc = cm.getCardDescription(card) || '効果説明なし';
+        const rank = cm.getCardRank(card);
+        const currentEquips = app.data.getUnitEquips(unitUid);
+        const replacingId = currentEquips[card.color];
+        const replacingCard = replacingId ? cm.getCard(replacingId) : null;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'equip-confirm-overlay';
+        overlay.className = 'card-picker-overlay';
+        overlay.innerHTML = `
+        <div class="card-picker-modal" style="max-width:420px;">
+            <div class="cpm-header">装備確認</div>
+            <div style="padding:12px; color:#eee; font-size:13px; line-height:1.45;">
+                <div style="margin-bottom:8px;">対象ユニット：<b style="color:#7bf7ff;">${base.name}</b></div>
+                <div style="border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:10px; background:rgba(0,0,0,0.35); margin-bottom:8px;">
+                    <div style="font-weight:800; color:#ffd700;">${rank} / ${colorLabel}</div>
+                    <div style="font-size:12px; color:#fff; margin-top:2px;">Lv.${card.level} ・ 覚醒${card.awakening}</div>
+                    <div style="font-size:12px; color:#cfe; margin-top:6px;">${desc}</div>
+                </div>
+                ${replacingCard ? `<div style="font-size:12px; color:#ffb4b4; margin-bottom:8px;">同色スロットの装備中カード（Lv.${replacingCard.level}）は外れます。</div>` : ''}
+                <div style="font-size:12px; color:#bbb;">このカードを装備しますか？</div>
+            </div>
+            <div style="display:flex; gap:8px; justify-content:center; padding:0 12px 12px;">
+                <button class="cpm-close" style="margin:0; background:#666;" onclick="document.getElementById('equip-confirm-overlay')?.remove()">キャンセル</button>
+                <button class="cpm-close" style="margin:0; background:#008b8b;" onclick="app.cardScreen.confirmEquipCard('${unitUid}','${card.cardId}')">装備する</button>
+            </div>
+        </div>`;
+
+        document.body.appendChild(overlay);
+    }
+
+    confirmEquipCard(unitUid, cardId) {
+        const overlay = document.getElementById('equip-confirm-overlay');
         if (overlay) overlay.remove();
 
         const result = app.data.equipCard(unitUid, cardId);
@@ -903,9 +969,7 @@ _renderListTab() {
         .c-dot-purple { background: #a4f; }
         .ci-name { font-size: 11px; font-weight: bold; color: #fff; }
         .ci-level { font-size: 10px; color: #ccc; }
-        .ci-awaken { font-size: 8px; line-height: 1; }
-        .aw-star { color: #555; }
-        .aw-star.filled { color: #ffd700; }
+        .ci-awaken { display:flex; align-items:center; justify-content:center; gap:1px; min-height:10px; }
         .ci-equipped-badge { font-size: 8px; color: #f90; background: rgba(255,150,0,0.2); padding: 1px 4px; border-radius: 4px; margin-top: 2px; }
 
         .rank-SSS { color: #ff0; text-shadow: 0 0 4px #f80; }
@@ -930,9 +994,7 @@ _renderListTab() {
         .cd-eff-name { font-size: 16px; font-weight: 900; color: #fff; }
         .cd-rank { font-size: 14px; font-weight: 900; margin-left: auto; }
         .cd-level { font-size: 13px; color: #ccc; }
-        .cd-awaken-row { margin: 4px 0; }
-        .aw-star-lg { font-size: 16px; }
-        .aw-star-lg.filled { color: #ffd700; }
+       .cd-awaken-row { margin: 4px 0; display:flex; gap:2px; align-items:center; }
         .cd-desc { font-size: 11px; color: #aaa; margin: 6px 0; padding: 4px; background: rgba(255,255,255,0.05); border-radius: 4px; }
         .cd-stats { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
         .cd-stat { background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 4px; font-size: 10px; }
@@ -1271,7 +1333,7 @@ _renderListTab() {
         }
 
         /* 図鑑のテキストとアイコン装飾 */
-        .zc-stars { position: absolute; top: 3px; left: 0; width: 100%; text-align: center; font-size: 8px; color: #ffd700; text-shadow: 1px 1px 0 #000; letter-spacing: -1px; z-index: 2; }
+         .zc-stars { position: absolute; top: 3px; left: 0; width: 100%; display:flex; justify-content:center; gap:1px; z-index: 2; }
          .zc-lv { position: absolute; top: 14px; left: 3px; font-size: 10px; font-weight: 900; color: #fff; text-shadow: 1px 1px 2px #000; z-index: 4; font-family: Arial, sans-serif; background: rgba(0,0,0,0.58); padding: 1px 4px; border-radius: 4px; line-height: 1.1; }
         .zc-rank { display: none; }
         .zc-center-icon {
@@ -1349,11 +1411,17 @@ _renderListTab() {
         .list-card.selected { border-color: #ffd700; box-shadow: 0 0 8px #ffd700; filter: brightness(1.2); }
         .lc-lv-badge-top { position: absolute; top: 0; left: 0; background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; padding: 2px 4px; font-weight: bold; z-index: 2; border-bottom-right-radius: 4px; }
         .lc-deck-badge { position: absolute; top: 0; right: 0; background: rgba(0,255,0,0.6); color: #fff; font-size: 9px; padding: 2px 4px; font-weight: bold; z-index: 2; border-bottom-left-radius: 4px; }
-        .lc-card-footer { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); padding: 2px 4px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; }
-        .footer-grid .shape-icon { width: 14px; height: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; }
+.lc-card-footer { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); padding: 2px 3px; display: flex; justify-content: flex-start; align-items: center; gap: 2px; box-sizing: border-box; }        .footer-grid .shape-icon { width: 14px; height: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; }
         .footer-grid .shape-cell-dot { background: #333; border-radius: 1px; }
         .footer-grid .shape-cell-dot.on { background: #0f0; box-shadow: 0 0 2px #0f0; }
-        .footer-stars { font-size: 8px; text-shadow: 1px 1px 0 #000; letter-spacing: -1px; }
+      .footer-stars { display:flex; align-items:center; justify-content:flex-start; gap:0; margin-left:1px; overflow:visible; }
+        .star-icon { width: 11px; height: 11px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; } .star-icon img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 1px rgba(0,0,0,0.85)); }
+        .star-icon.awaken img { filter: drop-shadow(0 0 2px rgba(255,80,180,0.9)); }
+        .star-icon.empty { opacity: 0.35; }
+        .footer-stars .star-icon { margin-right: -3px; }
+        .footer-stars .star-icon:last-child { margin-right: 0; }
+        .cd-awaken-row .star-icon { width: 14px; height: 14px; }
+        .zc-stars .star-icon { width: 8px; height: 8px; }
 
         /* 詳細パネル */
         .eq-detail-panel { display: flex; flex-direction: column; gap: 10px; height: 100%; }

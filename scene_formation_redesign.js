@@ -66,6 +66,29 @@ class FormationScreenRedesign {
         return `images/bg/bg_${color}_${rarity}.webp`;
     }
 
+     _getStarIconPath(kind = 'normal') {
+        return kind === 'awaken'
+            ? 'images/icons/star_awaken.webp'
+            : 'images/icons/star_normal.webp';
+    }
+
+    _renderRarityStars(cost = 0, awakenCount = 0, total = 5) {
+        let html = '';
+        for (let i = 0; i < total; i++) {
+            let kind = 'normal';
+            let cls = 'empty';
+            if (i < awakenCount) {
+                kind = 'awaken';
+                cls = 'filled';
+            } else if (i < cost) {
+                kind = 'normal';
+                cls = 'filled';
+            }
+            html += `<span class="star-icon ${kind} ${cls}"><img src="${this._getStarIconPath(kind)}" alt="*"></span>`;
+        }
+        return html;
+    }
+
    setupCustomLayout() {
         if (!document.getElementById('formation-custom-style')) {
             const style = document.createElement('style');
@@ -334,7 +357,7 @@ class FormationScreenRedesign {
                 background: rgba(0,0,0,0.85); 
                 display: flex; align-items: center; 
                 padding-left: 3px;  /* 左の余白を少し微調整 */
-                gap: 2px;           /* ★修正: 間隔を狭くする (4px -> 2px) */
+                gap: 1px;           /* ★修正: 間隔を狭くする (4px -> 2px) */
                 border-radius: 0 0 4px 4px; 
                 z-index: 25 !important;
                 overflow: hidden; /* はみ出し防止 */
@@ -349,14 +372,23 @@ class FormationScreenRedesign {
             .footer-grid .shape-cell-dot.on { background: #0f0; box-shadow: 0 0 3px #0f0; }
 
             /* ★修正: 星のサイズと間隔を詰める */
-            .footer-stars { 
-                font-size: 9px;          /* ★修正: 10px -> 9px に小さく */
-                line-height: 1; 
-                margin-top: -1px;        /* 位置微調整 */
-                text-shadow: 1px 1px 0 #000; 
-                letter-spacing: -1.5px;  /* ★修正: 字間をさらに詰める */
-                white-space: nowrap;     /* 折り返し防止 */
+           .footer-stars { 
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+                gap: 0;
+                margin-top: -1px;
+                margin-left: 1px;
+                white-space: nowrap;
+                overflow: visible;
             }
+
+           .star-icon { width: 11px; height: 11px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+            .star-icon img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 1px rgba(0,0,0,0.9)); }
+            .star-icon.awaken img { filter: drop-shadow(0 0 2px rgba(255,80,180,0.95)); }
+            .star-icon.empty { opacity: 0.35; }
+            .footer-stars .star-icon { margin-right: -3px; }
+            .footer-stars .star-icon:last-child { margin-right: 0; }
 
            /* ★修正: レベルバッジを右上に配置 */
             .lc-lv-badge-top {
@@ -394,8 +426,11 @@ class FormationScreenRedesign {
                 width: 16px; height: 16px; gap: 2px; /* グリッドも大きく */
             }
             .lc-card-footer.detail-ver .footer-stars {
-                font-size: 14px; /* 星も大きく */
-                letter-spacing: -1px;
+                gap: 2px;
+            }
+            .lc-card-footer.detail-ver .star-icon {
+                width: 14px;
+                height: 14px;
             }
             /* レベルバッジ (詳細版) */
             .lc-lv-badge-top.detail-ver {
@@ -594,20 +629,8 @@ class FormationScreenRedesign {
             unit.base.shape.grid.forEach(bit => { gridHtml += `<div class="shape-cell-dot ${bit?'on':''}"></div>`; });
             gridHtml += '</div>';
             
-            // --- 星生成 (ピンク色対応) ---
-            const maxStars = 5;
-            const lbCount = unit.lbCount || 0;
-            const cost = unit.base.cost;
-            const colorYellow = '#ffd700';
-            const colorPink   = '#ff0055';
-            const colorEmpty  = '#444';
-
-            let starsHtml = '';
-            for(let i = 0; i < maxStars; i++) {
-                if (i < lbCount) starsHtml += `<span style="color:${colorPink}; text-shadow:0 0 5px ${colorPink};">★</span>`;
-                else if (i < cost) starsHtml += `<span style="color:${colorYellow}; text-shadow:1px 1px 0 #000;">★</span>`;
-                else starsHtml += `<span style="color:${colorEmpty}; text-shadow:none;">★</span>`;
-            }
+            // --- 星生成（通常星 + 覚醒星アイコン） ---
+            const starsHtml = this._renderRarityStars(unit.base.cost, unit.lbCount || 0, 5);
 
             // --- ステータスバー計算 ---
             const maxHp = 3000, maxAtk = 1000, maxSpd = 50;
@@ -795,30 +818,8 @@ class FormationScreenRedesign {
             });
             gridHtml += '</div>';
 
-            // --- ★修正: 星の表示ロジック ---
-            const maxStars = 5; // 表示する星の最大数（枠）
-            const lbCount = unit.lbCount || 0; // 限界突破数
-            const cost = unit.base.cost;       // 元のレアリティ
-            
-            // 色定義
-            const colorYellow = '#ffd700'; // 通常色 (黄色)
-            const colorPink   = '#ff0055'; // 凸色 (ピンク)
-            const colorEmpty  = '#444';    // 空き枠 (グレー)
-
-            let starsHtml = '';
-            for(let i = 0; i < maxStars; i++) {
-                if (i < lbCount) {
-                    // 限界突破分: ピンク色の星
-                    starsHtml += `<span style="color:${colorPink}; text-shadow:0 0 5px ${colorPink};">★</span>`;
-                } else if (i < cost) {
-                    // 元のレアリティ分: 黄色の星
-                    starsHtml += `<span style="color:${colorYellow}; text-shadow:1px 1px 0 #000;">★</span>`;
-                } else {
-                    // 空き枠: グレーの星 (低レアの「足りない」部分を埋める)
-                    starsHtml += `<span style="color:${colorEmpty}; text-shadow:none;">★</span>`;
-                }
-            }
-            // -----------------------------
+           // --- 星の表示（通常星 + 覚醒星アイコン） ---
+            const starsHtml = this._renderRarityStars(unit.base.cost, unit.lbCount || 0, 5);
 
             card.innerHTML = `
                 <div class="lc-lv-badge-top">Lv${unit.save.lv}</div>

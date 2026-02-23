@@ -30,22 +30,23 @@ class BattleState {
 
         const cardEff = uData.cardEffects || {};
 
-        // ★HP/ATKの増減（諸刃、重装、闘気用）
+       // ★カードの基本ステータス加算(hpPct/atkPct/hpFlat/atkFlat/spdFlat)は
+        // Unit.calcStats() 側で反映済み。ここでは戦闘時のみの減衰系だけ適用する。
         let hpMul = 1;
-        if (cardEff.hpPct) hpMul += cardEff.hpPct / 100;
+       
         if (cardEff.hpDownPct) hpMul -= cardEff.hpDownPct / 100;
         uData.maxHp = Math.floor(uData.maxHp * Math.max(0.1, hpMul));
-        if (cardEff.hpFlat) uData.maxHp += cardEff.hpFlat;
+       
         uData.battleHp = uData.maxHp;
 
         let atkMul = 1;
-        if (cardEff.atkPct) atkMul += cardEff.atkPct / 100;
+      
         if (cardEff.atkDownPct) atkMul -= cardEff.atkDownPct / 100;
         uData.atk = Math.floor(uData.atk * Math.max(0.1, atkMul));
-        if (cardEff.atkFlat) uData.atk += cardEff.atkFlat;
+      
         uData.originalAtk = uData.atk;
 
-        if (cardEff.spdFlat) uData.spd += cardEff.spdFlat;
+      
 
         // ★スキルレベルボーナス
         if (uData.save && cardEff.skillLvBonus) {
