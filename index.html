@@ -27,6 +27,7 @@
 <link rel="stylesheet" href="style-gacha.css">
 <link rel="stylesheet" href="style-battle.css">
 <link rel="stylesheet" href="style-sugoroku.css">
+<link rel="stylesheet" href="style-panel-battle.css">
 <link rel="stylesheet" href="style-formation.css">
 
 <link rel="icon" href="data:,">
@@ -147,6 +148,8 @@
 <script src="data_sugoroku_stages.js"></script> 
 <script src="scene_sugoroku.js"></script>
 <script src="sugoroku_ui.js"></script>
+<script src="scene_panel_battle.js"></script>
+<script src="panel_battle_ui.js"></script>
 <script src="main.js"></script>
 
 
@@ -196,7 +199,7 @@
         
         <button class="btn-quest-big" onclick="goToSugoroku()">
             <div class="qb-icon">🎲</div>
-            <div class="qb-text">双六</div>
+            <div class="qb-text">クエスト</div>
         </button>
     </div>
     <div style="text-align:center; margin-top:20px; padding-bottom:80px;">
@@ -427,7 +430,7 @@
 <div id="screen-sugoroku" class="screen">
     <div class="header-bar">
         <button class="btn-back" onclick="goHome()">🏠</button>
-        <span class="header-title">東海道双六</span>
+        <span class="header-title">クエスト</span>
     </div>
 
     <div class="sg-container">

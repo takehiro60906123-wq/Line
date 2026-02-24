@@ -99,6 +99,7 @@ class GameApp {
         this.zukanScreen = new ZukanScreen();
         this.cardScreen = new CardEquipScreen();
         this.sugorokuScreen = new SugorokuScreen();
+        this.panelBattleScreen = new PanelBattleScreen();
         this.mapSelectScreen = new MapSelectScreen();
 
         this.detectPWAMode();
