@@ -18,11 +18,7 @@ class SugorokuUI {
         c.innerHTML = `
             <div class="sg-top-bar" id="sg-top-bar">
                 <button class="sg-home-btn" id="sg-home-btn">🏠</button>
-                <div class="sg-goal-counter" id="sg-goal-counter">ゴールまで --</div>
-                <div class="sg-deck-info">🃁 <span id="sg-deck-count">0</span></div>
-            </div>
-            <div class="sg-square-lane" id="sg-square-lane">
-                <div class="sg-lane-inner" id="sg-lane-inner"></div>
+                <div class="sg-goal-counter" id="sg-goal-counter">進行度 0/0</div>
             </div>
             <div id="game-area" class="sg-game-area">
                 <div id="char-container" class="char-container anim-idle">
@@ -30,21 +26,15 @@ class SugorokuUI {
                 </div>
                 <div id="sg-msg-log" class="sg-msg-log"></div>
             </div>
-            <div class="sg-hand-area" id="sg-hand-area">
-                <div class="sg-hand-cards" id="sg-hand-cards"></div>
-            </div>
+            <div class="sg-progress-wrap"><div class="sg-progress"><div id="sg-progress-fill"></div></div><div id="sg-progress-text">0/0</div></div>
             <div id="sg-overlay" class="sg-overlay" style="display:none;"></div>
         `;
-
-        
-        
 
         const homeBtn = document.getElementById('sg-home-btn');
         if (homeBtn) {
             homeBtn.addEventListener('click', () => {
-                if (this.ctrl && typeof this.ctrl.confirmGoHome === 'function') {
-                    this.ctrl.confirmGoHome();
-                }
+                if (this.ctrl && typeof this.ctrl.confirmGoHome === 'function') this.ctrl.confirmGoHome();
+                else app.changeScene('screen-map-select');
             });
         }
     }
@@ -82,16 +72,16 @@ class SugorokuUI {
     // ゴールカウンター
     // ========================================
     updateGoalCounter(current, total) {
+        const text = `進行度 ${current}/${total}`;
         const el = document.getElementById('sg-goal-counter');
-        if (!el) return;
-        const rest = Math.max(0, total - 1 - current);
-        el.innerHTML = `
-            <span class="sg-goal-label">GOALまで</span>
-            <span class="sg-goal-val" data-val="${rest}">${rest}</span>
-        `;
-        if (rest <= 5) el.classList.add('sg-goal-near');
-        else el.classList.remove('sg-goal-near');
+        if (el) el.textContent = text;
+        const tx = document.getElementById('sg-progress-text');
+        if (tx) tx.textContent = `${current}/${total}`;
+        const fill = document.getElementById('sg-progress-fill');
+        if (fill) fill.style.width = `${total ? (current / total) * 100 : 0}%`;
     }
+
+    updateProgress(current, total) { this.updateGoalCounter(current, total); }
 
     // ========================================
     // ★ マスレーン（タップ移動対応）

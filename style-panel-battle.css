@@ -1,0 +1,4 @@
+.panel-battle-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9999;display:flex;align-items:center;justify-content:center}
+.panel-battle-card{width:min(92vw,480px);background:#112;color:#fff;padding:10px;border-radius:10px}
+.pb-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:8px}
+.pb-cell{height:44px;font-size:24px;border:0;border-radius:8px;background:#223;color:#fff}

@@ -295,33 +295,6 @@
 ----------------------------------------- */
 /* style-sugoroku.css */
 
-.sg-hand-area {
-    position: absolute;
-    bottom: 56px;
-    left: 0; width: 100%;
-    height: 134px; z-index: 70;
-
-    /* ▼▼▼ 勇者コレクター風デザインに変更 ▼▼▼ */
-    
-    /* 背景：高級なカードアルバムのような、深みのあるロイヤルブルー */
-    background: linear-gradient(to bottom, #1a2a50 0%, #0b1221 100%);
-
-    /* 枠線：宝箱の装飾のような太めの金色ライン */
-    border-top: 3px solid #d4af37;
-    
-    /* 立体感：内側に影を落として、カードが置かれている奥行きを表現 */
-    box-shadow: 
-        inset 0 10px 20px rgba(0,0,0,0.5),  /* 内側の影 */
-        0 -4px 15px rgba(0,0,0,0.5);        /* 外側の影 */
-    
-    /* ▲▲▲ 変更ここまで ▲▲▲ */
-
-    display: flex; align-items: center; justify-content: center;
-}
-.sg-hand-cards {
-    display: flex; gap: 10px;
-    padding: 10px 16px;
-}
 .sg-card {
     /* サイズと基本設定 */
     width: 70px;
@@ -1293,3 +1266,7 @@
 /* アニメーション定義 */
 @keyframes popIn { 0%{transform:scale(0.8); opacity:0;} 100%{transform:scale(1); opacity:1;} }
 @keyframes slideInItem { 0%{transform:translateX(-20px); opacity:0;} 100%{transform:translateX(0); opacity:1;} }
+.sg-progress-wrap{padding:10px 14px;background:rgba(0,0,0,.45);color:#fff;font-weight:700}
+.sg-progress{height:10px;background:#233;border-radius:10px;overflow:hidden;margin-bottom:6px}
+#sg-progress-fill{height:100%;width:0;background:linear-gradient(90deg,#44d07a,#7df7b0);transition:width .3s}
+#sg-progress-text{text-align:right;font-size:12px}
