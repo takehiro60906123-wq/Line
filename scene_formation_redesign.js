@@ -164,10 +164,25 @@ class FormationScreenRedesign {
                     filter: drop-shadow(0 5px 5px rgba(0,0,0,0.8));
                 }
 
-                .board-unit-stars {
-                    background: none !important;
-                    text-shadow: 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000 !important;
-                    z-index: 20;
+                 .board-unit-stars {
+
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transform: translateX(-50%);
+                    z-index: 24;
+                    background: transparent;
+                    border-radius: 0;
+                    padding: 0;
+                    pointer-events: none;
+                }
+                .board-unit-stars .star-icon {
+                    width: 19px;
+                    height: 19px;
+                    margin-right: -6px;
+                }
+                .board-unit-stars .star-icon:last-child {
+                    margin-right: 0;
                 }
 
                 /* --- デッキステータスバー --- */
@@ -277,6 +292,23 @@ class FormationScreenRedesign {
                 
                 .f-stats-under-img { display: flex; flex-direction: column; gap: 2px; background: rgba(0,0,0,0.3); padding: 2px; border-radius: 4px; }
                 .f-mini-stat-row { display: flex; align-items: center; height: 12px; font-size: 9px; color: #fff; background: #111; border-radius: 2px; overflow: hidden; position: relative; }
+               .f-shape-under-stats {
+                    margin-top: 4px;
+                    height: 14px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: flex-start;
+                    padding-left: 2px;
+                    background: rgba(0, 0, 0, 0.5);
+                    border-radius: 2px;
+                }
+                .f-shape-under-stats .shape-icon {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 1px;
+                    width: 12px;
+                    height: 12px;
+                }
                 .f-mini-label { width: 22px; background: #333; text-align: center; font-weight: bold; z-index: 2; font-size: 8px; line-height: 12px; }
                 .f-mini-bar-bg { flex: 1; position: relative; height: 100%; }
                 .f-mini-bar-fill { height: 100%; position: absolute; top: 0; left: 0; }
@@ -390,6 +422,20 @@ class FormationScreenRedesign {
             .footer-stars .star-icon { margin-right: -3px; }
             .footer-stars .star-icon:last-child { margin-right: 0; }
 
+            /* 星表示（上部）：薄い黒バックパネル */
+            .lc-card-stars-top {
+                position: absolute;
+                top: 2px;
+                left: 3px;
+                display: flex;
+                justify-content: flex-start;
+                align-items: center;
+                z-index: 30;
+                background: rgba(0, 0, 0, 0.45);
+                border-radius: 4px;
+                padding: 1px 3px;
+            }
+
            /* ★修正: レベルバッジを右上に配置 */
             .lc-lv-badge-top {
                 position: absolute; 
@@ -418,25 +464,96 @@ class FormationScreenRedesign {
                 background-color: #222; border-radius: 4px; border: 1px solid #666;
             }
             /* フッター (詳細版) */
-            .lc-card-footer.detail-ver {
-                height: 32px; /* 高さを増やす */
-                padding-left: 6px; gap: 6px;
-            }
+        
             .lc-card-footer.detail-ver .footer-grid .shape-icon {
                 width: 16px; height: 16px; gap: 2px; /* グリッドも大きく */
             }
-            .lc-card-footer.detail-ver .footer-stars {
-                gap: 2px;
+            .lc-card-footer.detail-ver {
+                height: 26px;
+                padding-left: 6px;
+                gap: 6px;
             }
-            .lc-card-footer.detail-ver .star-icon {
-                width: 14px;
-                height: 14px;
+            .lc-card-stars-top.detail-ver {
+                top: 3px;
+                left: 4px;
+                padding: 2px 4px;
+                background: rgba(0, 0, 0, 0.55);
+            }
+            .lc-card-stars-top.detail-ver .star-icon {
+                width: 21px;
+                height: 21px;
+                margin-right: -6px;
+            }
+            .lc-card-stars-top.detail-ver .star-icon:last-child {
+                margin-right: 0;
             }
             /* レベルバッジ (詳細版) */
             .lc-lv-badge-top.detail-ver {
                 font-size: 14px; /* 文字サイズUP */
                 padding: 3px 10px;
                 border-radius: 0 4px 0 8px;
+            }
+
+             /* 所持カード一覧：縦長カード風の見た目（画像2イメージ） */
+            .card-item-horizontal {
+                width: 74px;
+                min-width: 74px;
+                align-items: center;
+                gap: 4px;
+            }
+
+            .card-item-horizontal .list-card.portrait-style {
+                width: 64px;
+                height: 92px;
+                border-radius: 8px;
+                border: 2px solid #9fb8d8;
+                box-shadow:
+                    inset 0 0 0 2px rgba(10, 20, 50, 0.75),
+                    0 2px 6px rgba(0, 0, 0, 0.7);
+                background-position: center 34%, center;
+                background-size: 92% 92%, cover;
+            }
+
+         
+
+            
+
+            .card-item-horizontal .list-card.portrait-style .lc-card-stars-top .footer-stars {
+                display: flex;
+                gap: 0;
+            }
+
+            .card-item-horizontal .list-card.portrait-style .lc-card-stars-top .star-icon {
+                width: 17px;
+                height: 17px;
+                margin-right: -6px;
+            }
+
+            .card-item-horizontal .list-card.portrait-style .lc-card-stars-top .star-icon:last-child {
+                margin-right: 0;
+            }
+
+            .card-item-horizontal .card-lv-label {
+                color: #d6deef;
+                font-size: 13px;
+                line-height: 1;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+                letter-spacing: 0.2px;
+            }
+
+            .card-item-horizontal .list-card.portrait-style {
+                transition: transform 0.2s, box-shadow 0.2s;
+            }
+
+            .card-item-horizontal .list-card.portrait-style.selected {
+                box-shadow:
+                    inset 0 0 0 2px rgba(60, 140, 255, 0.85),
+                    0 0 12px rgba(90, 180, 255, 0.75);
+                transform: translateY(-2px);
+            }
+
+            .card-item-horizontal .list-card.portrait-style.in-deck {
+                filter: saturate(0.85) brightness(0.85);
             }
             `;
             document.head.appendChild(style);
@@ -642,9 +759,7 @@ class FormationScreenRedesign {
             leftCol.innerHTML = `
                 <div class="f-detail-img list-card type-${unit.base.type}" style="background-image: ${charImg}, url('${bgUrl}')">
                     <div class="lc-lv-badge-top detail-ver">Lv${unit.save.lv}</div>
-                    
-                    <div class="lc-card-footer detail-ver">
-                        <div class="footer-grid detail-ver">${gridHtml}</div>
+                    <div class="lc-card-stars-top detail-ver">
                         <div class="footer-stars detail-ver">${starsHtml}</div>
                     </div>
                 </div>
@@ -665,6 +780,7 @@ class FormationScreenRedesign {
                         <div class="f-mini-bar-bg"><div class="f-mini-bar-fill c-spd" style="width:${spdPct}%"></div></div>
                         <div class="f-mini-val">${unit.spd}</div>
                     </div>
+                    <div class="f-shape-under-stats">${gridHtml}</div>
                 </div>
             `;
         }
@@ -801,7 +917,7 @@ class FormationScreenRedesign {
             // レアリティ枠の色 (URのみ特別扱いは維持)
             let rarityClass = (unit.base.cost >= 5) ? ' rarity-ur' : '';
             
-            card.className = `list-card type-${unit.base.type}${rarityClass}`;
+          card.className = `list-card portrait-style type-${unit.base.type}${rarityClass}`;
             if (this.selectedUid === unit.uid) card.classList.add('selected');
             if (inDeck) card.classList.add('in-deck');
 
@@ -811,21 +927,13 @@ class FormationScreenRedesign {
             card.style.backgroundImage = `${charImg}, url('${bgUrl}')`;
             card.style.backgroundSize = "cover, cover"; 
 
-            // グリッド
-            let gridHtml = '<div class="shape-icon">';
-            unit.base.shape.grid.forEach(bit => { 
-                gridHtml += `<div class="shape-cell-dot ${bit?'on':''}"></div>`; 
-            });
-            gridHtml += '</div>';
+           
 
            // --- 星の表示（通常星 + 覚醒星アイコン） ---
             const starsHtml = this._renderRarityStars(unit.base.cost, unit.lbCount || 0, 5);
 
             card.innerHTML = `
-                <div class="lc-lv-badge-top">Lv${unit.save.lv}</div>
-                
-                <div class="lc-card-footer">
-                    <div class="footer-grid">${gridHtml}</div>
+                 <div class="lc-card-stars-top">
                     <div class="footer-stars">${starsHtml}</div>
                 </div>
             `;
@@ -840,6 +948,10 @@ class FormationScreenRedesign {
             };
             
             wrapper.appendChild(card);
+             const lvText = document.createElement('div');
+            lvText.className = 'card-lv-label';
+            lvText.textContent = `Lv${unit.save.lv}`;
+            wrapper.appendChild(lvText);
             container.appendChild(wrapper);
         });
     }
@@ -901,12 +1013,25 @@ class FormationScreenRedesign {
             card.style.left = `calc(${col * cellW}% + 2px)`;
             card.style.top = `calc(${row * cellH}% + 2px)`;
 
-            const r = this.getRarityInfo(unit.base.cost);
+            
             const starEl = document.createElement('div');
             starEl.className = 'board-unit-stars';
-            starEl.innerHTML = r.stars;
-            starEl.style.color = r.color;
-            card.appendChild(starEl);
+           starEl.innerHTML = this._renderRarityStars(unit.base.cost, unit.lbCount || 0, 5);
+             const cells = (occupiedCells && occupiedCells.length > 0)
+                ? occupiedCells
+                : [entry.anchorIdx];
+            const cols = cells.map(idx => idx % 4);
+            const rows = cells.map(idx => Math.floor(idx / 4));
+            const minCol = Math.min(...cols);
+            const maxCol = Math.max(...cols);
+            const maxRow = Math.max(...rows);
+
+            const centerX = ((minCol + maxCol + 1) * 25) / 2;
+            const bottomY = (maxRow + 1) * 50;
+            starEl.style.left = `calc(${centerX}% + 2px)`;
+            starEl.style.top = `calc(${bottomY}% - 3px)`;
+
+            layer.appendChild(starEl);
 
             card.addEventListener('click', () => {
                 if (app.sound) app.sound.tap();

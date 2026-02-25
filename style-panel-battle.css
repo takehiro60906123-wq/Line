@@ -1,0 +1,298 @@
+@charset "UTF-8";
+/* パネルバトル - サイドビュー分割レイアウト v2
+   上部: パララックス背景 + キャラ + 敵 + HPバー
+   下部: 6×6パネルグリッド
+*/
+
+/* =========================================
+   game-area バトルモード（上部に縮小）
+   ========================================= */
+.sg-game-area.pb-battle-mode {
+    top: 48px;
+    bottom: auto;
+    height: 35%;
+    min-height: 140px;
+    max-height: 240px;
+    border-bottom: 3px solid #555;
+}
+
+/* =========================================
+   バトルHUD（game-area内オーバーレイ）
+   ========================================= */
+.pb-battle-hud {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 70;
+    pointer-events: none;
+}
+
+/* --- 敵エリア（右側に配置） --- */
+.pb-enemy-area {
+    position: absolute;
+    top: 4px; right: 6px;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    pointer-events: none;
+}
+
+.pb-enemy-sprite {
+    font-size: 48px;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+    transition: transform 0.2s;
+    flex-shrink: 0;
+}
+.pb-enemy-hit { animation: enemyHitShake 0.3s ease-out; }
+@keyframes enemyHitShake { 0%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} 100%{transform:translateX(0)} }
+.pb-enemy-lvup { animation: enemyLvUpGlow 0.6s ease-out; }
+@keyframes enemyLvUpGlow { 0%{filter:drop-shadow(0 0 0 transparent);transform:scale(1)} 50%{filter:drop-shadow(0 0 20px #aa44ff);transform:scale(1.2)} 100%{filter:drop-shadow(0 0 0 transparent);transform:scale(1)} }
+
+.pb-enemy-hud-box {
+    min-width: 100px;
+    max-width: 140px;
+    padding-top: 4px;
+}
+.pb-enemy-name {
+    font-size: 12px; font-weight: 900;
+    color: #ff6666;
+    text-shadow: 0 1px 3px #000, 0 0 6px rgba(0,0,0,0.8);
+    margin-bottom: 2px;
+    white-space: nowrap;
+}
+.pb-enemy-hp-bar {
+    width: 100%; height: 10px;
+    background: rgba(0,0,0,0.6); border-radius: 5px;
+    overflow: hidden; border: 1px solid rgba(255,255,255,0.3);
+}
+.pb-enemy-hp-fill {
+    height: 100%;
+    background: linear-gradient(to bottom, #ff4444, #cc0000);
+    border-radius: 5px;
+    transition: width 0.4s ease-out;
+}
+.pb-enemy-hp-fill.warning { background: linear-gradient(to bottom, #ffaa00, #cc7700); }
+.pb-enemy-hp-fill.critical { background: linear-gradient(to bottom, #ff4444, #880000); animation: hpCritical 0.5s infinite alternate; }
+@keyframes hpCritical { 0%{opacity:1} 100%{opacity:0.6} }
+.pb-enemy-weak {
+    font-size: 9px; color: #ffcc00;
+    text-shadow: 0 1px 2px #000;
+    margin-top: 1px;
+}
+
+/* --- プレイヤーHPバー（左上に配置） --- */
+.pb-player-hud-box {
+    position: absolute;
+    top: 6px; left: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 3px 8px;
+}
+.pb-hp-label {
+    font-size: 12px; font-weight: 900;
+    color: #00ccff;
+}
+.pb-hp-val {
+    font-size: 14px; font-weight: 900;
+    color: #fff;
+    min-width: 30px;
+}
+.pb-player-hp-bar {
+    width: 80px; height: 10px;
+    background: rgba(0,0,0,0.5); border-radius: 5px;
+    overflow: hidden; border: 1px solid rgba(255,255,255,0.2);
+}
+.pb-player-hp-fill {
+    height: 100%;
+    background: linear-gradient(to bottom, #44cc44, #228822);
+    border-radius: 5px;
+    transition: width 0.4s ease-out;
+}
+.pb-player-hp-fill.warning { background: linear-gradient(to bottom, #ffaa00, #cc7700); }
+.pb-player-hp-fill.critical { background: linear-gradient(to bottom, #ff4444, #880000); animation: hpCritical 0.5s infinite alternate; }
+
+/* --- エフェクトレイヤー --- */
+.pb-effect-layer {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none; z-index: 100;
+    overflow: hidden;
+}
+
+/* =========================================
+   グリッドコンテナ（下部）
+   ========================================= */
+.pb-container {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 0;
+    top: calc(35% + 48px);
+    z-index: 80;
+    background: #111;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+    color: #fff;
+}
+
+/* --- カウンターバー --- */
+.pb-counter-bar {
+    flex-shrink: 0;
+    background: linear-gradient(to bottom, #1a1a2e, #0a0a1a);
+    border-bottom: 2px solid #444;
+}
+.pb-counter-bar-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 12px;
+}
+.pb-counter-left {
+    display: flex; align-items: center; gap: 3px;
+}
+.pb-hp-label-sm { font-size: 11px; color: #00ccff; font-weight: 900; }
+.pb-hp-val-sm { font-size: 14px; color: #fff; font-weight: 900; }
+.pb-counter-right {
+    display: flex; align-items: center; gap: 2px;
+}
+.pb-turn-label { font-size: 11px; color: #aaa; }
+.pb-turn-num { font-weight: 900; color: #fff; font-size: 14px; }
+
+.pb-enemy-counter {
+    font-size: 14px; font-weight: 900; color: #fff;
+    background: rgba(255,255,255,0.1); padding: 3px 14px;
+    border-radius: 20px; border: 1px solid #555; transition: all 0.3s;
+}
+.pb-counter-warn { color: #ffaa00 !important; border-color: #ffaa00 !important; background: rgba(255,170,0,0.15) !important; }
+.pb-counter-danger { color: #ff4444 !important; border-color: #ff4444 !important; background: rgba(255,68,68,0.2) !important; animation: counterBlink 0.5s infinite alternate; }
+@keyframes counterBlink { 0%{opacity:1} 100%{opacity:0.5} }
+
+/* =========================================
+   6×6 グリッド
+   ========================================= */
+.pb-grid-wrapper {
+    flex: 1;
+    min-height: 0;
+    padding: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+}
+.pb-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: repeat(6, 1fr);
+    gap: 2px;
+    width: 100%;
+    aspect-ratio: 1/1;
+    max-height: 100%;
+    max-width: min(100%, 400px);
+}
+.pb-panel {
+    position: relative; background: #222; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: transform 0.1s, opacity 0.2s;
+    overflow: hidden; border: 1px solid rgba(255,255,255,0.08);
+    -webkit-tap-highlight-color: transparent;
+}
+.pb-panel:active { transform: scale(0.9); }
+.pb-panel-icon { font-size: min(7vw, 32px); filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); pointer-events: none; }
+
+/* パネル色 */
+.pb-panel-sword { background: linear-gradient(135deg, #1a2a5a, #2244aa); border-color: rgba(68,136,255,0.3); }
+.pb-panel-magic { background: linear-gradient(135deg, #5a1a0a, #aa4422); border-color: rgba(255,102,34,0.3); }
+.pb-panel-heal { background: linear-gradient(135deg, #0a3a0a, #228822); border-color: rgba(68,204,68,0.3); }
+.pb-panel-lvup { background: linear-gradient(135deg, #2a0a3a, #6622aa); border-color: rgba(136,68,170,0.3); cursor: default; }
+.pb-panel-lvup .pb-panel-icon { animation: lvupPulse 1.5s infinite ease-in-out; }
+@keyframes lvupPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15);filter:drop-shadow(0 0 6px #aa44ff)} }
+.pb-panel-coin { background: linear-gradient(135deg, #3a2a00, #887700); border-color: rgba(221,170,0,0.3); }
+.pb-panel-chick { background: linear-gradient(135deg, #3a3a00, #886600); border-color: rgba(255,221,68,0.3); }
+
+/* パネル消去 */
+.pb-panel-removing { animation: panelRemove 0.3s ease-out forwards; pointer-events: none; }
+@keyframes panelRemove { 0%{transform:scale(1);opacity:1;filter:brightness(1)} 40%{transform:scale(1.3);opacity:1;filter:brightness(2)} 100%{transform:scale(0);opacity:0;filter:brightness(3)} }
+
+/* =========================================
+   フローティングテキスト
+   ========================================= */
+.pb-floating-text {
+    position: absolute; top: 40%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 22px; font-weight: 900; text-shadow: 0 2px 4px #000, 0 0 10px currentColor;
+    pointer-events: none; z-index: 200; animation: floatUp 1.0s ease-out forwards; white-space: nowrap;
+}
+@keyframes floatUp { 0%{opacity:1;transform:translate(-50%,-50%) scale(0.5)} 20%{opacity:1;transform:translate(-50%,-60%) scale(1.2)} 60%{opacity:1;transform:translate(-50%,-80%) scale(1.0)} 100%{opacity:0;transform:translate(-50%,-120%) scale(0.8)} }
+.pb-chain-text { font-size: 26px; color: #ffd700 !important; text-shadow: 0 2px 6px #000, 0 0 20px #ffd700; top: 20%; }
+.pb-dmg-text { top: 20%; }
+.pb-heal-text { top: 60%; }
+.pb-coin-text { top: 50%; }
+.pb-chick-text { font-size: 24px; top: 30%; }
+.pb-chick-miss { font-size: 16px; top: 30%; }
+.pb-lvup-text { top: 15%; font-size: 18px; }
+.pb-enemy-atk-label { font-size: 22px; top: 25%; }
+.pb-player-dmg-text { font-size: 26px; top: 65%; color: #ff4444 !important; }
+
+/* =========================================
+   画面シェイク
+   ========================================= */
+.pb-screen-shake { animation: screenShake 0.4s ease-out; }
+@keyframes screenShake { 0%{transform:translate(0,0)} 10%{transform:translate(-4px,2px)} 20%{transform:translate(4px,-2px)} 30%{transform:translate(-3px,3px)} 40%{transform:translate(3px,-1px)} 50%{transform:translate(-2px,1px)} 100%{transform:translate(0,0)} }
+
+/* =========================================
+   下部バー
+   ========================================= */
+.pb-bottom-bar {
+    padding: 5px 16px;
+    padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px));
+    background: #000; border-top: 2px solid #333; flex-shrink: 0;
+}
+.pb-exp-info { display: flex; justify-content: space-between; font-size: 13px; color: #aaa; font-weight: bold; }
+
+/* =========================================
+   結果オーバーレイ
+   ========================================= */
+.pb-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); display: flex; align-items: center;
+    justify-content: center; z-index: 500; opacity: 0; transition: opacity 0.3s;
+}
+.pb-overlay.show { opacity: 1; }
+.pb-result-box {
+    background: linear-gradient(135deg, #1a1a2e, #16213e); border: 2px solid #ffd700;
+    border-radius: 16px; padding: 30px 24px; text-align: center;
+    max-width: 300px; width: 85%; box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    animation: pbPopIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes pbPopIn { 0%{transform:scale(0.7);opacity:0} 100%{transform:scale(1);opacity:1} }
+.pb-result-title { font-size: 28px; font-weight: 900; margin-bottom: 16px; text-shadow: 0 2px 4px #000; }
+.pb-result-win { color: #ffd700; }
+.pb-result-lose { color: #ff4444; }
+.pb-result-rewards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.pb-result-item { font-size: 14px; color: #ddd; background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 6px; border: 1px solid #333; }
+.pb-result-special { color: #ffdd44 !important; border-color: #ffdd44 !important; background: rgba(255,221,68,0.1) !important; }
+.pb-result-bonus { color: #aa88ff !important; border-color: #aa44ff !important; background: rgba(170,68,255,0.1) !important; font-size: 12px; }
+.pb-result-btn {
+    width: 100%; padding: 14px; background: linear-gradient(135deg, #0055aa, #003388);
+    color: #fff; font-size: 16px; font-weight: 900; letter-spacing: 2px;
+    border: 2px solid #4488ff; border-radius: 8px; cursor: pointer; transition: all 0.2s;
+}
+.pb-result-btn:active { transform: scale(0.95); background: linear-gradient(135deg, #003388, #002266); }
+
+/* =========================================
+   レスポンシブ
+   ========================================= */
+@media (max-height: 600px) {
+    .sg-game-area.pb-battle-mode { height: 28%; min-height: 110px; }
+    .pb-enemy-sprite { font-size: 36px; }
+    .pb-panel-icon { font-size: min(6vw, 26px); }
+}
+@media (min-height: 800px) {
+    .sg-game-area.pb-battle-mode { height: 38%; max-height: 280px; }
+}
+@media (min-width: 500px) {
+    .pb-grid { max-width: 400px; }
+}

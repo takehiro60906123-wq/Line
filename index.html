@@ -27,6 +27,7 @@
 <link rel="stylesheet" href="style-gacha.css">
 <link rel="stylesheet" href="style-battle.css">
 <link rel="stylesheet" href="style-sugoroku.css">
+<link rel="stylesheet" href="style-panel-battle.css">
 <link rel="stylesheet" href="style-formation.css">
 
 <link rel="icon" href="data:,">
@@ -145,6 +146,8 @@
 <script src="scene_gacha.js"></script>
 <script src="scene_zukan.js"></script>
 <script src="data_sugoroku_stages.js"></script> 
+<script src="scene_panel_battle.js"></script>
+<script src="panel_battle_ui.js"></script>
 <script src="scene_sugoroku.js"></script>
 <script src="sugoroku_ui.js"></script>
 <script src="main.js"></script>
@@ -195,8 +198,8 @@
         </button>
         
         <button class="btn-quest-big" onclick="goToSugoroku()">
-            <div class="qb-icon">🎲</div>
-            <div class="qb-text">双六</div>
+            <div class="qb-icon">⚔</div>
+            <div class="qb-text">クエスト</div>
         </button>
     </div>
     <div style="text-align:center; margin-top:20px; padding-bottom:80px;">
@@ -426,26 +429,32 @@
 
 <div id="screen-sugoroku" class="screen">
     <div class="header-bar">
-        <button class="btn-back" onclick="goHome()">🏠</button>
-        <span class="header-title">東海道双六</span>
+        <button class="btn-back" id="sg-home-btn">🏠</button>
+        <span class="header-title" id="sg-stage-title">クエスト</span>
     </div>
 
     <div class="sg-container">
-        <div class="sg-scroll-area">
-            <div id="sugoroku-track" class="sg-track"></div>
+        <div id="game-area" class="sg-game-area">
+            <div id="char-container" class="sg-char-container">
+                <div id="char-visual" class="sg-char-visual"></div>
+            </div>
         </div>
 
-        <div class="sg-ctrl-panel">
-            <div class="sg-info-box">
-                <div id="sg-msg-log" class="sg-log"></div>
+        <div id="sg-msg-bar" class="sg-msg-bar">
+            <div id="sg-msg-log" class="sg-log"></div>
+        </div>
+
+        <div id="sg-progress-bar" class="sg-progress-bar">
+            <div class="sg-progress-label">
+                <span id="sg-progress-text">0 / 0</span>
             </div>
-            <div class="sg-dice-box">
-                <div id="sg-dice-val" class="sg-remain">残り: --回</div>
-                <div id="sg-dice-visual" class="sg-dice">🎲</div>
-                <button class="btn-red sg-roll-btn" onclick="app.sugorokuScreen.rollDice()">サイコロを振る</button>
+            <div class="sg-progress-track">
+                <div id="sg-progress-fill" class="sg-progress-fill" style="width:0%"></div>
             </div>
         </div>
     </div>
+
+    <div id="sg-overlay" class="sg-overlay" style="display:none;"></div>
 </div>
 
 <script src="scene_tower.js"></script>
