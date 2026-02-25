@@ -30,7 +30,7 @@ const SUGOROKU_STAGES = {
               resistPhys:0, resistMagic:0,
               pattern:[{turn:'every',action:'attack',power:1.0,label:'体当たり'}],
               expBase:20, goldBase:40 },
-            { id:'bee', name:'キラービー', emoji:'🐝', hp:60, atk:15,
+             { id:'bee', name:'キラービー', emoji:'🐝', hp:60, atk:15, actionInterval:1,
               resistPhys:-0.2, resistMagic:0.2,
               pattern:[{turn:'every',action:'attack',power:1.0,label:'針刺し'}],
               expBase:18, goldBase:35 }

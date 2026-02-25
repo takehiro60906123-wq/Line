@@ -689,8 +689,8 @@ class SugorokuUI {
     // ========================================
     closeGambleUI() {
         return new Promise(resolve => {
-           const area = document.getElementById('game-area') || document.getElementById('screen-sugoroku');
-            if (!area) { resolve(); return; }
+           const ov = document.getElementById('sg-overlay');
+            if (!ov) { resolve(); return; }
             
             ov.classList.remove('show');
             setTimeout(() => {

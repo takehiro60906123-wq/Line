@@ -32,8 +32,8 @@ class MapSelectScreen {
             const maxCleared = (app.data && app.data.maxClearedStage) ? app.data.maxClearedStage : 0;
             const currentSlots = (app.data && app.data.maxSlots) ? app.data.maxSlots : 4;
             
-            // ロック・クリア判定
-            const isLocked = id > (maxCleared + 1);
+             // すべてのステージを常時解放（ジム挑戦型）
+            const isLocked = false;
             const isCleared = id <= maxCleared; // クリア済みかどうか
 
             const div = document.createElement('div');

@@ -12,60 +12,9 @@ const PANEL_TYPES = {
     chick:   { id: 'chick',   icon: '🎫', label: 'チケット',   color: '#ffdd44', weight: 4 },
     diamond: { id: 'diamond', icon: '💎', label: 'ダイア',     color: '#66e0ff', weight: 2 }
 };
+const MAX_CHICK_PANELS_ON_BOARD = 2;
 
-const PANEL_ENEMIES = [
-    {
-        id: 'slime', name: 'スライム', emoji: '🟢',
-        hp: 80, atk: 12, resistPhys: 0.0, resistMagic: 0.0,
-        pattern: [{ turn: 'every', action: 'attack', power: 1.0, label: '体当たり' }],
-        expBase: 20, goldBase: 40
-    },
-    {
-        id: 'goblin', name: 'ゴブリン', emoji: '👺',
-        hp: 120, atk: 18, resistPhys: 0.0, resistMagic: 0.3,
-        pattern: [
-            { turn: 'every', action: 'attack', power: 1.0, label: '斬りつけ' },
-            { turn: 4, action: 'heavy', power: 2.5, label: '渾身の一撃' }
-        ],
-        expBase: 35, goldBase: 60
-    },
-    {
-        id: 'skeleton', name: 'スケルトン', emoji: '💀',
-        hp: 100, atk: 22, resistPhys: 0.5, resistMagic: -0.3,
-        pattern: [
-            { turn: 'every', action: 'attack', power: 1.0, label: '骨撃ち' },
-            { turn: 3, action: 'heavy', power: 2.0, label: '骨旋風' }
-        ],
-        expBase: 40, goldBase: 70
-    },
-    {
-        id: 'mage', name: 'ダークメイジ', emoji: '🧙',
-        hp: 90, atk: 25, resistPhys: -0.3, resistMagic: 0.5,
-        pattern: [
-            { turn: 'every', action: 'attack', power: 0.8, label: '闇の弾' },
-            { turn: 5, action: 'heavy', power: 3.0, label: 'メテオ' }
-        ],
-        expBase: 45, goldBase: 80
-    },
-    {
-        id: 'golem', name: 'ゴーレム', emoji: '🗿',
-        hp: 200, atk: 15, resistPhys: 0.4, resistMagic: 0.0,
-        pattern: [
-            { turn: 'every', action: 'attack', power: 1.0, label: '岩拳' },
-            { turn: 4, action: 'heavy', power: 2.8, label: '大地震' }
-        ],
-        expBase: 50, goldBase: 90
-    },
-    {
-        id: 'dragon_baby', name: 'ドラゴンパピー', emoji: '🐉',
-        hp: 150, atk: 20, resistPhys: 0.2, resistMagic: 0.2,
-        pattern: [
-            { turn: 'every', action: 'attack', power: 1.0, label: '噛みつき' },
-            { turn: 3, action: 'heavy', power: 2.2, label: 'ブレス' }
-        ],
-        expBase: 55, goldBase: 100
-    }
-];
+const PANEL_ENEMIES = (typeof PANEL_BATTLE_ENEMIES !== 'undefined' && Array.isArray(PANEL_BATTLE_ENEMIES)) ? PANEL_BATTLE_ENEMIES : [];
 
 class PanelBattleScreen {
     constructor() {
@@ -81,6 +30,8 @@ class PanelBattleScreen {
         this.turnCount = 0;
         this.enemyActionCounter = 0;
         this.enemyActionInterval = 3;
+        this.enemyPhysDamageCap = null;
+        this.enemyMagicDamageCap = null;
         this.earnedExp = 0;
         this.earnedGold = 0;
         this.earnedCoins = 0;
@@ -89,6 +40,7 @@ class PanelBattleScreen {
         this.isProcessing = false;
         this.onEndCallback = null;
         this._chickGot = false;
+        this._chickRewards = [];
        this._panelWeights = this._buildPanelWeights(0);
         this._totalWeight = this._panelWeights.reduce((sum, p) => sum + p.weight, 0);
     }
@@ -103,15 +55,19 @@ class PanelBattleScreen {
         this.playerMaxHp = playerStats.maxHp || 200;
         this.playerBaseAtk = playerStats.atk || 30;
         this.turnCount = 0;
+        this.enemyActionInterval = Math.max(1, Math.floor(this.enemy.actionInterval || 3));
         this.enemyActionCounter = this.enemyActionInterval;
         this.earnedExp = 0;
         this.earnedGold = 0;
         this.earnedCoins = 0;
         this.earnedGems = 0;
         this.monsterLvBonus = 0;
+        this.enemyPhysDamageCap = null;
+        this.enemyMagicDamageCap = null;
         this.isActive = true;
         this.isProcessing = false;
         this._chickGot = false;
+        this._chickRewards = [];
         this.onEndCallback = onEnd;
         const monsterPanelBonus = Math.max(0, options.monsterPanelBonus || 0);
         this._panelWeights = this._buildPanelWeights(monsterPanelBonus);
@@ -180,12 +136,27 @@ class PanelBattleScreen {
     }
 
     _randomPanel() {
-        let roll = Math.random() * this._totalWeight;
-        for (const p of this._panelWeights) {
+        const chickCount = this._countPanelsByType('chick');
+        const lockChick = chickCount >= MAX_CHICK_PANELS_ON_BOARD;
+        const pool = lockChick ? this._panelWeights.filter(p => p.id !== 'chick') : this._panelWeights;
+        const totalWeight = pool.reduce((sum, p) => sum + p.weight, 0);
+
+        let roll = Math.random() * Math.max(1, totalWeight);
+        for (const p of pool) {
             roll -= p.weight;
             if (roll <= 0) return { type: p.id, removing: false };
         }
         return { type: 'sword', removing: false };
+    }
+
+    _countPanelsByType(type) {
+        let count = 0;
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                if (this.grid[r][c] && this.grid[r][c].type === type) count++;
+            }
+        }
+        return count;
     }
 
     // ========================================
@@ -198,8 +169,7 @@ class PanelBattleScreen {
         this.isProcessing = true;
         const type = panel.type;
 
-        if (type === 'lvup') { this.isProcessing = false; return; }
-
+      
         const chain = this.findChain(row, col, type);
         if (chain.length === 0) { this.isProcessing = false; return; }
 
@@ -209,7 +179,8 @@ class PanelBattleScreen {
         const allRemoving = [...chain, ...killedLvUps];
 
         await this.ui.animatePanelRemove(allRemoving);
-        this.applyPanelEffect(type, chain.length, killedLvUps.length);
+        const effectDelayMs = this.applyPanelEffect(type, chain.length, killedLvUps.length);
+        if (effectDelayMs > 0) await this.sleep(effectDelayMs);
 
         for (const pos of allRemoving) this.grid[pos.row][pos.col] = null;
 
@@ -281,6 +252,7 @@ class PanelBattleScreen {
     // ========================================
     applyPanelEffect(type, chainCount, killedLvUpCount) {
         const cc = chainCount;
+        let waitMs = 0;
         switch (type) {
             case 'sword': {
                  const resist = (this.enemy.resistPhys || 0);
@@ -289,9 +261,13 @@ class PanelBattleScreen {
                 for (let i = 0; i < hitCount; i++) {
                     let hitDmg = Math.floor(perHitBase * (1 - resist));
                     hitDmg = Math.max(1, hitDmg);
+                    hitDmg = this._applyEnemyDamageCap('physical', hitDmg);
                     this.enemy.hp = Math.max(0, this.enemy.hp - hitDmg);
                     this.ui.showDamageToEnemy(hitDmg, 'physical', 1, i);
                     if (this.enemy.hp <= 0) break;
+                }
+                if (killedLvUpCount > 0) {
+                    this._applyMonsterLvUp(killedLvUpCount);
                 }
                 if (app && app.sound) app.sound.play('se_attack');
                 break;
@@ -303,6 +279,7 @@ class PanelBattleScreen {
                 for (let i = 0; i < hitCount; i++) {
                     let hitDmg = Math.floor(perHitBase * (1 - resist));
                     hitDmg = Math.max(1, hitDmg);
+                    hitDmg = this._applyEnemyDamageCap('magic', hitDmg);
                     this.enemy.hp = Math.max(0, this.enemy.hp - hitDmg);
                        this.ui.showDamageToEnemy(hitDmg, 'magic', 1, i);
                     if (this.enemy.hp <= 0) break;
@@ -331,16 +308,67 @@ class PanelBattleScreen {
                 break;
             }
             case 'chick': {
-                const rate = Math.min(0.8, 0.15 * cc);
-                if (Math.random() < rate) {
-                    this.ui.showChickGet(cc);
+                  const pulls = Math.max(1, cc);
+                const got = [];
+                if (app && app.data && typeof DB !== 'undefined' && Array.isArray(DB) && DB.length > 0) {
+                    for (let i = 0; i < pulls; i++) {
+                        const base = (app.gachaScreen && typeof app.gachaScreen.spin === 'function')
+                            ? app.gachaScreen.spin()
+                            : DB[Math.floor(Math.random() * DB.length)];
+                        if (!base || !base.id) continue;
+                        app.data.addUnit(base.id, true);
+                        got.push({ id: base.id, name: base.name, cost: base.cost });
+                    }
+                }
+                if (got.length > 0) {
+                    this._chickRewards.push(...got);
                     this._chickGot = true;
+                    this.ui.showChickGet(cc);
+                     waitMs = Math.max(waitMs, this.ui.showChickRewards(got));
+                    if (app && app.sound) app.sound.play('sys_gacha_open');
                 } else {
                     this.ui.showChickMiss(cc);
                 }
                 break;
             }
+            case 'lvup': {
+                this._applyMonsterLvUp(cc);
+                if (app && app.sound) app.sound.play('se_attack');
+                break;
+            }
         }
+        return waitMs;
+    }
+
+       _applyMonsterLvUp(count) {
+        const stacks = Math.max(0, Math.floor(count));
+        if (stacks <= 0) return;
+        for (let i = 0; i < stacks; i++) {
+            this.enemy.atk = Math.floor(this.enemy.atk * 1.1);
+            this.enemy.hp = Math.min(this.enemyMaxHp, this.enemy.hp + Math.floor(this.enemyMaxHp * 0.05));
+           this.enemy.level = Math.max(1, Math.floor((this.enemy.level || this.enemy.lv || 1) + 1)); 
+            this.monsterLvBonus++;
+        }
+        this.ui.showEnemyLvUp(stacks);
+    }
+
+   
+
+       _applyEnemyDamageCap(kind, damage) {
+        const cap = kind === 'physical' ? this.enemyPhysDamageCap : this.enemyMagicDamageCap;
+        if (!Number.isFinite(cap)) return damage;
+        return Math.max(1, Math.min(damage, cap));
+    }
+
+    _clearEnemyStance() {
+        this.enemyPhysDamageCap = null;
+        this.enemyMagicDamageCap = null;
+    }
+
+    _setEnemyStance(action) {
+        this._clearEnemyStance();
+        if (action === 'guard_phys') this.enemyPhysDamageCap = 1;
+        if (action === 'guard_magic') this.enemyMagicDamageCap = 1;
     }
 
     // ========================================
@@ -387,12 +415,7 @@ class PanelBattleScreen {
     async doEnemyTurn() {
         const lvUpCount = this._countLvUpPanels();
         if (lvUpCount > 0) {
-            for (let i = 0; i < lvUpCount; i++) {
-                this.enemy.atk = Math.floor(this.enemy.atk * 1.1);
-                this.enemy.hp = Math.min(this.enemyMaxHp, this.enemy.hp + Math.floor(this.enemyMaxHp * 0.05));
-                this.monsterLvBonus++;
-            }
-            this.ui.showEnemyLvUp(lvUpCount);
+             this._applyMonsterLvUp(lvUpCount);
             await this.sleep(600);
         }
 
@@ -402,6 +425,22 @@ class PanelBattleScreen {
         }
         if (!action) action = this.enemy.pattern.find(p => p.turn === 'every') || { action: 'attack', power: 1.0, label: '攻撃' };
 
+         this._setEnemyStance(action.action);
+
+        if (action.action === 'guard_phys' || action.action === 'guard_magic') {
+            await this.ui.showEnemyAction(action.label || '防御態勢', '#8bd3ff');
+            return;
+        }
+
+        if (action.action === 'drain') {
+            const dmg = Math.max(1, Math.floor(this.enemy.atk * (action.power || 1.0)));
+            this.playerHp = Math.max(0, this.playerHp - dmg);
+            const heal = Math.max(1, Math.floor(dmg * (action.healRate || 0.5)));
+            this.enemy.hp = Math.min(this.enemyMaxHp, this.enemy.hp + heal);
+            await this.ui.animateEnemyAttack(dmg, action.label || '吸血攻撃');
+            this.ui.showEnemyAction(`+${heal} HP`, '#77ff77');
+            return;
+        }
         const dmg = Math.max(1, Math.floor(this.enemy.atk * (action.power || 1.0)));
         this.playerHp = Math.max(0, this.playerHp - dmg);
         await this.ui.animateEnemyAttack(dmg, action.label || '攻撃');
@@ -419,7 +458,7 @@ class PanelBattleScreen {
     // バトル終了
     // ========================================
     endBattle(isWin) {
-        let rewards = { isWin, exp: 0, gold: 0, coins: this.earnedCoins, gems: this.earnedGems, chickGot: this._chickGot, monsterLvBonus: this.monsterLvBonus, guaranteedPanels: [] };
+        let rewards = { isWin, exp: 0, gold: 0, coins: this.earnedCoins, gems: this.earnedGems, chickGot: this._chickGot, chickRewards: this._chickRewards.slice(), monsterLvBonus: this.monsterLvBonus, guaranteedPanels: [] };
         if (isWin) {
             const lvMul = 1 + this.monsterLvBonus * 0.15;
             rewards.exp = Math.floor((this.enemy.expBase || 30) * lvMul);
@@ -450,6 +489,7 @@ class PanelBattleScreen {
         if (!this._hasValidGrid() || !Array.isArray(panelTypes) || panelTypes.length === 0) return;
         for (const type of panelTypes) {
             if (!PANEL_TYPES[type]) continue;
+            if (type === 'chick' && this._countPanelsByType('chick') >= MAX_CHICK_PANELS_ON_BOARD) continue;
             const candidates = [];
             for (let r = 0; r < this.rows; r++) {
                 for (let c = 0; c < this.cols; c++) {

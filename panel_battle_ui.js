@@ -3,6 +3,30 @@
  * 上部: 既存パララックス背景 + キャラ + 敵スプライト + HPバー
  * 下部: 6×6パネルグリッド + ターンカウンター + EXP表示
  */
+function createEnemyAnchorTextElement(text, className, color, order = 0) {
+    const layer = document.getElementById('pb-effect-layer');
+    const enemyArea = document.getElementById('pb-enemy-area');
+    if (!layer || !enemyArea) return null;
+
+    const layerRect = layer.getBoundingClientRect();
+    const enemyRect = enemyArea.getBoundingClientRect();
+    const spriteEl = document.getElementById('pb-enemy-sprite');
+    const targetBox = spriteEl ? spriteEl.getBoundingClientRect() : enemyRect;
+
+    const el = document.createElement('div');
+    el.className = `pb-floating-text pb-result-pop ${className || ''}`;
+    el.textContent = text;
+    if (color) el.style.color = color;
+
+    const popupX = targetBox.left - layerRect.left + targetBox.width * 0.5;
+    const popupY = targetBox.top - layerRect.top - 12 + order * 4;
+    const x = Math.max(20, Math.min(layerRect.width - 20, popupX));
+    const y = Math.max(20, Math.min(layerRect.height - 20, popupY));
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    return el;
+}
+
 class PanelBattleUI {
     constructor(controller) {
         this.ctrl = controller;
@@ -106,7 +130,9 @@ class PanelBattleUI {
         const counterBox = document.getElementById('pb-enemy-counter');
         if (!counterBox) return;
         counterBox.classList.remove('pb-counter-warn', 'pb-counter-danger');
-        counterBox.textContent = text || '移動中';
+         const label = text || '移動中';
+        counterBox.textContent = label;
+        this._renderEnemyFootCounter(label);
     }
 
     setEnemyHudMoving(isMoving) {
@@ -114,6 +140,13 @@ class PanelBattleUI {
         const walkLabel = document.getElementById('pb-enemy-walk-label');
         if (enemyArea) enemyArea.classList.toggle('pb-enemy-moving', !!isMoving);
         if (walkLabel) walkLabel.style.display = isMoving ? 'block' : 'none';
+    }
+
+     _renderEnemyFootCounter(labelText) {
+        const footCounter = document.getElementById('pb-enemy-foot-counter');
+        if (!footCounter) return;
+
+        footCounter.textContent = labelText || '';
     }
 
     renderQuestGrid(gridState = null) {
@@ -129,7 +162,7 @@ class PanelBattleUI {
                     const pType = panel && PANEL_TYPES[panel.type] ? PANEL_TYPES[panel.type] : PANEL_TYPES.sword;
                     const cell = document.createElement('div');
                     cell.className = `pb-panel pb-panel-${pType.id} pb-panel-locked`;
-                    cell.innerHTML = `<span class="pb-panel-icon">${pType.icon}</span>`;
+                    this._setPanelVisual(cell, pType);
                     gridEl.appendChild(cell);
                 }
             }
@@ -139,7 +172,7 @@ class PanelBattleUI {
         for (let i = 0; i < 36; i++) {
             const cell = document.createElement('div');
             cell.className = 'pb-panel pb-panel-sword pb-panel-locked';
-            cell.innerHTML = '<span class="pb-panel-icon">⚔</span>';
+            this._setPanelVisual(cell, PANEL_TYPES.sword);
             gridEl.appendChild(cell);
         }
     }
@@ -155,6 +188,7 @@ class PanelBattleUI {
         hud.innerHTML = `
             <div class="pb-enemy-area" id="pb-enemy-area" role="button" aria-label="敵詳細を表示" aria-expanded="false" tabindex="0">
                 <div class="pb-enemy-sprite" id="pb-enemy-sprite">🟢</div>
+                <div class="pb-enemy-foot-counter" id="pb-enemy-foot-counter" aria-live="polite">敵攻撃まで あと 3</div>
                 <div class="pb-enemy-hud-box">
                   <div class="pb-enemy-basic">
                         <div class="pb-enemy-name" id="pb-enemy-name">スライム</div>
@@ -172,6 +206,7 @@ class PanelBattleUI {
                  
                 </div>
             </div>
+
            
             <div class="pb-effect-layer" id="pb-effect-layer"></div>
         `;
@@ -293,24 +328,56 @@ class PanelBattleUI {
         if (fill) fill.style.width = `${pct}%`;
     }
 
-    renderTurnInfo(turnCount, counterLeft) {
-        const turnEl = document.getElementById('pb-turn-num');
-        const counterEl = document.getElementById('pb-counter-num');
-        const counterBox = document.getElementById('pb-enemy-counter');
-        if (turnEl) turnEl.textContent = turnCount;
-        if (counterEl) counterEl.textContent = counterLeft;
-        if (counterBox) {
-            counterBox.classList.remove('pb-counter-warn', 'pb-counter-danger');
-            if (counterLeft <= 1) counterBox.classList.add('pb-counter-danger');
-            else if (counterLeft <= 2) counterBox.classList.add('pb-counter-warn');
-        }
+   renderTurnInfo(turnCount, counterLeft) {
+    const safeCounter = Number.isFinite(Number(counterLeft)) ? Number(counterLeft) : 0;
+    const turnEl = document.getElementById('pb-turn-num');
+    const counterEl = document.getElementById('pb-counter-num');
+    const counterBox = document.getElementById('pb-enemy-counter');
+    if (turnEl) turnEl.textContent = turnCount;
+    if (counterEl) counterEl.textContent = safeCounter;
+
+    const isDanger = safeCounter <= 1;
+    const isWarn = !isDanger && safeCounter <= 2;
+    if (counterBox) {
+        counterBox.classList.remove('pb-counter-warn', 'pb-counter-danger');
+        if (isDanger) counterBox.classList.add('pb-counter-danger');
+        else if (isWarn) counterBox.classList.add('pb-counter-warn');
     }
+
+   this._renderEnemyFootCounter(`敵攻撃まで あと ${safeCounter}`);
+}
+
 
     renderBottomInfo(exp, coins) {
         const expEl = document.getElementById('pb-earned-exp');
         const coinEl = document.getElementById('pb-earned-coins');
         if (expEl) expEl.textContent = exp;
         if (coinEl) coinEl.textContent = coins;
+    }
+
+
+    _setPanelVisual(cell, pType) {
+        if (!cell || !pType) return;
+        const iconEl = document.createElement('span');
+        iconEl.className = 'pb-panel-icon';
+        iconEl.textContent = pType.icon || '⚔';
+
+        if (pType.image) {
+            cell.classList.add('pb-panel-has-art');
+            const imgEl = document.createElement('img');
+            imgEl.className = 'pb-panel-art';
+            imgEl.src = pType.image;
+            imgEl.alt = pType.label || pType.id || 'panel';
+            imgEl.loading = 'lazy';
+            iconEl.style.display = 'none';
+            imgEl.addEventListener('error', () => {
+                imgEl.remove();
+                iconEl.style.display = '';
+            }, { once: true });
+            cell.appendChild(imgEl);
+        }
+
+        cell.appendChild(iconEl);
     }
 
     renderGrid(grid) {
@@ -327,7 +394,7 @@ class PanelBattleUI {
                 if (panel) {
                     const pType = PANEL_TYPES[panel.type];
                     cell.classList.add(`pb-panel-${panel.type}`);
-                    cell.innerHTML = `<span class="pb-panel-icon">${pType.icon}</span>`;
+                    this._setPanelVisual(cell, pType);
                     const dropSteps = Math.max(0, Number(panel.dropSteps) || 0);
                     if (dropSteps > 0) {
                         cell.classList.add('pb-panel-dropping');
@@ -365,7 +432,7 @@ class PanelBattleUI {
         const duration = 220 + Math.min(260, maxDropSteps * 45);
         return new Promise(resolve => setTimeout(resolve, duration));
     }
-showDamageToEnemy(dmg, type, chainCount, hitIndex = 0) {
+ showDamageToEnemy(dmg, type, chainCount, hitIndex = 0) {
        
          const delay = Math.max(0, (hitIndex || 0) * 140);
         setTimeout(() => {
@@ -378,10 +445,8 @@ showDamageToEnemy(dmg, type, chainCount, hitIndex = 0) {
                 if (spriteEl) { spriteEl.classList.add('pb-enemy-hit'); setTimeout(() => spriteEl.classList.remove('pb-enemy-hit'), 220); }
                 this._spawnHitEffect(type, hitIndex);
 
-                const el = document.createElement('div');
-                el.className = 'pb-floating-text pb-dmg-text';
-                el.textContent = `${dmg}`;
-                el.style.top = `${20 + Math.min(28, (hitIndex || 0) * 5)}%`;
+                const el = createEnemyAnchorTextElement(`${dmg}`, 'pb-dmg-text', null, hitIndex);
+                if (!el) return;
                 layer.appendChild(el);
                 setTimeout(() => el.remove(), 1200);
             };
@@ -401,10 +466,44 @@ showDamageToEnemy(dmg, type, chainCount, hitIndex = 0) {
     showChickGet() { this._showFloatingText(`🎫 GET!`, 'pb-chick-text', '#ffdd44'); }
     showChickMiss() { this._showFloatingText(`🐤 ...`, 'pb-chick-miss', '#888'); }
 
+
+     showChickRewards(units = []) {
+        if (!Array.isArray(units) || units.length === 0) return 0;
+       
+        const layer = document.getElementById('pb-effect-layer');
+        if (!layer) return;
+
+        const queue = units.slice(0, 3).map(unit => {
+            const name = unit && unit.name ? unit.name : '???';
+           
+            return `🎉 ${name} 入手!`;
+        });
+        
+        if (units.length > 3) queue.push(`+${units.length - 3} 体`);
+
+        const slotMs = 2100; // 2秒表示 + 少しの間隔
+        queue.forEach((text, idx) => {
+            setTimeout(() => {
+              
+                const el = document.createElement('div');
+                el.className = 'pb-floating-text pb-chick-reward-text';
+                el.textContent = text;
+                el.style.color = '#ffef8a';
+                layer.appendChild(el);
+                setTimeout(() => el.remove(), 2000);
+            }, idx * slotMs);
+        });
+        return (queue.length - 1) * slotMs + 2000;
+    }
     showEnemyLvUp(count) {
         const spriteEl = document.getElementById('pb-enemy-sprite');
         if (spriteEl) { spriteEl.classList.add('pb-enemy-lvup'); setTimeout(() => spriteEl.classList.remove('pb-enemy-lvup'), 600); }
-        this._showFloatingText(`😈 敵Lv UP ×${count}!`, 'pb-lvup-text', '#aa44ff');
+        this._showEnemyPopupText(`😈 敵Lv UP ×${count}!`, 'pb-lvup-text', '#aa44ff');
+    }
+
+     showEnemyAction(text, color = '#8bd3ff') {
+        this._showFloatingText(text, 'pb-enemy-atk-label', color);
+        return new Promise(resolve => setTimeout(resolve, 500));
     }
 
     animateEnemyAttack(dmg, label) {
@@ -493,7 +592,7 @@ showDamageToEnemy(dmg, type, chainCount, hitIndex = 0) {
     // ========================================
     _showFloatingText(text, className, color) {
         const layer = document.getElementById('pb-effect-layer');
-        if (!layer) return;
+        if (!layer) return 0;
         const el = document.createElement('div');
         el.className = `pb-floating-text ${className || ''}`;
         el.textContent = text;
@@ -501,32 +600,22 @@ showDamageToEnemy(dmg, type, chainCount, hitIndex = 0) {
         layer.appendChild(el);
         setTimeout(() => el.remove(), 1200);
     }
-     _showEnemyPopupText(text, className, color, order = 0) {
+     _createEnemyAnchorText(text, className, color, order = 0) {
+        return createEnemyAnchorTextElement(text, className, color, order);
+    }
+
+    _showEnemyPopupText(text, className, color, order = 0) {
         const layer = document.getElementById('pb-effect-layer');
-        const enemyArea = document.getElementById('pb-enemy-area');
-        if (!layer || !enemyArea) {
+        const el = createEnemyAnchorTextElement(text, className, color, order);
+        if (!layer || !el) {
             this._showFloatingText(text, className, color);
             return;
         }
-        const layerRect = layer.getBoundingClientRect();
-        const enemyRect = enemyArea.getBoundingClientRect();
-        const spriteEl = document.getElementById('pb-enemy-sprite');
-const targetBox = spriteEl ? spriteEl.getBoundingClientRect() : enemyRect;
-         const aim = {
-            x: targetBox.left - layerRect.left + targetBox.width * 0.5,
-            y: targetBox.top - layerRect.top + targetBox.height * 0.56
-        };
-        const el = document.createElement('div');
-        el.className = `pb-floating-text pb-result-pop ${className || ''}`;
-        el.textContent = text;
-        if (color) el.style.color = color;
-        el.style.left = `${Math.max(20, enemyRect.left - layerRect.left + enemyRect.width * 0.5)}px`;
-        el.style.top = `${Math.max(24, enemyRect.top - layerRect.top + enemyRect.height * 0.3 + order * 4)}px`;
         layer.appendChild(el);
         setTimeout(() => el.remove(), 1400);
     }
 
-     _spawnMagicBullet(hitIndex = 0, onHit) {
+    _spawnMagicBullet(hitIndex = 0, onHit) {
         const layer = document.getElementById('pb-effect-layer');
         const enemyArea = document.getElementById('pb-enemy-area');
         if (!layer || !enemyArea) {
@@ -536,12 +625,18 @@ const targetBox = spriteEl ? spriteEl.getBoundingClientRect() : enemyRect;
 
         const layerRect = layer.getBoundingClientRect();
         const enemyRect = enemyArea.getBoundingClientRect();
+        const spriteEl = document.getElementById('pb-enemy-sprite');
+        const targetBox = spriteEl ? spriteEl.getBoundingClientRect() : enemyRect;
+        const aim = {
+            x: targetBox.left - layerRect.left + targetBox.width * 0.5,
+            y: targetBox.top - layerRect.top + targetBox.height * 0.56 + Math.min(10, hitIndex * 2)
+        };
 
         const bulletSize = 28;
         const half = bulletSize * 0.5;
         const startX = Math.max(18, layerRect.width * 0.26) - half;
         const startY = Math.max(24, layerRect.height * 0.62 - Math.min(16, hitIndex * 3)) - half;
-       const endX = aim.x - half;
+        const endX = aim.x - half;
         const endY = aim.y - half;
         const bullet = document.createElement('div');
         bullet.className = 'pb-magic-bullet';

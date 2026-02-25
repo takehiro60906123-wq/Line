@@ -67,13 +67,14 @@
 /* --- 敵エリア（右側に配置） --- */
 .pb-enemy-area {
     position: absolute;
-    right: -18px;
+    right: max(8px, env(safe-area-inset-right));
     bottom: 18%;
     display: flex;
    align-items: flex-end;
     gap: 8px;
     pointer-events: auto;
     cursor: pointer;
+    max-width: calc(100% - 16px);
 }
 
 .pb-enemy-sprite {
@@ -86,6 +87,24 @@
 @keyframes enemyHitShake { 0%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} 100%{transform:translateX(0)} }
 .pb-enemy-lvup { animation: enemyLvUpGlow 0.6s ease-out; }
 @keyframes enemyLvUpGlow { 0%{filter:drop-shadow(0 0 0 transparent);transform:scale(1)} 50%{filter:drop-shadow(0 0 20px #aa44ff);transform:scale(1.2)} 100%{filter:drop-shadow(0 0 0 transparent);transform:scale(1)} }
+
+
+.pb-enemy-foot-counter {
+    position: absolute;
+    left: 6px;
+    bottom: -20px;
+    z-index: 6;
+    pointer-events: none;
+    font-size: 15px;
+    font-weight: 900;
+    color: #fff;
+   background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9);
+    white-space: nowrap;
+}
 
 .pb-enemy-hud-box {
     min-width: 150px;
@@ -340,7 +359,7 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
     display: grid;
     grid-template-columns: repeat(6, 1fr);
     grid-template-rows: repeat(6, 1fr);
-    gap: 2px;
+    gap: 0px;
     width: 100%;
     aspect-ratio: 1/1;
     max-height: 100%;
@@ -352,6 +371,11 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
     cursor: pointer; transition: transform 0.1s, opacity 0.2s;
     overflow: hidden; border: 1px solid rgba(255,255,255,0.08);
     -webkit-tap-highlight-color: transparent;
+}
+
+.pb-panel.pb-panel-has-art {
+    background: transparent;
+    border-color: transparent;
 }
 .pb-panel:active { transform: scale(0.9); }
 
@@ -366,7 +390,54 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
 }
 .pb-panel-icon { font-size: min(7vw, 32px); filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); pointer-events: none; }
 
-/* パネル色 */
+.pb-panel-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; transform: scale(1.22); transform-origin: center; display: block; pointer-events: none; }
+/* 低負荷なキラン演出（パネル本体は動かさない） */
+.pb-panel-has-art::before {
+    content: "";
+    position: absolute;
+     inset: -45%;
+    pointer-events: none;
+    background: linear-gradient(120deg,
+        rgba(255,255,255,0) 0%,
+        rgba(255,255,255,0.0) 42%,
+        rgba(255,255,255,0.32) 50%,
+        rgba(255,255,255,0.0) 58%,
+        rgba(255,255,255,0) 100%);
+    transform: translate3d(-155%, 0, 0) rotate(8deg);
+    opacity: 0;
+      mix-blend-mode: screen;
+    will-change: transform, opacity;
+    animation: pbPanelKiranSweep 8s ease-out infinite;
+}
+.pb-panel-has-art.pb-panel-diamond::before { animation-delay: -2.2s; }
+.pb-panel-has-art.pb-panel-lvup::before { animation-delay: -4.4s; }
+.pb-panel-has-art.pb-panel-magic::before { animation-delay: -6.0s; }
+@keyframes pbPanelKiranSweep {
+    0%, 72% {
+        opacity: 0;
+        transform: translate3d(-155%, 0, 0) rotate(8deg);
+    }
+    78% {
+        opacity: 0.42;
+    }
+    88% {
+        opacity: 0;
+        transform: translate3d(155%, 0, 0) rotate(8deg);
+    }
+    100% {
+        opacity: 0;
+        transform: translate3d(155%, 0, 0) rotate(8deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+        .pb-panel-has-art::before {
+        animation: none !important;
+        opacity: 0;
+    }
+}
+
+
 .pb-panel-sword { background: linear-gradient(135deg, #1a2a5a, #2244aa); border-color: rgba(68,136,255,0.3); }
 .pb-panel-magic { background: linear-gradient(135deg, #5a1a0a, #aa4422); border-color: rgba(255,102,34,0.3); }
 .pb-panel-heal { background: linear-gradient(135deg, #0a3a0a, #228822); border-color: rgba(68,204,68,0.3); }
@@ -423,6 +494,12 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
 .pb-coin-text { top: 50%; }
 .pb-chick-text { font-size: 24px; top: 30%; }
 .pb-chick-miss { font-size: 16px; top: 30%; }
+.pb-chick-reward-text {
+    top: 12%;
+    font-size: 20px;
+    animation: none;
+    opacity: 1;
+}
 .pb-lvup-text { top: 15%; font-size: 18px; }
 .pb-enemy-atk-label { font-size: 22px; top: 25%; }
 .pb-player-dmg-text { font-size: 26px; top: 65%; color: #ff4444 !important; }

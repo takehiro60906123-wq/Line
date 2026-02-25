@@ -965,6 +965,9 @@ class FormationScreenRedesign {
         const layer = document.getElementById('edit-units-layer-large');
         if (!layer) return;
         layer.innerHTML = '';
+           const boardEl = document.querySelector('.formation-board-large');
+        const isPlacingMode = !!(this.selectedUid && !(app.data.deck || []).some(d => d.uid === this.selectedUid));
+        if (boardEl) boardEl.classList.toggle('placing-unit-mode', isPlacingMode);
 
         const openSlots = (typeof DeckManager !== 'undefined') ? DeckManager.getOpenSlots() : [0,1,4,5];
         document.querySelectorAll('.formation-board-large .grid-cell').forEach(c => {
@@ -1027,9 +1030,12 @@ class FormationScreenRedesign {
             const maxRow = Math.max(...rows);
 
             const centerX = ((minCol + maxCol + 1) * 25) / 2;
-            const bottomY = (maxRow + 1) * 50;
+             const starRowTop = (maxRow <= 0) ? 44 : 94;
             starEl.style.left = `calc(${centerX}% + 2px)`;
-            starEl.style.top = `calc(${bottomY}% - 3px)`;
+             starEl.style.top = `${starRowTop}%`;
+            starEl.style.bottom = 'auto';
+            starEl.style.width = 'auto';
+            starEl.style.transform = 'translate(-50%, -50%)';
 
             layer.appendChild(starEl);
 

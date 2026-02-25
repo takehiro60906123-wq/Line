@@ -385,6 +385,15 @@
     filter: drop-shadow(0 0 8px #00ffff) drop-shadow(0 4px 6px rgba(0,0,0,0.8));
     z-index: 25;
 }
+
+formation-board-large.placing-unit-mode .board-unit {
+    pointer-events: none;
+}
+
+.formation-board-large.placing-unit-mode .board-unit-stars {
+    opacity: 0.65;
+}
+
 .formation-board-large .board-unit.selected::before {
     content: '▼';
     position: absolute;
@@ -418,6 +427,13 @@
     background: linear-gradient(transparent, rgba(0,0,0,0.6));
     padding: 2px 0;
     border-radius: 0 0 4px 4px;
+}
+
+.formation-board-large .board-unit-stars {
+    bottom: auto;
+    width: auto;
+    background: transparent;
+    padding: 0;
 }
 
 /* カードサイズ - 枠からはみ出す迫力ある表示 */

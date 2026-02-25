@@ -106,7 +106,7 @@ class SugorokuScreen {
         if (app.sound) app.sound.play('sys_decide');
 
         // 自動進行開始
-        setTimeout(() => this.advanceToNext(), 1000);
+        setTimeout(() => this.advanceToNext(), 400);
     }
 
     _generateEncounters(config) {
@@ -115,7 +115,7 @@ class SugorokuScreen {
         const midbossRatio = Math.max(0.25, Math.min(0.8, (config.midbossAt || Math.floor(baseTotal / 2)) / Math.max(1, baseTotal)));
         const midbossAt = Math.max(3, Math.min(total - 2, Math.round(total * midbossRatio)));
         const list = [];
-        const clearCount = this._getClearCount();
+        const clearCount = this._getClearedStageCount();
 
         // イベント種類の候補
         const events = ['gold', 'diamond', 'candy', 'heal', 'gamble', 'shop', 'equip_drop'];
@@ -131,18 +131,34 @@ class SugorokuScreen {
             return 'gold';
         };
 
-        // ステージ固有の敵テーブル（あればそちらを使う）
-        const stageEnemies = config.panelEnemies || [];
+        // 共有モンスター + ステージ固有モンスターを混ぜる。
+        // 固有モンスターは「10戦ごとに2体ずつ」解放していく。
+        const stageEnemies = Array.isArray(config.panelEnemies) ? config.panelEnemies : [];
+        const sharedEnemies = (typeof PANEL_BATTLE_ENEMIES !== 'undefined' && Array.isArray(PANEL_BATTLE_ENEMIES))
+            ? PANEL_BATTLE_ENEMIES
+            : [];
 
         const pickEnemy = (encounterIndex = 0, totalEncounters = total) => {
             const scaledLv = this._scaledEnemyLv(config.enemyLv || 5);
             const progressRatio = totalEncounters > 1 ? (encounterIndex / (totalEncounters - 1)) : 0;
            const strongRate = Math.min(0.72, 0.2 + progressRatio * 0.4 + clearCount * 0.05);
             const isStrong = Math.random() < strongRate;
+            // クリア周回と現在遭遇位置を合算して、10戦ごとに固有枠を2体解放
+            const battleProgress = clearCount * Math.max(1, config.totalEncounters || 10) + encounterIndex + 1;
+            const unlockedStageCount = Math.max(0, Math.min(stageEnemies.length, Math.floor(battleProgress / 10) * 2));
+            const unlockedStageEnemies = stageEnemies.slice(0, unlockedStageCount);
+
+            const mergedPool = [];
+            const seenIds = new Set();
+            for (const e of [...sharedEnemies, ...unlockedStageEnemies]) {
+                if (!e || !e.id || seenIds.has(e.id)) continue;
+                seenIds.add(e.id);
+                mergedPool.push(e);
+            }
 
             let enemy;
-            if (stageEnemies.length > 0) {
-                const template = stageEnemies[Math.floor(Math.random() * stageEnemies.length)];
+             if (mergedPool.length > 0) {
+                const template = mergedPool[Math.floor(Math.random() * mergedPool.length)];
                 enemy = JSON.parse(JSON.stringify(template));
                 const stageScale = 1 + (scaledLv - 1) * 0.14 + clearCount * 0.06;
                 enemy.atk = Math.floor(enemy.atk * stageScale);
@@ -258,7 +274,7 @@ class SugorokuScreen {
         this.isEventRunning = false;
         if (this.encounterIdx < this.encounters.length && this.isGameActive) {
            this._applyQuestDefaultLayout('移動中');
-            setTimeout(() => this.advanceToNext(), 600);
+            setTimeout(() => this.advanceToNext(), 220);
         }
     }
 
@@ -277,19 +293,24 @@ class SugorokuScreen {
             });
         }
         if (totalHp === 0) { totalHp = 200; totalAtk = 30; }
-        return { hp: totalHp, maxHp: totalHp, atk: Math.floor(totalAtk / Math.max(1, app.data?.deck?.length || 1)) };
+        // パネルバトルは長期戦になりやすいので、元デッキ合計値をそのまま使うと
+        // プレイヤーが硬すぎるケースが出る。ここで専用補正を掛ける。
+        const deckCount = Math.max(1, app.data?.deck?.length || 1);
+        const avgHp = totalHp / deckCount;
+        const partyHpFactor = 2.2 + Math.min(1.2, deckCount * 0.08);
+        const panelHp = Math.max(180, Math.min(1200, Math.floor(avgHp * partyHpFactor)));
+        const panelAtk = Math.max(18, Math.floor((totalAtk / deckCount) * 0.9));
+        return { hp: panelHp, maxHp: panelHp, atk: panelAtk };
     }
 
     // ========================================
     // パネルバトル（雑魚戦）
     // ========================================
     async doEnemyPanelBattle(enemyData) {
-        if (app.sound) app.sound.play('se_enemy_appear');
-        await this.ui.showEnemyEntrance(null, false);
-        await this.sleep(300);
+        
 
         const pStats = this._getPlayerStats();
-        pStats.hp = this._panelBattleHp;
+        pStats.hp = Math.max(1, Math.min(this._panelBattleHp || pStats.maxHp, pStats.maxHp));
 
         // パネルバトル開始
         app.panelBattleScreen.start(enemyData, pStats, (rewards) => {
@@ -315,12 +336,11 @@ class SugorokuScreen {
                     
                 }
 
-                // ヒヨコGET → ユニット入手
-                if (rewards.chickGot && typeof DB !== 'undefined' && DB.length > 0) {
-                    const u = DB[Math.floor(Math.random() * DB.length)];
-                    if (app.data) app.data.addUnit(u.id, true);
-                    this.adventureLog.unitsGained.push({ name: u.name, id: u.id, cost: u.cost });
-                }
+              // チケットパネル効果で即時ガチャした結果をログに反映
+                if (Array.isArray(rewards.chickRewards) && rewards.chickRewards.length > 0) {
+                    for (const unit of rewards.chickRewards) {
+                        this.adventureLog.unitsGained.push({ name: unit.name, id: unit.id, cost: unit.cost });
+                    }}
 
                 // 装備カードドロップ（30%）
                 if (app.data && app.data.cardManager && Math.random() < 0.30) {
@@ -758,14 +778,20 @@ this._applyQuestDefaultLayout('移動中');
         if (app.data && app.data.stageClearCounts) return app.data.stageClearCounts[this.currentStageId] || 0;
         return 0;
     }
+
+    _getClearedStageCount() {
+        if (app.data && app.data.stageClearCounts) {
+            return Object.values(app.data.stageClearCounts).filter(v => (v || 0) > 0).length;
+        }
+        return 0;
+    }
     _scaledEnemyLv(baseLv) {
-        const cc = this._getClearCount();
-        return Math.floor(baseLv * (1 + cc * 0.15));
+        const clearedStages = this._getClearedStageCount();
+        return Math.floor(baseLv * (1 + clearedStages * 0.12));
     }
     _scaledReward(baseGold, baseGem) {
-        const cc = this._getClearCount();
-        return { gold: Math.floor(baseGold * (1 + cc * 0.2)), gems: Math.floor(baseGem * (1 + cc * 0.1)) };
-    }
+     const clearedStages = this._getClearedStageCount();
+        return { gold: Math.floor(baseGold * (1 + clearedStages * 0.18)), gems: Math.floor(baseGem * (1 + clearedStages * 0.08)) };}
 
     confirmGoHome() {
         if (!this.isGameActive) { app.changeScene('screen-home'); return; }
