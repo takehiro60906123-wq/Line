@@ -809,6 +809,9 @@ class SceneManager {
         const footer = document.getElementById('global-footer'); 
         const hiddenScenes = ['screen-battle', 'screen-sugoroku'];
         if (footer) footer.style.display = hiddenScenes.includes(sceneId) ? 'none' : 'flex';
+       const header = document.getElementById('global-header');
+        if (header) header.style.display = hiddenScenes.includes(sceneId) ? 'none' : 'flex';
+       
         if (typeof callback === 'function') callback();
     }
 }

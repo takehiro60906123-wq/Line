@@ -265,7 +265,6 @@ class GameApp {
             }
 
             /* ★★★ 画面のpadding調整 ★★★ */
-            #screen-sugoroku,
             #screen-map-select,
             #screen-tower,
             #screen-edit,
@@ -277,11 +276,16 @@ class GameApp {
                 /* フッター+セーフエリア分の余白を確保して、コンテンツが隠れないようにする */
               padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
             }
-            
+            #screen-sugoroku,
             #screen-battle {
                 padding-top: env(safe-area-inset-top, 0px) !important;
                 padding-bottom: 0 !important;
             }
+
+            #screen-battle {
+              padding-bottom: 0 !important;
+            }
+
 
             .screen {
                 padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;

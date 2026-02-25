@@ -270,55 +270,51 @@ class SugorokuUI {
     }
 
     // ========================================
-    // 報酬オーバーレイ（既存流用）
+    // 報酬ポップアップ（軽量表示）
     // ========================================
     showRewardOverlay(icon, text, category, imgUrl) {
+        const host = document.getElementById('game-area') || document.getElementById('screen-sugoroku');
         return new Promise(resolve => {
-            const ov = document.getElementById('sg-overlay');
-            if (!ov) { resolve(); return; }
+            if (!host) { resolve(); return; }
 
-            const bg = { gold:'reward-bg-blue', diamond:'reward-bg-gold', gacha:'reward-bg-gold',
-                         lose:'reward-bg-red', heal:'reward-bg-green', candy:'reward-bg-blue',
-                         deck:'reward-bg-blue' }[category] || 'reward-bg-blue';
+            try {
+                const toneClass = `sg-reward-toast-${category || 'normal'}`;
+                const toast = document.createElement('div');
+                toast.className = `sg-reward-toast ${toneClass}`;
 
-            let particles = '';
-            const pCount = (category === 'diamond' || category === 'gacha') ? 20 : 12;
-            const emojis = { gold:'💰', diamond:'💎✨', candy:'🍬', gacha:'⭐✨', heal:'💚✨', deck:'🃁', lose:'💸' }[category] || '✨';
-            const emojiArr = [...emojis];
-            for (let i = 0; i < pCount; i++) {
-                const x = Math.random() * 100, delay = Math.random() * 0.6;
-                const e = emojiArr[Math.floor(Math.random() * emojiArr.length)];
-                particles += `<div class="reward-particle" style="left:${x}%;animation-delay:${delay}s">${e}</div>`;
+                const safeIcon = icon || '';
+                const safeText = text || '';
+                const safeImgUrl = imgUrl ? encodeURI(String(imgUrl)) : '';
+                const thumbHtml = safeImgUrl ? `<div class="sg-reward-toast-thumb" style="background-image:url("${safeImgUrl}")"></div>` : '';
+                toast.innerHTML = `
+                    <div class="sg-reward-toast-inner">
+                        ${safeIcon ? `<span class="sg-reward-toast-icon">${safeIcon}</span>` : ''}
+                        ${thumbHtml}
+                        <span class="sg-reward-toast-text">${safeText}</span>
+                    </div>
+                `;
+           if (app && app.sound) app.sound.play('se_chest_open');
+           
+            host.appendChild(toast);
+                requestAnimationFrame(() => toast.classList.add('show'));
+ let closed = false;
+                const close = () => {
+                    if (closed) return;
+                    closed = true;
+                    toast.classList.remove('show');
+                    toast.classList.add('hide');
+                    setTimeout(() => {
+                        toast.remove();
+                        resolve();
+                    }, 220);
+                };
+
+                toast.addEventListener('click', close, { once: true });
+                setTimeout(close, 1300);
+            } catch (err) {
+                console.warn('[SugorokuUI] showRewardOverlay fallback:', err);
+                resolve();
             }
-
-            let charHtml = imgUrl ? `<div class="reward-char" style="background-image:url('${imgUrl}')"></div>` : '';
-            if(app.sound) app.sound.play('se_chest_open');
-            ov.innerHTML = `
-                <div class="reward-popup ${bg}">
-                    <div class="reward-particles">${particles}</div>
-                    <div class="reward-icon-big">${icon}</div>
-                    ${charHtml}
-                    <div class="reward-text">${text}</div>
-                    <div class="reward-tap">TAP</div>
-                </div>`;
-            ov.style.display = 'flex';
-            requestAnimationFrame(() => ov.classList.add('show'));
-
-            let closed = false;
-            const close = () => {
-                if (closed) return;
-                closed = true;
-                ov.classList.remove('show');
-                setTimeout(() => {
-                    ov.style.display = 'none';
-                    resolve();
-                }, 200);
-            };
-
-            setTimeout(() => {
-                ov.addEventListener('click', close, { once: true });
-            }, 150);
-            setTimeout(close, 2400);
         });
     }
 
@@ -693,8 +689,8 @@ class SugorokuUI {
     // ========================================
     closeGambleUI() {
         return new Promise(resolve => {
-            const ov = document.getElementById('sg-overlay');
-            if (!ov) { resolve(); return; }
+           const area = document.getElementById('game-area') || document.getElementById('screen-sugoroku');
+            if (!area) { resolve(); return; }
             
             ov.classList.remove('show');
             setTimeout(() => {

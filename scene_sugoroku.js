@@ -110,15 +110,17 @@ class SugorokuScreen {
     }
 
     _generateEncounters(config) {
-        const total = config.totalEncounters || 10;
-        const midbossAt = config.midbossAt || Math.floor(total / 2);
+        const baseTotal = config.totalEncounters || 10;
+        const total = Math.max(baseTotal + 6, Math.floor(baseTotal * 1.8));
+        const midbossRatio = Math.max(0.25, Math.min(0.8, (config.midbossAt || Math.floor(baseTotal / 2)) / Math.max(1, baseTotal)));
+        const midbossAt = Math.max(3, Math.min(total - 2, Math.round(total * midbossRatio)));
         const list = [];
         const clearCount = this._getClearCount();
 
         // イベント種類の候補
         const events = ['gold', 'diamond', 'candy', 'heal', 'gamble', 'shop', 'equip_drop'];
         const eventWeights = [20, 8, 12, 15, 5, 5, 10];
-        const totalW = eventWeights.reduce((s, w) => s + w, 0);
+        const totalW = eventWeights.reduce((sum, w) => sum + w, 0);
 
         const pickEvent = () => {
             let r = Math.random() * totalW;
@@ -135,59 +137,69 @@ class SugorokuScreen {
         const pickEnemy = (encounterIndex = 0, totalEncounters = total) => {
             const scaledLv = this._scaledEnemyLv(config.enemyLv || 5);
             const progressRatio = totalEncounters > 1 ? (encounterIndex / (totalEncounters - 1)) : 0;
-            const strongRate = Math.min(0.45, 0.08 + progressRatio * 0.30 + clearCount * 0.03);
+           const strongRate = Math.min(0.72, 0.2 + progressRatio * 0.4 + clearCount * 0.05);
             const isStrong = Math.random() < strongRate;
 
             let enemy;
             if (stageEnemies.length > 0) {
                 const template = stageEnemies[Math.floor(Math.random() * stageEnemies.length)];
                 enemy = JSON.parse(JSON.stringify(template));
-                const scale = 1 + (scaledLv - 1) * 0.08;
-                enemy.hp = Math.floor(enemy.hp * scale);
-                enemy.atk = Math.floor(enemy.atk * scale);
-                enemy.expBase = Math.floor(enemy.expBase * scale);
-                enemy.goldBase = Math.floor(enemy.goldBase * scale);
-                 } else {
+                const stageScale = 1 + (scaledLv - 1) * 0.14 + clearCount * 0.06;
+                enemy.atk = Math.floor(enemy.atk * stageScale);
+                enemy.expBase = Math.floor(enemy.expBase * stageScale);
+                enemy.goldBase = Math.floor(enemy.goldBase * stageScale);
+            } else {
                 enemy = PanelBattleScreen.generateEnemy(config.enemyLv || 5, clearCount);
             }
 
-            const monsterPanelBonus = Math.floor(Math.max(0, scaledLv - 5) * 0.8 + progressRatio * 4);
+         const combatHpMul = 1.45 + progressRatio * 0.55 + clearCount * 0.08;
+            const combatAtkMul = 1.22 + progressRatio * 0.34 + clearCount * 0.05;
+            enemy.hp = Math.floor(enemy.hp * combatHpMul);
+            enemy.atk = Math.floor(enemy.atk * combatAtkMul);
+            enemy.expBase = Math.floor((enemy.expBase || 30) * (1.05 + progressRatio * 0.2));
+            enemy.goldBase = Math.floor((enemy.goldBase || 50) * (1.05 + progressRatio * 0.2));
+
+            const monsterPanelBonus = Math.floor(Math.max(0, scaledLv - 5) * 1.1 + progressRatio * 7 + clearCount * 0.8);
             enemy.monsterPanelBonus = monsterPanelBonus;
-            enemy.level = Math.max(1, scaledLv + (isStrong ? 2 : 0));
+            enemy.level = Math.max(1, scaledLv + (isStrong ? 3 : 0));
             enemy.isStrong = isStrong;
 
             if (isStrong) {
-                enemy.hp = Math.floor(enemy.hp * 1.4);
-                enemy.atk = Math.floor(enemy.atk * 1.25);
-                enemy.expBase = Math.floor(enemy.expBase * 1.35);
+                enemy.hp = Math.floor(enemy.hp * 1.65);
+                enemy.atk = Math.floor(enemy.atk * 1.4);
+                enemy.expBase = Math.floor(enemy.expBase * 1.55);
                 enemy.goldBase = Math.floor(enemy.goldBase * 1.35);
                 enemy.name = `強敵${enemy.name}`;
             }
-            // フォールバック: グローバルテンプレートから生成
+            
              return enemy;
         };
 
+        let battlesSinceEvent = 0;
         for (let i = 0; i < total; i++) {
             if (i === midbossAt - 1) {
-                // 中ボス（デッキバトル）
+                
                 list.push({ type: 'midboss' });
             } else if (i === total - 1) {
-                // 最終ボス（デッキバトル）
+                
                 list.push({ type: 'boss' });
             } else {
-                // 敵 or イベント（7:3の比率）
-                if (Math.random() < 0.70) {
-                    list.push({ type: 'enemy', enemyData: pickEnemy(i, total) });
-                } else {
+                 const forceEvent = battlesSinceEvent >= 5;
+                const shouldEvent = forceEvent || (battlesSinceEvent >= 3 && Math.random() < 0.18);
+                if (shouldEvent) {
                     list.push({ type: pickEvent() });
+                    battlesSinceEvent = 0;
+                } else {
+                    list.push({ type: 'enemy', enemyData: pickEnemy(i, total) });
+                    battlesSinceEvent++;
                 }
             }
         }
 
         // 最低1つギャンブルが入るようにする（まだ無ければ）
-        if (!list.some(e => e.type === 'gamble') && list.length > 4) {
-            const idx = 2 + Math.floor(Math.random() * (list.length - 4));
-            if (list[idx].type !== 'midboss' && list[idx].type !== 'boss') {
+       if (!list.some(e => e.type === 'gamble') && list.length > 6) {
+            const idx = 3 + Math.floor(Math.random() * (list.length - 5));
+            if (list[idx].type !== 'midboss' && list[idx].type !== 'boss' && list[idx].type !== 'enemy') {
                 list[idx] = { type: 'gamble' };
             }
         }

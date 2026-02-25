@@ -183,6 +183,59 @@
 }
 .sg-overlay.show { opacity: 1; }
 
+/* -----------------------------------------
+   イベント成果ポップアップ（軽量）
+----------------------------------------- */
+.sg-reward-toast {
+    position: absolute;
+    left: 50%;
+    top: 34%;
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0;
+    z-index: 210;
+    pointer-events: auto;
+    transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.sg-reward-toast.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+.sg-reward-toast.hide {
+    opacity: 0;
+    transform: translate(-50%, -55%) scale(0.96);
+}
+.sg-reward-toast-inner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.45);
+    background: rgba(10, 15, 30, 0.72);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.45);
+}
+.sg-reward-toast-icon { font-size: 20px; line-height: 1; }
+.sg-reward-toast-text {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 900;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    white-space: pre-line;
+}
+.sg-reward-toast-thumb {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background-size: cover;
+    background-position: center;
+    border: 1px solid rgba(255,255,255,0.45);
+}
+.sg-reward-toast-gold .sg-reward-toast-inner { border-color: rgba(255,209,92,0.85); }
+.sg-reward-toast-diamond .sg-reward-toast-inner,
+.sg-reward-toast-gacha .sg-reward-toast-inner { border-color: rgba(128,231,255,0.9); }
+.sg-reward-toast-heal .sg-reward-toast-inner { border-color: rgba(133,255,155,0.9); }
+.sg-reward-toast-lose .sg-reward-toast-inner { border-color: rgba(255,125,125,0.9); }
+
 /* =========================================
    ★ 宝箱演出
    ========================================= */

@@ -129,11 +129,15 @@ class PanelBattleScreen {
     // グリッド生成
     // ========================================
     generateGrid() {
+         // 初期盤面は固定パターン（攻撃・魔法・コインのみ）
+        // 斜めグラデーション風に配置して、序盤から連鎖を作りやすくする
         this.grid = [];
+           const fixedTypes = ['sword', 'magic', 'coin'];
         for (let r = 0; r < this.rows; r++) {
             const row = [];
             for (let c = 0; c < this.cols; c++) {
-                row.push(this._randomPanel());
+                 const idx = Math.floor((r + c) / 2) % fixedTypes.length;
+                row.push({ type: fixedTypes[idx], removing: false });
             }
             this.grid.push(row);
         }
@@ -279,20 +283,30 @@ class PanelBattleScreen {
         const cc = chainCount;
         switch (type) {
             case 'sword': {
-                let dmg = Math.floor(this.playerBaseAtk * cc * 0.8);
-                dmg = Math.floor(dmg * (1 - (this.enemy.resistPhys || 0)));
-                dmg = Math.max(1, dmg);
-                this.enemy.hp = Math.max(0, this.enemy.hp - dmg);
-                this.ui.showDamageToEnemy(dmg, 'physical', cc);
+                 const resist = (this.enemy.resistPhys || 0);
+                const hitCount = Math.max(1, cc);
+                const perHitBase = Math.max(1, Math.floor(this.playerBaseAtk * 0.55));
+                for (let i = 0; i < hitCount; i++) {
+                    let hitDmg = Math.floor(perHitBase * (1 - resist));
+                    hitDmg = Math.max(1, hitDmg);
+                    this.enemy.hp = Math.max(0, this.enemy.hp - hitDmg);
+                    this.ui.showDamageToEnemy(hitDmg, 'physical', 1, i);
+                    if (this.enemy.hp <= 0) break;
+                }
                 if (app && app.sound) app.sound.play('se_attack');
                 break;
             }
             case 'magic': {
-                let dmg = Math.floor(this.playerBaseAtk * cc * 0.9);
-                dmg = Math.floor(dmg * (1 - (this.enemy.resistMagic || 0)));
-                dmg = Math.max(1, dmg);
-                this.enemy.hp = Math.max(0, this.enemy.hp - dmg);
-                this.ui.showDamageToEnemy(dmg, 'magic', cc);
+                const resist = (this.enemy.resistMagic || 0);
+                const hitCount = Math.max(1, cc);
+                const perHitBase = Math.max(1, Math.floor(this.playerBaseAtk * 0.6));
+                for (let i = 0; i < hitCount; i++) {
+                    let hitDmg = Math.floor(perHitBase * (1 - resist));
+                    hitDmg = Math.max(1, hitDmg);
+                    this.enemy.hp = Math.max(0, this.enemy.hp - hitDmg);
+                       this.ui.showDamageToEnemy(hitDmg, 'magic', 1, i);
+                    if (this.enemy.hp <= 0) break;
+                }
                 if (app && app.sound) app.sound.play('se_attack');
                 break;
             }
@@ -337,13 +351,34 @@ class PanelBattleScreen {
             let writeRow = this.rows - 1;
             for (let r = this.rows - 1; r >= 0; r--) {
                 if (this.grid[r][c] !== null) {
-                    if (r !== writeRow) { this.grid[writeRow][c] = this.grid[r][c]; this.grid[r][c] = null; }
+                   const panel = this.grid[r][c];
+                    const dropSteps = Math.max(0, writeRow - r);
+                    if (r !== writeRow) {
+                        this.grid[writeRow][c] = panel;
+                        this.grid[r][c] = null;
+                    }
+                    if (this.grid[writeRow][c]) this.grid[writeRow][c].dropSteps = dropSteps;
                     writeRow--;
                 }
             }
-            for (let r = writeRow; r >= 0; r--) this.grid[r][c] = this._randomPanel();
+              for (let r = writeRow; r >= 0; r--) {
+                const newPanel = this._randomPanel();
+                newPanel.dropSteps = Math.max(1, writeRow - r + 2);
+                this.grid[r][c] = newPanel;
+            }
         }
-        await this.ui.animateDrop();
+
+        // 先に新しい盤面を描画してから落下アニメを再生
+        this.ui.renderGrid(this.grid);
+        await this.ui.animateDrop(this.grid);
+
+        // アニメ専用フラグは除去
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                if (this.grid[r][c]) delete this.grid[r][c].dropSteps;
+            }
+        }
+        
     }
 
     // ========================================
