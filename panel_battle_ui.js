@@ -38,6 +38,85 @@ class PanelBattleUI {
             charContainer.classList.remove('anim-run');
             charContainer.classList.add('anim-idle');
         }
+
+        const enemyArea = document.querySelector('#pb-battle-hud .pb-enemy-area');
+        if (enemyArea) enemyArea.style.display = 'none';
+
+    }
+
+     // ========================================
+    // クエスト通常時のレイアウト（非戦闘）
+    // ========================================
+    setupQuestLayout(playerHp, playerMaxHp, gridState = null) {
+        const progressBar = document.getElementById('sg-progress-bar');
+        const msgBar = document.getElementById('sg-msg-bar');
+        if (progressBar) progressBar.style.display = 'none';
+        if (msgBar) msgBar.style.display = 'none';
+
+        const gameArea = document.getElementById('game-area');
+        if (gameArea) gameArea.classList.add('pb-battle-mode');
+
+        this._setupBattleHUD(gameArea);
+        this._setupGridContainer();
+
+        const charContainer = document.getElementById('char-container');
+        if (charContainer) {
+            charContainer.classList.remove('anim-run');
+            charContainer.classList.add('anim-idle');
+        }
+
+        const nameEl = document.getElementById('pb-enemy-name');
+        const spriteEl = document.getElementById('pb-enemy-sprite');
+        const weakEl = document.getElementById('pb-enemy-weak');
+       const enemyHpText = document.getElementById('pb-enemy-hp-text');
+        const enemyHpSlider = document.getElementById('pb-enemy-hp-slider');
+        if (nameEl) nameEl.textContent = '探索中';
+        if (spriteEl) spriteEl.textContent = '';
+        if (weakEl) weakEl.textContent = '';
+         if (enemyHpText) enemyHpText.textContent = 'HP 0 / 0';
+        if (enemyHpSlider) { enemyHpSlider.max = '100'; enemyHpSlider.value = '0'; }
+
+        const safeMax = Math.max(1, playerMaxHp || playerHp || 1);
+        const safeHp = Math.max(0, playerHp || safeMax);
+        this.renderPlayerHP(safeHp, safeMax);
+        this.setQuestStatus('移動中');
+        this.renderBottomInfo(0, 0);
+        this.renderQuestGrid(gridState);
+    }
+
+    setQuestStatus(text) {
+        const counterBox = document.getElementById('pb-enemy-counter');
+        if (!counterBox) return;
+        counterBox.classList.remove('pb-counter-warn', 'pb-counter-danger');
+        counterBox.textContent = text || '移動中';
+    }
+
+    renderQuestGrid(gridState = null) {
+        const gridEl = document.getElementById('pb-grid');
+        if (!gridEl) return;
+        gridEl.innerHTML = '';
+
+        const hasState = Array.isArray(gridState) && gridState.length > 0;
+        if (hasState) {
+            for (let r = 0; r < gridState.length; r++) {
+                for (let c = 0; c < gridState[r].length; c++) {
+                    const panel = gridState[r][c];
+                    const pType = panel && PANEL_TYPES[panel.type] ? PANEL_TYPES[panel.type] : PANEL_TYPES.sword;
+                    const cell = document.createElement('div');
+                    cell.className = `pb-panel pb-panel-${pType.id} pb-panel-locked`;
+                    cell.innerHTML = `<span class="pb-panel-icon">${pType.icon}</span>`;
+                    gridEl.appendChild(cell);
+                }
+            }
+            return;
+        }
+
+        for (let i = 0; i < 36; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'pb-panel pb-panel-sword pb-panel-locked';
+            cell.innerHTML = '<span class="pb-panel-icon">⚔</span>';
+            gridEl.appendChild(cell);
+        }
     }
 
     _setupBattleHUD(gameArea) {
@@ -52,15 +131,19 @@ class PanelBattleUI {
             <div class="pb-enemy-area">
                 <div class="pb-enemy-sprite" id="pb-enemy-sprite">🟢</div>
                 <div class="pb-enemy-hud-box">
-                    <div class="pb-enemy-name" id="pb-enemy-name">スライム</div>
-                    <div class="pb-enemy-hp-bar"><div class="pb-enemy-hp-fill" id="pb-enemy-hp-fill"></div></div>
+                  <div class="pb-enemy-title-row">
+                        <div class="pb-enemy-name" id="pb-enemy-name">スライム</div>
+                        <div class="pb-enemy-lv" id="pb-enemy-lv">Lv.1</div>
+                    </div>
+                    <div class="pb-enemy-hp-text" id="pb-enemy-hp-text">HP 0 / 0</div>
+                   <input type="range" id="pb-enemy-hp-slider" class="pb-hp-slider pb-enemy-slider" min="0" max="100" value="100">
                     <div class="pb-enemy-weak" id="pb-enemy-weak"></div>
                 </div>
             </div>
             <div class="pb-player-hud-box">
-                <span class="pb-hp-label">HP:</span>
-                <span class="pb-hp-val" id="pb-player-hp-text">200</span>
-                <div class="pb-player-hp-bar"><div class="pb-player-hp-fill" id="pb-player-hp-fill"></div></div>
+              <div class="pb-player-hp-title">HP</div>
+                <div class="pb-player-hp-text" id="pb-player-hp-text">0 / 0</div>
+                <input type="range" id="pb-player-hp-slider" class="pb-hp-slider pb-player-slider" min="0" max="100" value="100" disabled>
             </div>
             <div class="pb-effect-layer" id="pb-effect-layer"></div>
         `;
@@ -85,6 +168,7 @@ class PanelBattleUI {
                     <div class="pb-counter-left">
                         <span class="pb-hp-label-sm">HP:</span>
                         <span class="pb-hp-val-sm" id="pb-player-hp-text2">200</span>
+                        <div id="pb-player-hp-gauge" class="pb-player-hp-gauge"><div id="pb-player-hp-fill-inline" class="pb-player-hp-fill-inline"></div></div
                     </div>
                     <div class="pb-enemy-counter" id="pb-enemy-counter">
                         あと <span id="pb-counter-num">3</span> ターン
@@ -122,17 +206,20 @@ class PanelBattleUI {
 
     renderEnemy(enemy, maxHp) {
         const nameEl = document.getElementById('pb-enemy-name');
+        const lvEl = document.getElementById('pb-enemy-lv');
         const spriteEl = document.getElementById('pb-enemy-sprite');
-        const hpFill = document.getElementById('pb-enemy-hp-fill');
+        const hpText = document.getElementById('pb-enemy-hp-text');
+        const hpSlider = document.getElementById('pb-enemy-hp-slider');
         const weakEl = document.getElementById('pb-enemy-weak');
         if (nameEl) nameEl.textContent = enemy.name;
+        if (lvEl) lvEl.textContent = `Lv.${Math.max(1, enemy.level || enemy.lv || 1)}`;
         if (spriteEl) spriteEl.textContent = enemy.emoji || '👾';
-        const pct = Math.max(0, (enemy.hp / maxHp) * 100);
-        if (hpFill) {
-            hpFill.style.width = pct + '%';
-            hpFill.className = 'pb-enemy-hp-fill';
-            if (pct <= 25) hpFill.classList.add('critical');
-            else if (pct <= 50) hpFill.classList.add('warning');
+        const safeMax = Math.max(1, maxHp || enemy.hp || 1);
+        const safeHp = Math.max(0, enemy.hp || 0);
+        if (hpText) hpText.textContent = `HP ${safeHp} / ${safeMax}`;
+        if (hpSlider) {
+            hpSlider.max = String(safeMax);
+            hpSlider.value = String(Math.min(safeHp, safeMax));
         }
         if (weakEl) {
             let w = [];
@@ -145,19 +232,16 @@ class PanelBattleUI {
     }
 
     renderPlayerHP(hp, maxHp) {
-        const fill = document.getElementById('pb-player-hp-fill');
-        const text = document.getElementById('pb-player-hp-text');
+        
+        
         const text2 = document.getElementById('pb-player-hp-text2');
-        const pct = Math.max(0, (hp / maxHp) * 100);
-        if (fill) {
-            fill.style.width = pct + '%';
-            fill.className = 'pb-player-hp-fill';
-            if (pct <= 25) fill.classList.add('critical');
-            else if (pct <= 50) fill.classList.add('warning');
-        }
-        const hpStr = `${Math.max(0, hp)}`;
-        if (text) text.textContent = hpStr;
-        if (text2) text2.textContent = hpStr;
+         const fill = document.getElementById('pb-player-hp-fill-inline');
+        const safeMax = Math.max(1, maxHp || hp || 1);
+        const safeHp = Math.max(0, hp || 0);
+        const pct = Math.max(0, Math.min(100, (safeHp / safeMax) * 100));
+        
+        if (text2) text2.textContent = `${safeHp}`;
+        if (fill) fill.style.width = `${pct}%`;
     }
 
     renderTurnInfo(turnCount, counterLeft) {
@@ -233,7 +317,8 @@ class PanelBattleUI {
 
     showHealEffect(amount) { this._showFloatingText(`💚 +${amount}`, 'pb-heal-text', '#44cc44'); }
     showCoinEffect(coins) { this._showFloatingText(`💰 +${coins}`, 'pb-coin-text', '#ddaa00'); }
-    showChickGet() { this._showFloatingText(`🐤 GET!`, 'pb-chick-text', '#ffdd44'); }
+    showDiamondEffect(gems) { this._showFloatingText(`💎 +${gems}`, 'pb-coin-text', '#66e0ff'); }
+    showChickGet() { this._showFloatingText(`🎫 GET!`, 'pb-chick-text', '#ffdd44'); }
     showChickMiss() { this._showFloatingText(`🐤 ...`, 'pb-chick-miss', '#888'); }
 
     showEnemyLvUp(count) {
@@ -270,7 +355,9 @@ class PanelBattleUI {
                 <div class="pb-result-item">📊 EXP: +${rewards.exp}</div>
                 <div class="pb-result-item">💰 ゴールド: +${rewards.gold}</div>
                 ${rewards.coins > 0 ? `<div class="pb-result-item">🪙 コイン: +${rewards.coins}</div>` : ''}
-                ${rewards.chickGot ? `<div class="pb-result-item pb-result-special">🐤 ヒヨコ GET!</div>` : ''}
+ ${rewards.gems > 0 ? `<div class="pb-result-item">💎 ダイア: +${rewards.gems}</div>` : ''}
+                ${rewards.chickGot ? `<div class="pb-result-item pb-result-special">🎫 チケット GET!</div>` : ''}
+                ${rewards.guaranteedPanels && rewards.guaranteedPanels.length > 0 ? `<div class="pb-result-item pb-result-special">次戦盤面に 🎫/💎 確定追加！</div>` : ''}
                 ${rewards.monsterLvBonus > 0 ? `<div class="pb-result-item pb-result-bonus">😈 LvUPボーナス ×${rewards.monsterLvBonus}</div>` : ''}
             </div>`;
         }

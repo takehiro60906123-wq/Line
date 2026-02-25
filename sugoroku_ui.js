@@ -39,11 +39,11 @@ class SugorokuUI {
         // game-areaのバトルモード解除
         const gameArea = document.getElementById('game-area');
         if (gameArea) gameArea.classList.remove('pb-battle-mode');
-        // 進行度バー復元
+        // クエストの通常レイアウトでは下部パネル構成を優先
         const progressBar = document.getElementById('sg-progress-bar');
-        if (progressBar) progressBar.style.display = '';
+        if (progressBar) progressBar.style.display = 'none';
         const msgBar = document.getElementById('sg-msg-bar');
-        if (msgBar) msgBar.style.display = '';
+       if (msgBar) msgBar.style.display = 'none';
 
         if (this.ctrl && this.ctrl.encounters) {
             this.updateProgress(this.ctrl.encounterIdx, this.ctrl.encounters.length);

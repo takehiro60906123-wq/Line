@@ -52,6 +52,20 @@ class SugorokuScreen {
         this.loadStage(options.stageId || this.currentStageId);
     }
 
+     _applyQuestDefaultLayout(statusText = '移動中') {
+        const pStats = this._getPlayerStats();
+        const maxHp = pStats.maxHp || 1;
+        const hp = Math.max(0, Math.min(this._panelBattleHp || maxHp, maxHp));
+
+        if (app && app.panelBattleScreen && app.panelBattleScreen.ui) {
+            const gridState = (typeof app.panelBattleScreen.getGridSnapshot === 'function')
+                ? app.panelBattleScreen.getGridSnapshot()
+                : null;
+            app.panelBattleScreen.ui.setupQuestLayout(hp, maxHp, gridState);
+            app.panelBattleScreen.ui.setQuestStatus(statusText);
+        }
+    }
+
     updateCamera() {}
     onExit() { this.isGameActive = false; }
 
@@ -67,6 +81,10 @@ class SugorokuScreen {
         this._isBossBattle = false;
         this._partyHpState = {};
         this.adventureLog = this._emptyLog();
+
+        if (app && app.panelBattleScreen && typeof app.panelBattleScreen.resetGrid === 'function') {
+            app.panelBattleScreen.resetGrid();
+        }
 
         // プレイヤーステータスを計算
         const pStats = this._getPlayerStats();
@@ -84,6 +102,7 @@ class SugorokuScreen {
 
         this.ui.updateProgress(0, this.encounters.length);
         this.ui.showMessage(c.name + ' スタート！');
+         this._applyQuestDefaultLayout('移動中');
         if (app.sound) app.sound.play('sys_decide');
 
         // 自動進行開始
@@ -113,19 +132,39 @@ class SugorokuScreen {
         // ステージ固有の敵テーブル（あればそちらを使う）
         const stageEnemies = config.panelEnemies || [];
 
-        const pickEnemy = () => {
+        const pickEnemy = (encounterIndex = 0, totalEncounters = total) => {
+            const scaledLv = this._scaledEnemyLv(config.enemyLv || 5);
+            const progressRatio = totalEncounters > 1 ? (encounterIndex / (totalEncounters - 1)) : 0;
+            const strongRate = Math.min(0.45, 0.08 + progressRatio * 0.30 + clearCount * 0.03);
+            const isStrong = Math.random() < strongRate;
+
+            let enemy;
             if (stageEnemies.length > 0) {
                 const template = stageEnemies[Math.floor(Math.random() * stageEnemies.length)];
-                const enemy = JSON.parse(JSON.stringify(template));
-                const scale = 1 + (this._scaledEnemyLv(config.enemyLv || 5) - 1) * 0.08;
+                enemy = JSON.parse(JSON.stringify(template));
+                const scale = 1 + (scaledLv - 1) * 0.08;
                 enemy.hp = Math.floor(enemy.hp * scale);
                 enemy.atk = Math.floor(enemy.atk * scale);
                 enemy.expBase = Math.floor(enemy.expBase * scale);
                 enemy.goldBase = Math.floor(enemy.goldBase * scale);
-                return enemy;
+                 } else {
+                enemy = PanelBattleScreen.generateEnemy(config.enemyLv || 5, clearCount);
+            }
+
+            const monsterPanelBonus = Math.floor(Math.max(0, scaledLv - 5) * 0.8 + progressRatio * 4);
+            enemy.monsterPanelBonus = monsterPanelBonus;
+            enemy.level = Math.max(1, scaledLv + (isStrong ? 2 : 0));
+            enemy.isStrong = isStrong;
+
+            if (isStrong) {
+                enemy.hp = Math.floor(enemy.hp * 1.4);
+                enemy.atk = Math.floor(enemy.atk * 1.25);
+                enemy.expBase = Math.floor(enemy.expBase * 1.35);
+                enemy.goldBase = Math.floor(enemy.goldBase * 1.35);
+                enemy.name = `強敵${enemy.name}`;
             }
             // フォールバック: グローバルテンプレートから生成
-            return PanelBattleScreen.generateEnemy(config.enemyLv || 5, clearCount);
+             return enemy;
         };
 
         for (let i = 0; i < total; i++) {
@@ -138,7 +177,7 @@ class SugorokuScreen {
             } else {
                 // 敵 or イベント（7:3の比率）
                 if (Math.random() < 0.70) {
-                    list.push({ type: 'enemy', enemyData: pickEnemy() });
+                    list.push({ type: 'enemy', enemyData: pickEnemy(i, total) });
                 } else {
                     list.push({ type: pickEvent() });
                 }
@@ -164,6 +203,7 @@ class SugorokuScreen {
         if (this.encounterIdx >= this.encounters.length) return;
 
         this.isEventRunning = true;
+        this._applyQuestDefaultLayout('移動中');
 
         // パララックス背景をスクロール
         await this.ui.scrollAdvance(this.encounterIdx, this.encounters.length);
@@ -176,6 +216,7 @@ class SugorokuScreen {
     async processEncounter(enc) {
         switch (enc.type) {
             case 'enemy':
+                       this._applyQuestDefaultLayout('敵と遭遇！');
                 await this.doEnemyPanelBattle(enc.enemyData);
                 break;
             case 'midboss':
@@ -194,6 +235,7 @@ class SugorokuScreen {
             default:
                 this.ui.showMessage('何もなかった…');
                 await this.sleep(400);
+                this._applyQuestDefaultLayout('移動中');
                 this._nextEncounter();
                 break;
         }
@@ -203,6 +245,7 @@ class SugorokuScreen {
         this.encounterIdx++;
         this.isEventRunning = false;
         if (this.encounterIdx < this.encounters.length && this.isGameActive) {
+           this._applyQuestDefaultLayout('移動中');
             setTimeout(() => this.advanceToNext(), 600);
         }
     }
@@ -248,6 +291,16 @@ class SugorokuScreen {
                 if (app.data) {
                     app.data.addGold(rewards.gold || 0);
                     this.adventureLog.goldGained += (rewards.gold || 0);
+                    if ((rewards.gems || 0) > 0) {
+                        app.data.addGems(rewards.gems);
+                        this.adventureLog.gemsGained += rewards.gems;
+                    }
+                }
+
+                if (rewards.guaranteedPanels && rewards.guaranteedPanels.length > 0) {
+                    app.panelBattleScreen.injectPanels(rewards.guaranteedPanels);
+                    this.ui.showMessage('強敵撃破！ 次戦用に🎫/💎パネル追加');
+                    
                 }
 
                 // ヒヨコGET → ユニット入手
@@ -274,7 +327,7 @@ class SugorokuScreen {
                 this.adventureLog.battlesLost++;
                 this.gameOver('パネルバトルに敗北した…');
             }
-        });
+        }, { preserveGrid: true, monsterPanelBonus: enemyData.monsterPanelBonus || 0 });
     }
 
     // ========================================
@@ -377,7 +430,7 @@ class SugorokuScreen {
                     setTimeout(() => this.ui.showMessage(`🃏 ${name} Lv.${card.level} をドロップ！`), 800);
                 }
             }
-
+this._applyQuestDefaultLayout('移動中');
             this._nextEncounter();
         } else {
             this.adventureLog.battlesLost++;

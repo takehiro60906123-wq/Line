@@ -4,12 +4,13 @@
  */
 
 const PANEL_TYPES = {
-    sword:  { id: 'sword',  icon: '⚔',  label: 'ぶき',     color: '#4488ff', weight: 25 },
-    magic:  { id: 'magic',  icon: '🔥', label: 'まほう',   color: '#ff6622', weight: 20 },
-    heal:   { id: 'heal',   icon: '💚', label: '回復',     color: '#44cc44', weight: 18 },
-    lvup:   { id: 'lvup',   icon: '😈', label: 'Lvアップ', color: '#8844aa', weight: 12 },
-    coin:   { id: 'coin',   icon: '💰', label: 'コイン',   color: '#ddaa00', weight: 15 },
-    chick:  { id: 'chick',  icon: '🐤', label: 'ヒヨコ',   color: '#ffdd44', weight: 10 }
+    sword:   { id: 'sword',   icon: '⚔',  label: 'こうげき',   color: '#4488ff', weight: 20 },
+    magic:   { id: 'magic',   icon: '🔥', label: 'まほう',     color: '#ff6622', weight: 20 },
+    coin:    { id: 'coin',    icon: '💰', label: 'こいん',     color: '#ddaa00', weight: 20 },
+    heal:    { id: 'heal',    icon: '💚', label: '回復',       color: '#44cc44', weight: 20 },
+    lvup:    { id: 'lvup',    icon: '😈', label: 'モンスター', color: '#8844aa', weight: 20 },
+    chick:   { id: 'chick',   icon: '🎫', label: 'チケット',   color: '#ffdd44', weight: 4 },
+    diamond: { id: 'diamond', icon: '💎', label: 'ダイア',     color: '#66e0ff', weight: 2 }
 };
 
 const PANEL_ENEMIES = [
@@ -88,13 +89,14 @@ class PanelBattleScreen {
         this.isProcessing = false;
         this.onEndCallback = null;
         this._chickGot = false;
-        this._totalWeight = Object.values(PANEL_TYPES).reduce((s, p) => s + p.weight, 0);
+       this._panelWeights = this._buildPanelWeights(0);
+        this._totalWeight = this._panelWeights.reduce((sum, p) => sum + p.weight, 0);
     }
 
     // ========================================
     // 開始
     // ========================================
-    start(enemyData, playerStats, onEnd) {
+    start(enemyData, playerStats, onEnd, options = {}) {
         this.enemy = JSON.parse(JSON.stringify(enemyData));
         this.enemyMaxHp = this.enemy.hp;
         this.playerHp = playerStats.hp || 200;
@@ -105,13 +107,20 @@ class PanelBattleScreen {
         this.earnedExp = 0;
         this.earnedGold = 0;
         this.earnedCoins = 0;
+        this.earnedGems = 0;
         this.monsterLvBonus = 0;
         this.isActive = true;
         this.isProcessing = false;
         this._chickGot = false;
         this.onEndCallback = onEnd;
+        const monsterPanelBonus = Math.max(0, options.monsterPanelBonus || 0);
+        this._panelWeights = this._buildPanelWeights(monsterPanelBonus);
+        this._totalWeight = this._panelWeights.reduce((sum, p) => sum + p.weight, 0);
 
-        this.generateGrid();
+        const shouldPreserveGrid = !!options.preserveGrid;
+        if (!shouldPreserveGrid || !this._hasValidGrid()) {
+            this.generateGrid();
+        }
         this.ui.setup();
         this.ui.renderAll(this);
     }
@@ -130,9 +139,45 @@ class PanelBattleScreen {
         }
     }
 
+    _hasValidGrid() {
+        if (!Array.isArray(this.grid) || this.grid.length !== this.rows) return false;
+        return this.grid.every(row => Array.isArray(row) && row.length === this.cols && row.every(cell => cell && cell.type));
+    }
+
+    resetGrid() {
+        this.grid = [];
+    }
+
+    getGridSnapshot() {
+        if (!this._hasValidGrid()) return null;
+        return this.grid.map(row => row.map(cell => ({ type: cell.type, removing: !!cell.removing })));
+    }
+
+     _buildPanelWeights(monsterPanelBonus = 0) {
+        const base = Object.values(PANEL_TYPES).map(p => ({ ...p }));
+        const monster = base.find(p => p.id === 'lvup');
+        if (monster) monster.weight += Math.floor(monsterPanelBonus);
+
+        // 難易度上昇分は主に通常パネルから按分して、レア率は維持
+        const normalIds = ['sword', 'magic', 'coin', 'heal'];
+        const reducePool = normalIds.map(id => base.find(p => p.id === id)).filter(Boolean);
+        let debt = Math.floor(monsterPanelBonus);
+        let idx = 0;
+        while (debt > 0 && reducePool.length > 0) {
+            const target = reducePool[idx % reducePool.length];
+            if (target.weight > 10) {
+                target.weight -= 1;
+                debt -= 1;
+            }
+            idx++;
+            if (idx > 200) break;
+        }
+        return base;
+    }
+
     _randomPanel() {
         let roll = Math.random() * this._totalWeight;
-        for (const p of Object.values(PANEL_TYPES)) {
+        for (const p of this._panelWeights) {
             roll -= p.weight;
             if (roll <= 0) return { type: p.id, removing: false };
         }
@@ -264,6 +309,13 @@ class PanelBattleScreen {
                 this.ui.showCoinEffect(coins, cc);
                 break;
             }
+
+            case 'diamond': {
+                const gems = 2 * cc;
+                this.earnedGems += gems;
+                this.ui.showDiamondEffect(gems, cc);
+                break;
+            }
             case 'chick': {
                 const rate = Math.min(0.8, 0.15 * cc);
                 if (Math.random() < rate) {
@@ -332,12 +384,12 @@ class PanelBattleScreen {
     // バトル終了
     // ========================================
     endBattle(isWin) {
-        this.isActive = false;
-        let rewards = { isWin, exp: 0, gold: 0, coins: this.earnedCoins, chickGot: this._chickGot, monsterLvBonus: this.monsterLvBonus };
+        let rewards = { isWin, exp: 0, gold: 0, coins: this.earnedCoins, gems: this.earnedGems, chickGot: this._chickGot, monsterLvBonus: this.monsterLvBonus, guaranteedPanels: [] };
         if (isWin) {
             const lvMul = 1 + this.monsterLvBonus * 0.15;
             rewards.exp = Math.floor((this.enemy.expBase || 30) * lvMul);
             rewards.gold = Math.floor((this.enemy.goldBase || 50) * lvMul) + this.earnedCoins;
+        if (this.enemy.isStrong) rewards.guaranteedPanels = ['chick', 'diamond'];
         }
         this.ui.showBattleResult(rewards, () => {
             if (this.onEndCallback) this.onEndCallback(rewards);
@@ -355,7 +407,27 @@ class PanelBattleScreen {
         enemy.atk = Math.floor(enemy.atk * scale);
         enemy.expBase = Math.floor(enemy.expBase * scale);
         enemy.goldBase = Math.floor(enemy.goldBase * scale);
+        enemy.level = Math.max(1, Math.floor(stageLv));
         return enemy;
+    }
+
+     injectPanels(panelTypes = []) {
+        if (!this._hasValidGrid() || !Array.isArray(panelTypes) || panelTypes.length === 0) return;
+        for (const type of panelTypes) {
+            if (!PANEL_TYPES[type]) continue;
+            const candidates = [];
+            for (let r = 0; r < this.rows; r++) {
+                for (let c = 0; c < this.cols; c++) {
+                    const p = this.grid[r][c];
+                    if (!p || p.type === type) continue;
+                    if (p.type === 'chick' || p.type === 'diamond') continue;
+                    candidates.push({ r, c });
+                }
+            }
+            if (candidates.length === 0) continue;
+            const pick = candidates[Math.floor(Math.random() * candidates.length)];
+            this.grid[pick.r][pick.c] = { type, removing: false };
+        }
     }
 
     sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
