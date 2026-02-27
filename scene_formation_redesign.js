@@ -483,41 +483,63 @@ class FormationScreenRedesign {
                 z-index: 26 !important;
             }
 
-            /* --- ★追加: 詳細パネル用 (少し大きく表示) --- */
-            #selected-card-img {
-                position: relative; overflow: hidden; /* 子要素の絶対配置用 */
-                background-color: #222; border-radius: 4px; border: 1px solid #666;
+            /* --- ★追加: 詳細パネル用 (所持カード一覧と同じ表示構成) --- */
+            .f-detail-img.portrait-style {
+                background-position: center 34%, center;
+                background-size: 92% 92%, cover;
             }
             /* フッター (詳細版) */
         
-            .lc-card-footer.detail-ver .footer-grid .shape-icon {
-                width: 16px; height: 16px; gap: 2px; /* グリッドも大きく */
+            .f-detail-img.portrait-style .card-lv-label {
+                position: absolute;
+                top: 4px;
+                left: 5px;
+                color: #f3fbff;
+                font-size: 15px;
+                font-weight: 800;
+                line-height: 1;
+                letter-spacing: 0.2px;
+                -webkit-text-stroke: 0.8px rgba(8, 22, 42, 0.9);
+                text-shadow:
+                    0 1px 0 rgba(0, 0, 0, 0.85),
+                    0 0 4px rgba(16, 60, 120, 0.85),
+                    0 0 8px rgba(0, 0, 0, 0.65);
+                z-index: 4;
             }
-            .lc-card-footer.detail-ver {
-                height: 26px;
-                padding-left: 6px;
-                gap: 6px;
+             .f-detail-img.portrait-style .card-type-icon {
+                position: absolute;
+                top: 2px;
+                right: 3px;
+                width: 20px;
+                height: 20px;
+                object-fit: contain;
+                filter:
+                    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.9))
+                    drop-shadow(0 0 4px rgba(5, 16, 34, 0.95));
+                z-index: 4;
             }
-            .lc-card-stars-top.detail-ver {
-                top: 3px;
+            .f-detail-img.portrait-style .lc-card-stars-bottom {
+                position: absolute;
                 left: 4px;
-                padding: 2px 4px;
-                background: rgba(0, 0, 0, 0.55);
+               right: 4px;
+                bottom: 3px;
+                display: flex;
+                justify-content: center;
+                z-index: 3;
             }
-            .lc-card-stars-top.detail-ver .star-icon {
-                width: 21px;
-                height: 21px;
+             .f-detail-img.portrait-style .lc-card-stars-bottom .footer-stars {
+                display: flex;
+                gap: 0;
+            }
+            .f-detail-img.portrait-style .lc-card-stars-bottom .star-icon {
+                width: 18px;
+                height: 18px;
                 margin-right: -6px;
             }
-            .lc-card-stars-top.detail-ver .star-icon:last-child {
+            .f-detail-img.portrait-style .lc-card-stars-bottom .star-icon:last-child {
                 margin-right: 0;
             }
-            /* レベルバッジ (詳細版) */
-            .lc-lv-badge-top.detail-ver {
-                font-size: 14px; /* 文字サイズUP */
-                padding: 3px 10px;
-                border-radius: 0 4px 0 8px;
-            }
+            
 
              /* 所持カード一覧：縦長カード風の見た目（画像2イメージ） */
             .card-item-horizontal {
@@ -814,12 +836,15 @@ class FormationScreenRedesign {
             const atkPct = Math.min(100, (unit.atk / maxAtk) * 100);
             const spdPct = Math.min(100, (unit.spd / maxSpd) * 100);
 
-            // ★HTML書き換え: リストと同じデザイン構造 (detail-verクラス付き)
+             const typeIconUrl = this.getTypeIconUrl(unit.base.type);
+
+            // ★HTML書き換え: 所持カード一覧と同じUI構成
             leftCol.innerHTML = `
-                <div class="f-detail-img list-card type-${unit.base.type}" style="background-image: ${charImg}, url('${bgUrl}')">
-                    <div class="lc-lv-badge-top detail-ver">Lv${unit.save.lv}</div>
-                    <div class="lc-card-stars-top detail-ver">
-                        <div class="footer-stars detail-ver">${starsHtml}</div>
+                <div class="f-detail-img list-card portrait-style type-${unit.base.type}" style="background-image: ${charImg}, url('${bgUrl}')">
+                    <div class="card-lv-label">Lv${unit.save.lv}</div>
+                    <img class="card-type-icon" src="${typeIconUrl}" alt="${(this.types[unit.base.type] && this.types[unit.base.type].name) || ''}" onerror="this.style.display='none'">
+                    <div class="lc-card-stars-bottom">
+                        <div class="footer-stars">${starsHtml}</div>
                     </div>
                 </div>
 

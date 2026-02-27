@@ -1,9 +1,13 @@
 /**
  * panel_battle_enemies.js
  * パネルバトルで使用する敵テンプレート定義。
+ *
+ * 方針:
+ * - DB(実装済みキャラ30体)が存在する場合は、それを敵テンプレートに変換して使用。
+ * - DBが未ロード時のみフォールバックとして従来の専用敵を利用。
  */
 
-const PANEL_BATTLE_ENEMIES = [
+const LEGACY_PANEL_BATTLE_ENEMIES = [
     {
         id: 'slime', name: 'スライム', emoji: '🟢',
         hp: 80, atk: 12, resistPhys: 0.0, resistMagic: 0.0, actionInterval: 2,
@@ -65,3 +69,63 @@ const PANEL_BATTLE_ENEMIES = [
         expBase: 55, goldBase: 100
     }
 ];
+
+function clampPanelEnemyValue(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+}
+
+function buildPanelEnemyPattern(chara) {
+    const pattern = [{ turn: 'every', action: 'attack', power: 1.0, label: '通常攻撃' }];
+
+    const def = Number(chara.def || (chara.stats && chara.stats.def) || 0);
+    const res = Number(chara.res || (chara.stats && chara.stats.res) || 0);
+    const atk = Number(chara.atk || (chara.stats && chara.stats.atk) || 0);
+    const hp = Number(chara.hp || (chara.stats && chara.stats.hp) || 0);
+
+    if (def >= 90) pattern.push({ turn: 3, action: 'guard_phys', label: '物理ガード' });
+    if (res >= 90) pattern.push({ turn: 4, action: 'guard_magic', label: '魔法ガード' });
+    if (atk >= 120) pattern.push({ turn: 5, action: 'heavy', power: 1.75, label: '強打' });
+    if (hp >= 520) pattern.push({ turn: 6, action: 'drain', power: 0.95, healRate: 0.55, label: '吸収攻撃' });
+
+    return pattern;
+}
+
+function buildPanelEnemyFromCharacter(chara) {
+    const elementEmoji = {
+        fire: '🔥',
+        water: '💧',
+        grass: '🌿',
+        dark: '🌑',
+        light: '✨',
+        neutral: '⚪'
+    };
+
+    const rawHp = Number(chara.hp || (chara.stats && chara.stats.hp) || 200);
+    const rawAtk = Number(chara.atk || (chara.stats && chara.stats.atk) || 40);
+    const rawDef = Number(chara.def || (chara.stats && chara.stats.def) || 40);
+    const rawRes = Number(chara.res || (chara.stats && chara.stats.res) || 40);
+    const rawSpd = Number(chara.spd || (chara.stats && chara.stats.spd) || 40);
+    const rawBst = Number(chara.bst || 300);
+
+    const resistPhys = clampPanelEnemyValue((rawDef - 60) / 220, -0.35, 0.45);
+    const resistMagic = clampPanelEnemyValue((rawRes - 60) / 220, -0.35, 0.45);
+
+    return {
+        id: `db_${chara.id}`,
+        name: chara.name,
+        emoji: elementEmoji[chara.element] || '👾',
+         imageUrl: (typeof IMG_DATA !== 'undefined' && IMG_DATA && IMG_DATA[chara.id]) ? IMG_DATA[chara.id] : '',
+        hp: Math.max(90, Math.floor(rawHp * 0.34)),
+        atk: Math.max(10, Math.floor(rawAtk * 0.42)),
+        resistPhys,
+        resistMagic,
+        actionInterval: rawSpd >= 95 ? 1 : (rawSpd <= 35 ? 3 : 2),
+        pattern: buildPanelEnemyPattern(chara),
+        expBase: Math.max(20, Math.floor(rawBst * 0.08)),
+        goldBase: Math.max(35, Math.floor(rawBst * 0.11))
+    };
+}
+
+const PANEL_BATTLE_ENEMIES = (typeof DB !== 'undefined' && Array.isArray(DB) && DB.length > 0)
+    ? DB.map(buildPanelEnemyFromCharacter)
+    : LEGACY_PANEL_BATTLE_ENEMIES;

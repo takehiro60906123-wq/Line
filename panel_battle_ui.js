@@ -27,6 +27,28 @@ function createEnemyAnchorTextElement(text, className, color, order = 0) {
     return el;
 }
 
+function createPlayerAnchorTextElement(text, className, color, order = 0) {
+    const layer = document.getElementById('pb-effect-layer');
+    const charEl = document.getElementById('char-container') || document.getElementById('my-character');
+    if (!layer || !charEl) return null;
+
+    const layerRect = layer.getBoundingClientRect();
+    const charRect = charEl.getBoundingClientRect();
+
+    const el = document.createElement('div');
+    el.className = `pb-floating-text ${className || ''}`;
+    el.textContent = text;
+    if (color) el.style.color = color;
+
+    const popupX = charRect.left - layerRect.left + charRect.width * 0.5;
+    const popupY = charRect.top - layerRect.top - 10 + order * 3;
+    const x = Math.max(20, Math.min(layerRect.width - 20, popupX));
+    const y = Math.max(20, Math.min(layerRect.height - 20, popupY));
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    return el;
+}
+
 class PanelBattleUI {
     constructor(controller) {
         this.ctrl = controller;
@@ -69,6 +91,7 @@ class PanelBattleUI {
         const enemyArea = document.querySelector('#pb-battle-hud .pb-enemy-area');
         if (enemyArea) enemyArea.style.display = '';
         this.setEnemyHudMoving(false);
+        this.setInputLocked(false);
 
     }
 
@@ -99,12 +122,14 @@ class PanelBattleUI {
         const nameEl = document.getElementById('pb-enemy-name');
         const spriteEl = document.getElementById('pb-enemy-sprite');
         const weakEl = document.getElementById('pb-enemy-weak');
+        const realNameEl = document.getElementById('pb-enemy-real-name');
        const atkEl = document.getElementById('pb-enemy-atk');
         const enemyHpText = document.getElementById('pb-enemy-hp-text');
         const enemyHpSlider = document.getElementById('pb-enemy-hp-slider');
-        if (nameEl) nameEl.textContent = '探索中';
+       if (nameEl) nameEl.textContent = '敵の様子';
         if (spriteEl) spriteEl.textContent = '';
         if (weakEl) weakEl.textContent = '弱点: -';
+        if (realNameEl) realNameEl.textContent = '-';
         if (atkEl) atkEl.textContent = 'ATK 0';
         if (enemyHpText) enemyHpText.textContent = 'HP 0 / 0';
        if (enemyHpSlider) {
@@ -113,6 +138,7 @@ class PanelBattleUI {
             enemyHpSlider.style.setProperty('--pb-enemy-hp-pct', '0%');
         }
         this.setEnemyHudMoving(true);
+        this.setInputLocked(false);
          const enemyArea = document.getElementById('pb-enemy-area');
         if (enemyArea) {
             enemyArea.classList.remove('pb-enemy-area-detail-open');
@@ -187,15 +213,19 @@ class PanelBattleUI {
         hud.className = 'pb-battle-hud';
         hud.innerHTML = `
             <div class="pb-enemy-area" id="pb-enemy-area" role="button" aria-label="敵詳細を表示" aria-expanded="false" tabindex="0">
-                <div class="pb-enemy-sprite" id="pb-enemy-sprite">🟢</div>
-                <div class="pb-enemy-foot-counter" id="pb-enemy-foot-counter" aria-live="polite">敵攻撃まで あと 3</div>
+                <div class="pb-enemy-visual-stack">
+                    <div class="pb-enemy-sprite" id="pb-enemy-sprite">🟢</div>
+                    <input type="range" id="pb-enemy-hp-slider" class="pb-hp-slider pb-enemy-slider" min="0" max="100" value="100" style="--pb-enemy-hp-pct: 100%;" disabled>
+                    <div class="pb-enemy-foot-counter" id="pb-enemy-foot-counter" aria-live="polite">敵攻撃まで あと 3</div>
+                </div>
                 <div class="pb-enemy-hud-box">
                   <div class="pb-enemy-basic">
                         <div class="pb-enemy-name" id="pb-enemy-name">スライム</div>
-                       <input type="range" id="pb-enemy-hp-slider" class="pb-hp-slider pb-enemy-slider" min="0" max="100" value="100" style="--pb-enemy-hp-pct: 100%;" disabled>
+                      
                      <div class="pb-enemy-walk-label" id="pb-enemy-walk-label">🚶 移動中...</div>
-                        </div>
+                       
                     <div class="pb-enemy-detail" id="pb-enemy-detail">
+                        <div class="pb-enemy-real-name" id="pb-enemy-real-name">-</div>
                         <div class="pb-enemy-title-row">
                             <div class="pb-enemy-lv" id="pb-enemy-lv">Lv.1</div>
                             <div class="pb-enemy-atk" id="pb-enemy-atk">ATK 0</div>
@@ -289,12 +319,24 @@ class PanelBattleUI {
         const lvEl = document.getElementById('pb-enemy-lv');
         const spriteEl = document.getElementById('pb-enemy-sprite');
         const hpText = document.getElementById('pb-enemy-hp-text');
+        const realNameEl = document.getElementById('pb-enemy-real-name');
         const hpSlider = document.getElementById('pb-enemy-hp-slider');
         const weakEl = document.getElementById('pb-enemy-weak');
         const atkEl = document.getElementById('pb-enemy-atk');
-        if (nameEl) nameEl.textContent = enemy.name;
+         if (nameEl) nameEl.textContent = '敵の様子';
+        if (realNameEl) realNameEl.textContent = enemy.name || '-';
         if (lvEl) lvEl.textContent = `Lv.${Math.max(1, enemy.level || enemy.lv || 1)}`;
-        if (spriteEl) spriteEl.textContent = enemy.emoji || '👾';
+         if (spriteEl) {
+            const hasImage = !!(enemy.imageUrl);
+            spriteEl.classList.toggle('has-image', hasImage);
+            if (hasImage) {
+                spriteEl.textContent = '';
+                spriteEl.style.backgroundImage = `url('${enemy.imageUrl}')`;
+            } else {
+                spriteEl.style.backgroundImage = '';
+                spriteEl.textContent = enemy.emoji || '👾';
+            }
+        }
         const safeMax = Math.max(1, maxHp || enemy.hp || 1);
         const safeHp = Math.max(0, enemy.hp || 0);
         if (hpText) hpText.textContent = `HP ${safeHp} / ${safeMax}`;
@@ -537,7 +579,7 @@ class PanelBattleUI {
             const screen = document.getElementById('screen-sugoroku');
             if (screen) { screen.classList.add('pb-screen-shake'); setTimeout(() => screen.classList.remove('pb-screen-shake'), 400); }
             setTimeout(() => {
-                this._showFloatingText(`-${dmg}`, 'pb-player-dmg-text', '#ff4444');
+                this._showPlayerPopupText(`-${dmg}`, 'pb-player-dmg-text', '#ff4444');
                 if (app && app.sound) app.sound.play('se_damage');
             }, 300);
             setTimeout(resolve, 800);
@@ -638,6 +680,23 @@ class PanelBattleUI {
         }
         layer.appendChild(el);
         setTimeout(() => el.remove(), 1400);
+    }
+
+    _showPlayerPopupText(text, className, color, order = 0) {
+        const layer = document.getElementById('pb-effect-layer');
+        const el = createPlayerAnchorTextElement(text, className, color, order);
+        if (!layer || !el) {
+            this._showFloatingText(text, className, color);
+            return;
+        }
+        layer.appendChild(el);
+        setTimeout(() => el.remove(), 1200);
+    }
+
+    setInputLocked(locked) {
+        const container = document.getElementById('pb-container');
+        if (!container) return;
+        container.classList.toggle('pb-input-locked', !!locked);
     }
 
     _spawnMagicBullet(hitIndex = 0, onHit) {

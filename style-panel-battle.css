@@ -60,65 +60,145 @@
 .pb-battle-hud {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 70;
+    z-index: 90;
     pointer-events: none;
 }
 
 /* --- 敵エリア（右側に配置） --- */
 .pb-enemy-area {
     position: absolute;
-    right: max(8px, env(safe-area-inset-right));
+   right: clamp(160px, 22vw, 280px);
     bottom: 18%;
     display: flex;
-   align-items: flex-end;
+     flex-direction: row;
+     align-items: flex-end;
     gap: 8px;
     pointer-events: auto;
     cursor: pointer;
     max-width: calc(100% - 16px);
+    z-index: 95;
+}
+.pb-enemy-visual-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    z-index: 3;
 }
 
 .pb-enemy-sprite {
-    font-size: 48px;
-    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+    width: 80px;
+    height: 80px;
+    border-radius: 0;
+    border: none;
+    font-size:40px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-color: transparent;
+    box-shadow: none;
+    filter: drop-shadow(0 8px 14px rgba(0,0,0,0.5));
     transition: transform 0.2s;
     flex-shrink: 0;
 }
+
+.pb-enemy-sprite.has-image:not(.pb-enemy-hit) {
+    position: relative;
+    font-size: 0;
+    color: transparent;
+    transform-origin: center bottom;
+    animation: enemyIdleFloat 1.8s cubic-bezier(0.42, 0.0, 0.2, 1) infinite;
+    will-change: transform, filter;
+}
+.pb-enemy-sprite.has-image::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 26%, rgba(255,255,255,0.18), rgba(255,255,255,0) 58%);
+    mix-blend-mode: screen;
+    opacity: 0.22;
+    animation: enemyIdleGlow 1.8s ease-in-out infinite;
+}
+@keyframes enemyIdleFloat {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+        filter: drop-shadow(0 8px 14px rgba(0,0,0,0.48));
+    }
+    20% {
+        transform: translate3d(-1px, -4px, 0) scale(1.02) rotate(-0.7deg);
+        filter: drop-shadow(0 11px 16px rgba(0,0,0,0.55));
+    }
+    45% {
+        transform: translate3d(1px, -8px, 0) scale(1.04) rotate(0.6deg);
+        filter: drop-shadow(0 14px 20px rgba(0,0,0,0.62));
+    }
+    70% {
+        transform: translate3d(-1px, -3px, 0) scale(1.018) rotate(-0.5deg);
+        filter: drop-shadow(0 10px 16px rgba(0,0,0,0.54));
+    }
+    100% {
+        transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+        filter: drop-shadow(0 8px 14px rgba(0,0,0,0.48));
+    }
+}
+@keyframes enemyIdleGlow {
+   0%, 100% { opacity: 0.14; transform: scale(0.985); }
+    50% { opacity: 0.40; transform: scale(1.035); }
+}
 .pb-enemy-hit { animation: enemyHitShake 0.3s ease-out; }
+.pb-enemy-sprite.has-image.pb-enemy-hit {
+    animation: enemyHitShake 0.3s ease-out !important;
+}
+.pb-enemy-sprite.has-image.pb-enemy-hit::after {
+    animation: none !important;
+}
 @keyframes enemyHitShake { 0%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} 100%{transform:translateX(0)} }
 .pb-enemy-lvup { animation: enemyLvUpGlow 0.6s ease-out; }
 @keyframes enemyLvUpGlow { 0%{filter:drop-shadow(0 0 0 transparent);transform:scale(1)} 50%{filter:drop-shadow(0 0 20px #aa44ff);transform:scale(1.2)} 100%{filter:drop-shadow(0 0 0 transparent);transform:scale(1)} }
 
 
 .pb-enemy-foot-counter {
-    position: absolute;
-    left: 6px;
-    bottom: -20px;
+    position: static;
     z-index: 6;
     pointer-events: none;
-    font-size: 15px;
+     font-size: 13px;
     font-weight: 900;
     color: #fff;
-   background: transparent;
+    background: transparent;
     border: 0;
     border-radius: 0;
     padding: 0;
     text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9);
     white-space: nowrap;
+   text-align: center;
 }
 
 .pb-enemy-hud-box {
-    min-width: 150px;
-    max-width: 200px;
-    padding: 6px 8px;
+   min-width: 124px;
+    max-width: 168px;
+    padding: 5px 7px;
     border-radius: 10px;
     background: rgba(8, 12, 24, 0.78);
-    border: 1px solid rgba(255,255,255,0.25);
+    border: 1px solid rgba(255,255,255,0.22);
     box-shadow: 0 3px 10px rgba(0,0,0,0.45);
+     margin-bottom: 4px;
+    transform: translateX(-5px);
+    z-index: 2;
 }
 
 .pb-enemy-basic {
     display: grid;
     gap: 4px;
+}
+
+.pb-enemy-visual-stack .pb-enemy-slider {
+    width: 80px;
+    height: 12px;
 }
 
 .pb-enemy-walk-label {
@@ -135,7 +215,7 @@
     display: none !important;
 }
 .pb-enemy-area.pb-enemy-moving .pb-enemy-hud-box {
-    min-width: 130px;
+    min-width: 124px;
 }
 .pb-enemy-detail {
     display: none;
@@ -161,6 +241,13 @@
     text-shadow: 0 1px 3px #000, 0 0 6px rgba(0,0,0,0.8);
     margin-bottom: 2px;
     white-space: nowrap;
+}
+
+.pb-enemy-real-name {
+    font-size: 10px;
+    color: #c9e8ff;
+    margin-bottom: 2px;
+    text-shadow: 0 1px 2px #000;
 }
 
 .pb-enemy-title-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
@@ -337,11 +424,30 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
 .pb-enemy-counter {
     font-size: 14px; font-weight: 900; color: #fff;
     background: rgba(255,255,255,0.1); padding: 3px 14px;
-    border-radius: 20px; border: 1px solid #555; transition: all 0.3s;
+    border-radius: 0; border: 1px solid #555; transition: all 0.3s;
 }
 .pb-counter-warn { color: #ffaa00 !important; border-color: #ffaa00 !important; background: rgba(255,170,0,0.15) !important; }
 .pb-counter-danger { color: #ff4444 !important; border-color: #ff4444 !important; background: rgba(255,68,68,0.2) !important; animation: counterBlink 0.5s infinite alternate; }
 @keyframes counterBlink { 0%{opacity:1} 100%{opacity:0.5} }
+
+.pb-container.pb-input-locked .pb-grid-wrapper {
+    position: relative;
+}
+.pb-container.pb-input-locked .pb-grid-wrapper::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.34);
+    pointer-events: none;
+    z-index: 2;
+}
+.pb-container.pb-input-locked .pb-grid {
+    filter: brightness(0.62) saturate(0.78);
+}
+.pb-container.pb-input-locked .pb-panel {
+    pointer-events: none;
+    cursor: not-allowed;
+}
 
 /* =========================================
    6×6 グリッド
@@ -431,9 +537,14 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
 }
 
 @media (prefers-reduced-motion: reduce) {
-        .pb-panel-has-art::before {
+          .pb-panel-has-art::before {
         animation: none !important;
         opacity: 0;
+    }
+
+    .pb-enemy-sprite.has-image,
+    .pb-enemy-sprite.has-image::after {
+        animation: none !important;
     }
 }
 
@@ -689,7 +800,8 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
 @media (max-height: 600px) {
     .sg-game-area.pb-battle-mode { height: clamp(110px, 28%, 220px); }
     .pb-container { top: calc(56px + clamp(110px, 28%, 220px)); }
-    .pb-enemy-sprite { font-size: 36px; }
+    .pb-enemy-area { right: clamp(120px, 18vw, 220px); }
+     .pb-enemy-sprite { width: 72px; height: 72px; font-size: 34px; }
     .pb-panel-icon { font-size: min(6vw, 26px); }
 }
 @media (min-height: 800px) {

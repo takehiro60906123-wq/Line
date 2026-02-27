@@ -95,6 +95,7 @@ class PanelBattleScreen {
         }
         this.ui.setup();
         this.ui.renderAll(this);
+        this.ui.setInputLocked(false);
     }
 
     // ========================================
@@ -183,12 +184,14 @@ class PanelBattleScreen {
         const panel = this.grid[row][col];
         if (!panel || panel.removing) return;
         this.isProcessing = true;
+        this.ui.setInputLocked(true);
         const type = panel.type;
 
       
         const chain = this.findChain(row, col, type);
         if (chain.length === 0) { this.isProcessing = false; return; }
 
+         if (chain.length === 0) { this.isProcessing = false; this.ui.setInputLocked(false); return; }
         let killedLvUps = [];
         if (type === 'sword') killedLvUps = this._findAdjacentLvUps(chain);
 
@@ -206,17 +209,17 @@ class PanelBattleScreen {
         this.turnCount++;
         this.enemyActionCounter--;
 
-        if (this.enemy.hp <= 0) { await this.sleep(300); this.endBattle(true); return; }
-
+       if (this.enemy.hp <= 0) { this.ui.setInputLocked(false); await this.sleep(300); this.endBattle(true); return; }
         if (this.enemyActionCounter <= 0) {
             await this.sleep(300);
             await this.doEnemyTurn();
             this.enemyActionCounter = this.enemyActionInterval;
-            if (this.playerHp <= 0) { await this.sleep(300); this.endBattle(false); return; }
+          if (this.playerHp <= 0) { this.ui.setInputLocked(false); await this.sleep(300); this.endBattle(false); return; }
         }
 
         this.ui.renderAll(this);
         this.isProcessing = false;
+        this.ui.setInputLocked(false);
     }
 
     // ========================================
