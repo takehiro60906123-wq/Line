@@ -238,7 +238,7 @@ class BattleScreen {
         // システム通りの強化だけでは、HPが低すぎて8人の集中攻撃で瞬殺される場合のみ
         // 「ボス補正」として少しだけHPを盛る（以前の3倍のような無茶な数値にはしない）
         // ========================================================
-        if (base.cost >= 5) { // コスト5以上の大型キャラのみ
+        if (base.bst >= 500 || base.cost >= 5) { // BST500以上の大型キャラのみ
             enemy.maxHp = Math.floor(enemy.maxHp * 1.5); // HP1.5倍（ボス補正）
             enemy.battleHp = enemy.maxHp;
         }
@@ -357,24 +357,56 @@ class BattleScreen {
                 const hasFrontLives = this.state.units.some(u => u.side === actor.side && !u.isDead && u.anchorIdx < 4);
                 if (isBackRow && hasFrontLives && !skillAct) continue; 
 
-                const targetSide = (actor.side === 'player') ? 'enemy' : 'player';
-                const skillType = skillAct ? actor.base.skill.type : 'NORMAL';
-                const skillCount = (skillAct && actor.base.skill.count) ? actor.base.skill.count : 1;
-                
-                // ★混乱チェック: 30%で味方を攻撃
-                let actualTargetSide = targetSide;
-                const isConfused = actor.statusEffects && actor.statusEffects.find(se => se.type === 'CONFUSE');
-                if (isConfused && Math.random() < 0.30) {
-                    actualTargetSide = actor.side; // 味方を殴る
-                    this.visuals.showVal(actor.elem, "🌀味方を攻撃！", false, false);
-                    await this.sleep(500);
+                // ★v2: シェイプ別行動回数 (SPEC_v2 Section 5)
+                let actionCount = 1;
+                if (typeof rollActionCount === 'function' && actor.base.shape) {
+                    actionCount = rollActionCount(actor.base.shape);
+                    // ★特性: 安定行動 → 2回固定
+                    const abil = actor.base.ability || actor.base.passive;
+                    if (abil && abil.type === 'STABLE_ACTION') actionCount = 2;
+                    // ★特性: 暴走 → 最大値+1
+                    if (abil && abil.type === 'RAMPAGE') actionCount = Math.min(actionCount + 1, 4);
                 }
-                
-                const targets = this.state.getTargets(actor, actualTargetSide, skillType, skillCount);
-                
-                if (targets && targets.length > 0) { 
-                    await this.executeAction(actor, targets, skillAct); 
-                    await this.sleep(1000); 
+
+                // ★v2: 連撃の構え特性 (2回以上行動時ATK+20%)
+                const comboAbil = actor.base.ability || actor.base.passive;
+                if (actionCount >= 2 && comboAbil && comboAbil.type === 'COMBO_STANCE') {
+                    actor.atk = Math.floor(actor.atk * (1 + (comboAbil.val || 0.20)));
+                }
+
+                // ★v2: 加速特性 (毎ターンSPD+10%)
+                if (comboAbil && comboAbil.type === 'ACCELERATE') {
+                    actor.spd = Math.floor(actor.spd * (1 + (comboAbil.val || 0.10)));
+                }
+
+                for (let actionIdx = 0; actionIdx < actionCount; actionIdx++) {
+                    if (actor.isDead) break;
+                    // 結果チェック (途中で決着ついたら中断)
+                    if (this.state.checkResult()) break;
+
+                    // 1回目のみスキル発動可能、2回目以降は通常攻撃のみ
+                    const useSkill = (actionIdx === 0) ? skillAct : false;
+
+                    const targetSide = (actor.side === 'player') ? 'enemy' : 'player';
+                    const currentSkillType = useSkill ? actor.base.skill.type : 'NORMAL';
+                    const currentSkillCount = (useSkill && actor.base.skill.count) ? actor.base.skill.count : 1;
+                    
+                    // ★混乱チェック: 30%で味方を攻撃
+                    let actualTargetSide = targetSide;
+                    const isConfused = actor.statusEffects && actor.statusEffects.find(se => se.type === 'CONFUSE');
+                    if (isConfused && Math.random() < 0.30) {
+                        actualTargetSide = actor.side;
+                        this.visuals.showVal(actor.elem, "🌀味方を攻撃！", false, false);
+                        await this.sleep(500);
+                    }
+                    
+                    const targets = this.state.getTargets(actor, actualTargetSide, currentSkillType, currentSkillCount);
+                    
+                    if (targets && targets.length > 0) { 
+                        await this.executeAction(actor, targets, useSkill); 
+                        // 多段行動時は間隔を短く
+                        await this.sleep(actionCount > 1 ? 600 : 1000);
+                    }
                 }
             }
         }
@@ -524,8 +556,17 @@ class BattleScreen {
                 for (const t of targets) {
                     if (t.isDead) continue;
                     let basePower = actor.skillPow || skill.pow || 1.0;
-                    let val = Math.floor(actor.atk * basePower);
-                    val = Math.floor(val * (0.9 + Math.random() * 0.2));
+                    let val;
+                    { // v2 damage calc
+                        const _res = t.res || t.base.res || 30;
+                        const _c = (typeof DMG_COEFFICIENT !== 'undefined') ? DMG_COEFFICIENT : 50;
+                        if (actor.skillPowerPct) {
+                            val = Math.max(1, Math.floor((actor.atk * (actor.skillPowerPct / 100) / Math.max(1, _res)) * _c * (0.85 + Math.random() * 0.15)));
+                        } else {
+                            val = Math.floor(actor.atk * basePower);
+                            val = Math.floor(val * (0.9 + Math.random() * 0.2));
+                        }
+                    }
                     await this.effects.play('SMASH', t.elem);
                     const oldHp = t.battleHp;
                     const dmgResult = this.state.applyDamage(t, val, actor);
@@ -586,8 +627,17 @@ class BattleScreen {
                 for (const t of targets) {
                     if (t.isDead) continue;
                     let basePower = actor.skillPow || skill.pow || 1.0;
-                    let val = Math.floor(actor.atk * basePower);
-                    val = Math.floor(val * (0.9 + Math.random() * 0.2));
+                    let val;
+                    { // v2 damage calc
+                        const _res = t.res || t.base.res || 30;
+                        const _c = (typeof DMG_COEFFICIENT !== 'undefined') ? DMG_COEFFICIENT : 50;
+                        if (actor.skillPowerPct) {
+                            val = Math.max(1, Math.floor((actor.atk * (actor.skillPowerPct / 100) / Math.max(1, _res)) * _c * (0.85 + Math.random() * 0.15)));
+                        } else {
+                            val = Math.floor(actor.atk * basePower);
+                            val = Math.floor(val * (0.9 + Math.random() * 0.2));
+                        }
+                    }
                     await this.effects.play('SMASH', t.elem);
                     const oldHp = t.battleHp;
                     const dmgResult = this.state.applyDamage(t, val, actor);
@@ -634,8 +684,17 @@ class BattleScreen {
                 for (const t of targets) {
                     if (t.isDead) continue;
                     let basePower = actor.skillPow || skill.pow || 1.0;
-                    let val = Math.floor(actor.atk * basePower);
-                    val = Math.floor(val * (0.9 + Math.random() * 0.2));
+                    let val;
+                    { // v2 damage calc
+                        const _res = t.res || t.base.res || 30;
+                        const _c = (typeof DMG_COEFFICIENT !== 'undefined') ? DMG_COEFFICIENT : 50;
+                        if (actor.skillPowerPct) {
+                            val = Math.max(1, Math.floor((actor.atk * (actor.skillPowerPct / 100) / Math.max(1, _res)) * _c * (0.85 + Math.random() * 0.15)));
+                        } else {
+                            val = Math.floor(actor.atk * basePower);
+                            val = Math.floor(val * (0.9 + Math.random() * 0.2));
+                        }
+                    }
                     await this.effects.play('BLAST', t.elem);
                     const oldHp = t.battleHp;
                     const dmgResult = this.state.applyDamage(t, val, actor);
@@ -867,8 +926,17 @@ class BattleScreen {
                 for (const t of targets) {
                     if (t.isDead) continue;
                     let basePower = actor.skillPow || skill.pow || 1.0;
-                    let val = Math.floor(actor.atk * basePower);
-                    val = Math.floor(val * (0.9 + Math.random() * 0.2));
+                    let val;
+                    { // v2 damage calc
+                        const _res = t.res || t.base.res || 30;
+                        const _c = (typeof DMG_COEFFICIENT !== 'undefined') ? DMG_COEFFICIENT : 50;
+                        if (actor.skillPowerPct) {
+                            val = Math.max(1, Math.floor((actor.atk * (actor.skillPowerPct / 100) / Math.max(1, _res)) * _c * (0.85 + Math.random() * 0.15)));
+                        } else {
+                            val = Math.floor(actor.atk * basePower);
+                            val = Math.floor(val * (0.9 + Math.random() * 0.2));
+                        }
+                    }
                     await this.effects.play('STUN', t.elem);
                     const oldHp = t.battleHp;
                     const dmgResult = this.state.applyDamage(t, val, actor);
@@ -1026,7 +1094,8 @@ class BattleScreen {
             // スタイル別に攻撃音を分岐
             if(app.sound) {
                 switch(skillType) {
-                    case 'SMASH':       app.sound.attackSmash(); break;
+                    case 'SMASH':
+                    case 'SINGLE':      app.sound.attackSmash(); break;
                     case 'BLAST':
                     case 'SPLASH':      app.sound.attackBlast(); break;
                     case 'SNIPE':
@@ -1079,8 +1148,10 @@ class BattleScreen {
                 let basePower = isSkill ? (actor.skillPow || 1.0) : 1.0;
 
                 if (isHeal) {
-                    let val = Math.floor(actor.atk * (skill.pow || 1.0));
-                    val = Math.floor(val * (0.9 + Math.random() * 0.2));
+                    // ★v2: 回復量 = ATK × power% (新), or ATK × pow (旧)
+                    let healPow = (skill.power) ? (skill.power / 100) : (skill.pow || 1.0);
+                    let val = Math.floor(actor.atk * healPow);
+                    val = Math.floor(val * (0.85 + Math.random() * 0.15));
                     const actualHeal = Math.min(t.maxHp - t.battleHp, val);
                     this.state.heal(t, val);
                     if(this.battleLogs[actor.uid]) this.battleLogs[actor.uid].heal += actualHeal;
@@ -1088,8 +1159,24 @@ class BattleScreen {
                     this.visuals.showVal(t.elem, val, false, true); 
                     this.visuals.updateHp(t, true);
                 } else {
-                    let val = Math.floor(actor.atk * basePower);
-                    val = Math.floor(val * (0.9 + Math.random() * 0.2));
+                    // ★v2: 新ダメージ計算式 (SPEC_v2 Section 3)
+                    let val;
+                    const targetDef = t.def || t.base.def || 30;
+                    const targetRes = t.res || t.base.res || 30;
+                    const coeff = (typeof DMG_COEFFICIENT !== 'undefined') ? DMG_COEFFICIENT : 50;
+                    const rand = 0.85 + Math.random() * 0.15;
+
+                    if (isSkill && actor.skillPowerPct) {
+                        // スキル攻撃: (ATK × スキル威力% / RES) × 50 × 乱数
+                        val = Math.max(1, Math.floor((actor.atk * (actor.skillPowerPct / 100) / Math.max(1, targetRes)) * coeff * rand));
+                    } else if (isSkill) {
+                        // 旧スキル互換: ATK × skillPow (倍率)
+                        val = Math.floor(actor.atk * basePower);
+                        val = Math.floor(val * (0.85 + Math.random() * 0.15));
+                    } else {
+                        // 通常攻撃: (ATK / DEF) × 50 × 乱数
+                        val = Math.max(1, Math.floor((actor.atk / Math.max(1, targetDef)) * coeff * rand));
+                    }
                     
                     // ★睡眠中の敵は被ダメ1.5倍 + 覚醒
                     const wasSleeping = this.state.wakeOnHit(t);
@@ -1133,6 +1220,15 @@ class BattleScreen {
                     this.visuals.showVal(t.elem, result.damage, result.flags); 
                     this.visuals.playHitEffect(t);
                     this.visuals.updateHp(t, true);
+
+                    // ★v2: 属性相性テキスト表示
+                    if (result.flags && result.flags.weak) {
+                        await this.sleep(200);
+                        this.visuals.showVal(t.elem, "効果抜群！", false, false);
+                    } else if (result.flags && result.flags.resist) {
+                        await this.sleep(200);
+                        this.visuals.showVal(t.elem, "いまひとつ…", false, false);
+                    }
 
                     // --- GUTS: 根性で耐えた演出 ---
                     if (result.flags && result.flags.guts) {
@@ -1199,6 +1295,21 @@ class BattleScreen {
                         actor.atk = Math.floor(actor.atk * (1 + p.val));
                         this.visuals.showVal(actor.elem, "狂化!ATK UP", false, true);
                         console.log(`[Berserk] ${actor.base.name} ATK -> ${actor.atk}`);
+                        break;
+                    }
+                }
+                // ★v2: ABSORB — 攻撃ダメージの一部をHP回復
+                for (const p of actorP) {
+                    if (p.type === 'ABSORB') {
+                        const totalDmg = this.battleLogs[actor.uid] ? this.battleLogs[actor.uid].damage : 0;
+                        if (totalDmg > 0) {
+                            const healAmt = Math.floor(totalDmg * (p.val || 0.15) * 0.3);
+                            if (healAmt > 0 && actor.battleHp < actor.maxHp) {
+                                this.state.heal(actor, healAmt);
+                                this.visuals.showVal(actor.elem, `吸収+${healAmt}`, false, true);
+                                this.visuals.updateHp(actor, true);
+                            }
+                        }
                         break;
                     }
                 }

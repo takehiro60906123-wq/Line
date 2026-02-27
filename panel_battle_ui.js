@@ -362,18 +362,43 @@ class PanelBattleUI {
         iconEl.className = 'pb-panel-icon';
         iconEl.textContent = pType.icon || '⚔';
 
-        if (pType.image) {
+         const imageCandidates = Array.isArray(pType.image)
+            ? pType.image.filter(Boolean)
+            : (pType.image ? [pType.image] : []);
+
+        if (pType._imageUnavailable) {
+            cell.appendChild(iconEl);
+            return;
+        }
+
+        const resolvedSrc = pType._resolvedImage || null;
+        const sources = resolvedSrc ? [resolvedSrc] : imageCandidates;
+
+        if (sources.length > 0) {
             cell.classList.add('pb-panel-has-art');
             const imgEl = document.createElement('img');
             imgEl.className = 'pb-panel-art';
-            imgEl.src = pType.image;
+            imgEl.src = sources[0];
             imgEl.alt = pType.label || pType.id || 'panel';
             imgEl.loading = 'lazy';
             iconEl.style.display = 'none';
-            imgEl.addEventListener('error', () => {
-                imgEl.remove();
-                iconEl.style.display = '';
+            let candidateIndex = 0;
+            imgEl.addEventListener('load', () => {
+                pType._resolvedImage = imgEl.currentSrc || imgEl.src;
+                pType._imageUnavailable = false;
             }, { once: true });
+
+            imgEl.addEventListener('error', () => {
+                candidateIndex += 1;
+                   if (candidateIndex < sources.length) {
+                    imgEl.src = sources[candidateIndex];
+                    return;
+                }
+                 pType._imageUnavailable = true;
+                imgEl.remove();
+                cell.classList.remove('pb-panel-has-art');
+                iconEl.style.display = '';
+             });
             cell.appendChild(imgEl);
         }
 

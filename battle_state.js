@@ -30,23 +30,22 @@ class BattleState {
 
         const cardEff = uData.cardEffects || {};
 
-       // ★カードの基本ステータス加算(hpPct/atkPct/hpFlat/atkFlat/spdFlat)は
-        // Unit.calcStats() 側で反映済み。ここでは戦闘時のみの減衰系だけ適用する。
+        // ★カードの基本ステータス加算は Unit.calcStats() 側で反映済み
         let hpMul = 1;
-       
         if (cardEff.hpDownPct) hpMul -= cardEff.hpDownPct / 100;
         uData.maxHp = Math.floor(uData.maxHp * Math.max(0.1, hpMul));
-       
         uData.battleHp = uData.maxHp;
 
         let atkMul = 1;
-      
         if (cardEff.atkDownPct) atkMul -= cardEff.atkDownPct / 100;
         uData.atk = Math.floor(uData.atk * Math.max(0.1, atkMul));
-      
         uData.originalAtk = uData.atk;
 
-      
+        // ★v2: DEF / RES の初期化 (新5ステータス体系)
+        uData.def = uData.def || uData.base.def || 30;
+        uData.res = uData.res || uData.base.res || 30;
+        uData.originalDef = uData.def;
+        uData.originalRes = uData.res;
 
         // ★スキルレベルボーナス
         if (uData.save && cardEff.skillLvBonus) {
@@ -56,11 +55,17 @@ class BattleState {
         uData.chargeCount = 0;
         uData.chargeMax = (uData.base && uData.base.skill && uData.base.skill.charge) ? uData.base.skill.charge : 99;
 
+        // ★v2: スキルマスター特性 → チャージ-1
+        const ability = uData.base.ability || uData.base.passive;
+        if (ability && ability.type === 'SKILL_MASTER') {
+            uData.chargeMax = Math.max(2, uData.chargeMax - (ability.val || 1));
+        }
+
         if (cardEff.chargeReduce && cardEff.chargeReduce > 0) {
-            uData.chargeMax = Math.max(3, uData.chargeMax - cardEff.chargeReduce);
+            uData.chargeMax = Math.max(2, uData.chargeMax - cardEff.chargeReduce);
         }
         if (cardEff.chargePen && cardEff.chargePen > 0) {
-            uData.chargeMax += cardEff.chargePen; // 重いスキルペナルティ
+            uData.chargeMax += cardEff.chargePen;
         }
 
         uData.shield = 0;
@@ -89,7 +94,7 @@ class BattleState {
         for(let k=0; k<50; k++) {
             const base = DB[Math.floor(Math.random() * DB.length)];
             if(typeof Unit !== 'undefined') {
-                const dummySave = { uid: 'enemy_' + Date.now() + '_' + k, unitId: base.id, lv: 10, maxLv: 50, skillLv: 1 };
+                const dummySave = { uid: 'enemy_' + Date.now() + '_' + k, unitId: base.id, lv: 15, maxLv: 50, skillLv: 1 };
                 const u = new Unit(base, dummySave);
                 const anchor = Math.floor(Math.random() * 8);
                 const cells = u.getOccupiedCells(anchor);
@@ -102,7 +107,7 @@ class BattleState {
         }
         if(this.units.filter(x => x.side === 'enemy').length === 0 && typeof Unit !== 'undefined') {
             const base = DB[0];
-            const u = new Unit(base, { uid: 'enemy_boss', unitId: base.id, lv: 10, maxLv: 50, skillLv: 1 });
+            const u = new Unit(base, { uid: 'enemy_boss', unitId: base.id, lv: 15, maxLv: 50, skillLv: 1 });
             this.createUnit(u, 'enemy', 0);
         }
     }
@@ -119,47 +124,87 @@ class BattleState {
             passives.forEach(p => {
                 if(!p) return;
 
+                // ★v2: STAT_BOOST — 自身のステータス倍率UP (ATK/DEF/SPD/RES)
+                if(p.type === 'STAT_BOOST') {
+                    if(p.stat === 'atk') { actor.atk = Math.floor(actor.atk * p.val); actor.originalAtk = actor.atk; }
+                    if(p.stat === 'def') { actor.def = Math.floor(actor.def * p.val); actor.originalDef = actor.def; }
+                    if(p.stat === 'res') { actor.res = Math.floor(actor.res * p.val); actor.originalRes = actor.res; }
+                    if(p.stat === 'spd') { actor.spd = Math.floor(actor.spd * p.val); }
+                    if(p.stat === 'hp') {
+                        const oldMax = actor.maxHp;
+                        actor.maxHp = Math.floor(actor.maxHp * p.val);
+                        actor.battleHp += (actor.maxHp - oldMax);
+                    }
+                    logs.push({ actor, name: p.name || 'Passive', desc: p.desc, targets: [actor] });
+                }
+
+                // ★v2: DUAL_DEF — DEF+RES同時UP
+                if(p.type === 'DUAL_DEF') {
+                    actor.def = Math.floor(actor.def * (p.defVal || 1.1)); actor.originalDef = actor.def;
+                    actor.res = Math.floor(actor.res * (p.resVal || 1.1)); actor.originalRes = actor.res;
+                    logs.push({ actor, name: p.name, desc: p.desc, targets: [actor] });
+                }
+
+                // ★v2: DUAL_BOOST — ATK+スキル威力同時UP (スキル威力は skillPow に反映)
+                if(p.type === 'DUAL_BOOST') {
+                    actor.atk = Math.floor(actor.atk * (p.atkVal || 1.1)); actor.originalAtk = actor.atk;
+                    logs.push({ actor, name: p.name, desc: p.desc, targets: [actor] });
+                }
+
+                // ★v2: TEAM_BUFF — 味方全体ステUP
+                if(p.type === 'TEAM_BUFF') {
+                    const allies = this.units.filter(t => t.side === side && !t.isDead);
+                    allies.forEach(t => {
+                        if(p.stat === 'atk') { t.atk = Math.floor(t.atk * p.val); t.originalAtk = t.atk; }
+                        if(p.stat === 'def') { t.def = Math.floor(t.def * p.val); t.originalDef = t.def; }
+                        if(p.stat === 'res') { t.res = Math.floor(t.res * p.val); t.originalRes = t.res; }
+                    });
+                    logs.push({ actor, name: p.name, desc: p.desc, targets: allies });
+                }
+
+                // ★v2: INTIMIDATE — 戦闘開始時、敵全体ATK-N%
+                if(p.type === 'INTIMIDATE') {
+                    const enemySide = side === 'player' ? 'enemy' : 'player';
+                    const enemies = this.units.filter(t => t.side === enemySide && !t.isDead);
+                    enemies.forEach(t => {
+                        t.atk = Math.floor(t.atk * (1 - p.val));
+                        t.originalAtk = t.atk;
+                    });
+                    logs.push({ actor, name: p.name, desc: p.desc, targets: enemies });
+                }
+
+                // ★後方互換: 旧BUFF_RACE (種族バフ → element一致バフに変換)
                 if(p.type === 'BUFF_RACE') {
                     let targets = [];
                     if (p.target === null || p.target === undefined) {
                         targets = [actor];
-                    } 
-                    else {
+                    } else {
                         targets = this.units.filter(t => 
-                            t.side === side && 
-                            !t.isDead && 
-                            t.base.type == p.target 
+                            t.side === side && !t.isDead && t.base.type == p.target 
                         );
                     }
                     if(targets.length > 0) {
-                        logs.push({ actor: actor, name: p.name || 'Passive', desc: p.desc, targets: targets });
+                        logs.push({ actor, name: p.name || 'Passive', desc: p.desc, targets });
                         targets.forEach(t => {
-                            if(p.stat === 'atk') {
-                                t.atk = Math.floor(t.atk * p.val);
-                            }
+                            if(p.stat === 'atk') { t.atk = Math.floor(t.atk * p.val); t.originalAtk = t.atk; }
                             if(p.stat === 'hp') {
-                                const oldMax = t.maxHp; 
-                                t.maxHp = Math.floor(t.maxHp * p.val); 
+                                const oldMax = t.maxHp;
+                                t.maxHp = Math.floor(t.maxHp * p.val);
                                 t.battleHp += (t.maxHp - oldMax);
                             }
                         });
                     }
                 }
 
-                // --- 群狼: 味方にコスト1-2が3体以上いればATK UP ---
+                // ★後方互換: 群狼 (旧WOLF_PACK → BST350以下が3体以上でATK UP)
                 if(p.type === 'WOLF_PACK') {
-                    const lowCostCount = this.units.filter(u => 
-                        u.side === side && !u.isDead && u.base.cost <= 2
+                    const lowBstCount = this.units.filter(u => 
+                        u.side === side && !u.isDead && (u.base.bst ? u.base.bst <= 350 : u.base.cost <= 2)
                     ).length;
-                    if(lowCostCount >= 3) {
+                    if(lowBstCount >= 3) {
                         actor.atk = Math.floor(actor.atk * (1 + p.val));
-                        logs.push({ 
-                            actor: actor, 
-                            name: p.name || '群狼', 
-                            desc: `低コスト${lowCostCount}体！ ATK+${Math.floor(p.val*100)}%`, 
-                            targets: [actor] 
-                        });
-                        console.log(`[WolfPack] ${actor.base.name} ATK -> ${actor.atk} (低コスト${lowCostCount}体)`);
+                        actor.originalAtk = actor.atk;
+                        logs.push({ actor, name: p.name || '群狼', desc: `低BST${lowBstCount}体！ ATK+${Math.floor(p.val*100)}%`, targets: [actor] });
                     }
                 }
             });
@@ -309,21 +354,22 @@ class BattleState {
         const flags = { dodged: false, crit: false, guts: false };
         let finalDmg = val;
 
-        // ★相性計算 + カードの特攻 / 耐性
+        // ★v2: 属性相性計算 (新6属性: 火→草→水→火, 光⇔闇)
         if (actor && actor.base && target && target.base) {
-            const at = actor.base.type;
-            const dt = target.base.type;
+            const atkElem = actor.base.element || 'neutral';
+            const defElem = target.base.element || 'neutral';
+            const elemMul = (typeof getElementAdvantage === 'function') 
+                ? getElementAdvantage(atkElem, defElem) : 1.0;
             
-            if ((at + 1) % 6 === dt) {
-                let weakMul = 1.5;
+            if (elemMul > 1.0) {
+                let weakMul = elemMul;
                 if (actor.cardEffects && actor.cardEffects.weakSlayerPct) weakMul += actor.cardEffects.weakSlayerPct / 100;
                 if (target.cardEffects && target.cardEffects.weakResistPct) weakMul = Math.max(1.0, weakMul - target.cardEffects.weakResistPct / 100);
-                
                 finalDmg = Math.floor(finalDmg * weakMul);
                 flags.weak = true;
             }
-            else if ((dt + 1) % 6 === at) {
-                finalDmg = Math.floor(finalDmg * 0.7);
+            else if (elemMul < 1.0) {
+                finalDmg = Math.floor(finalDmg * elemMul);
                 flags.resist = true;
             }
         }
@@ -474,11 +520,12 @@ class BattleState {
         return target.battleHp;
     }
 
-   // ★ステータス異常の耐性値を計算（パッシブ + LB + コスト補正 + カード）
+   // ★v2: ステータス異常の耐性値を計算（パッシブ + LB + BST補正 + カード）
     getStatusResist(unit) {
         let resist = 0;
-        // コスト8以上のボス級は基礎耐性30%
-        if (unit.base.cost >= 8) resist += 0.30;
+        // ★v2: BST530以上(エース級)は基礎耐性30% (旧: cost >= 8)
+        const bst = unit.base.bst || 0;
+        if (bst >= 530 || unit.base.cost >= 8) resist += 0.30;
         
         // パッシブからの耐性
         const allP = (unit.passives && unit.passives.length > 0) 
@@ -486,14 +533,14 @@ class BattleState {
         for (const p of allP) {
             if (p.type === 'STATUS_RESIST') resist += (p.resist || 0);
             if (p.code === 'STATUS_RESIST') resist += (p.val || 0);
+            // ★v2: 毒・火傷無効特性
+            if (p.type === 'POISON_IMMUNE') resist += 0; // 別途判定
         }
         
         // LBからの耐性
         if (unit.lbResist) resist += unit.lbResist;
 
-        // ==========================================
-        // ★追加: カード効果（抗体など）からの耐性
-        // ==========================================
+        // カード効果からの耐性
         if (unit.cardEffects && unit.cardEffects.statusResist > 0) {
             resist += (unit.cardEffects.statusResist / 100);
         }
@@ -767,7 +814,7 @@ class BattleState {
         
         // --- 4. ボス配置 (ボス階のみ) ---
         if (isBossFloor) {
-            const bossBase = DB.find(u => u.cost >= 5) || DB[0];
+            const bossBase = DB.find(u => (u.bst >= 500 || u.cost >= 5)) || DB[0];
             const leaderLv = lv + 5;
             const leaderMaxLv = Math.max(leaderLv, 50 + (lbCount * 5));
             
@@ -803,7 +850,7 @@ class BattleState {
             let base;
             if (isBossFloor) {
                 // 取り巻き：基本は中堅以上(コスト3~)だが、隙間埋め用に30%で全キャラから抽選
-                const midPool = DB.filter(u => u.cost >= 3);
+                const midPool = DB.filter(u => (u.bst >= 350 || u.cost >= 3));
                 if (Math.random() < 0.7 && midPool.length > 0) {
                     base = midPool[Math.floor(Math.random() * midPool.length)];
                 } else {

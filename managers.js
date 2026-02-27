@@ -20,15 +20,25 @@ class Unit {
     }
 
     calcStats() {
-        // 基本ステータス計算
-        // コスト別成長率: 低コストほどレベルで伸びやすい
-        let growthPerLv = 0.03; // デフォルト(高コスト=UR級)
-        if (this.base.cost <= 2) growthPerLv = 0.05;       // R級: 低コストほど伸びやすい
-        else if (this.base.cost <= 4) growthPerLv = 0.04;  // SR級: 中間
+        // ★v2: 5ステータス体系 (HP/ATK/DEF/SPD/RES)
+        // BST基準の成長率: 低BSTほどレベルで伸びやすい
+        const bst = this.base.bst || 300;
+        let growthPerLv = 0.03;
+        if (bst <= 340 || this.base.cost <= 2) growthPerLv = 0.05;
+        else if (bst <= 520 || this.base.cost <= 4) growthPerLv = 0.04;
         const mul = 1 + growthPerLv * (this.save.lv - 1);
-        this.maxHp = Math.floor(this.base.hp * mul);
-        this.atk = Math.floor(this.base.atk * mul);
-        this.spd = this.base.spd;
+
+        const baseHp  = (this.base.stats && this.base.stats.hp)  || this.base.hp  || 100;
+        const baseAtk = (this.base.stats && this.base.stats.atk) || this.base.atk || 50;
+        const baseDef = (this.base.stats && this.base.stats.def) || this.base.def || 30;
+        const baseSpd = (this.base.stats && this.base.stats.spd) || this.base.spd || 10;
+        const baseRes = (this.base.stats && this.base.stats.res) || this.base.res || 30;
+
+        this.maxHp = Math.floor(baseHp * mul);
+        this.atk   = Math.floor(baseAtk * mul);
+        this.def   = Math.floor(baseDef * mul);
+        this.spd   = baseSpd;
+        this.res   = Math.floor(baseRes * mul);
 
         // =================================================
         // ★修正: スキルレベル依存の倍率計算 (タイプ別強化)
@@ -39,7 +49,7 @@ class Unit {
             const t = this.base.skill.type;
 
             // 1. 単体・特化系 (強撃, 狙撃, 強敵狙い, 吸血, 暗殺, スタン, デバフ, 睡眠, 混乱, 暗闇) -> 1Lvあたり +5%
-            if (['SMASH', 'SNIPE', 'SNIPE_HIGH', 'VAMP', 'ASSASSIN', 'STUN', 'DMG_DEBUFF', 'SLEEP', 'CONFUSE', 'BLIND'].includes(t)) {
+            if (['SMASH', 'SINGLE', 'SNIPE', 'SNIPE_HIGH', 'VAMP', 'ASSASSIN', 'STUN', 'DMG_DEBUFF', 'SLEEP', 'CONFUSE', 'BLIND'].includes(t)) {
                 growthRate = 0.05; 
             }
             // 2. 範囲・連撃系 (全体, 十字, 列, 連撃, 全体デバフ攻撃) -> 1Lvあたり +3%
@@ -58,37 +68,46 @@ class Unit {
         // パッシブ初期化
         this.passives = [];
         if(this.base.passive) this.passives.push(this.base.passive);
+        // ★v2: ability も参照 (ability と passive が異なる場合)
+        if(this.base.ability && this.base.ability !== this.base.passive) {
+            this.passives = [this.base.ability];
+        }
 
         // 限界突破(LB)ボーナスの適用
         const bonuses = this.getLbConfig();
         bonuses.forEach(b => {
             if (this.lbCount >= b.lv) {
                 if (b.type === 'STAT') {
-                    if(b.stat === 'hp') this.maxHp = Math.floor(this.maxHp * b.val);
+                    if(b.stat === 'hp')  this.maxHp = Math.floor(this.maxHp * b.val);
                     if(b.stat === 'atk') this.atk = Math.floor(this.atk * b.val);
+                    if(b.stat === 'def') this.def = Math.floor(this.def * b.val);
+                    if(b.stat === 'res') this.res = Math.floor(this.res * b.val);
                     if(b.stat === 'spd') this.spd += b.val;
                     if(b.stat === 'all') {
                         this.maxHp = Math.floor(this.maxHp * b.val);
                         this.atk = Math.floor(this.atk * b.val);
+                        this.def = Math.floor(this.def * b.val);
+                        this.res = Math.floor(this.res * b.val);
                         this.spd += (b.val > 1 ? 2 : 0);
                     }
                 }
-                // LBによるスキル威力アップ乗算 (例: 1.5倍)
                 if (b.type === 'SKILL_BOOST') skillMul *= b.val;
-                
                 if (b.type === 'PASSIVE') this.passives.push(b);
-                
-                // ★LB限界突破で状態異常耐性を獲得
                 if (b.type === 'STATUS_RESIST') {
                     this.lbResist = (this.lbResist || 0) + b.val;
                 }
             }
         });
 
-        // 最終的なスキル威力倍率を保存 (小数点2桁)
-        this.skillPow = this.base.skill && this.base.skill.pow 
-            ? parseFloat((this.base.skill.pow * skillMul).toFixed(2)) 
-            : 0;
+        // ★v2: スキル威力計算 (新: power%, 旧: pow倍率)
+        if (this.base.skill && this.base.skill.power) {
+            this.skillPow = parseFloat((this.base.skill.power * skillMul / 100).toFixed(3));
+            this.skillPowerPct = parseFloat((this.base.skill.power * skillMul).toFixed(1));
+        } else {
+            this.skillPow = this.base.skill && this.base.skill.pow 
+                ? parseFloat((this.base.skill.pow * skillMul).toFixed(2)) : 0;
+            this.skillPowerPct = this.skillPow * 100;
+        }
 
         // =================================================
         // ★カード（装備）効果の適用
@@ -122,20 +141,19 @@ class Unit {
         if (typeof LB_TABLE !== 'undefined' && LB_TABLE[this.base.id]) return LB_TABLE[this.base.id];
         if (typeof LB_TEMPLATES === 'undefined') return [];
         
-        // コスト5以上: 高コスト型（伸び率標準）
-        // ★タンク型キャラ: HP重視 + 開幕無敵/ダメ半減
-        const TANK_IDS = [2, 6, 25, 34, 35, 53, 56]; // 金太郎, スパイク, ジャンヌ, 康政, 家康, トロロ, カマキリ
-        if (this.base.cost >= 5 && typeof LB_TEMPLATES.HIGH_COST_TANK !== 'undefined' 
-            && TANK_IDS.includes(this.base.id)) {
-            return LB_TEMPLATES.HIGH_COST_TANK;
+        // ★v2: BST基準でLBテンプレを選択
+        const bst = this.base.bst || 0;
+        
+        // BST530以上(エース~伝説): HIGH_BST
+        if (bst >= 530 || this.base.cost >= 5) {
+            return LB_TEMPLATES.HIGH_BST || LB_TEMPLATES.HIGH_COST || [];
         }
-        if (this.base.cost >= 5) return LB_TEMPLATES.HIGH_COST;
-        
-        // コスト3-4: 中コスト型（クリティカル・回避重視）
-        if (this.base.cost >= 3) return LB_TEMPLATES.MID_COST;
-        
-        // コスト1-2: 低コスト型（超・大晩成、下剋上パッシブ）
-        return LB_TEMPLATES.LOW_COST;
+        // BST350~520(中堅~主力): MID_BST
+        if (bst >= 350 || this.base.cost >= 3) {
+            return LB_TEMPLATES.MID_BST || LB_TEMPLATES.MID_COST || [];
+        }
+        // BST350未満(序盤): LOW_BST
+        return LB_TEMPLATES.LOW_BST || LB_TEMPLATES.LOW_COST || [];
     }
 
     levelUp() { 

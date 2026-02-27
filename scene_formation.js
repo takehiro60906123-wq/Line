@@ -46,7 +46,11 @@ class FormationScreen {
     }
 
     getCardBgUrl(typeId, cost) {
-        const colors = ['purple', 'gold', 'pink', 'green', 'blue', 'red'];
+        // 属性とカード背面の色を一致させる
+        // 火:赤 / 水:青 / 草:緑 / 闇:紫 / 光:金 / 無:白
+        // 無属性の白背景は単素材運用のため、レアリティに関わらず white_ur を利用
+        if (typeId === 5) return 'images/bg/bg_white_ur.webp';
+        const colors = ['red', 'blue', 'green', 'purple', 'gold', 'white'];
         const color = colors[typeId] || 'red';
         let rarity = 'r';
         if (cost >= 5) rarity = 'ur';

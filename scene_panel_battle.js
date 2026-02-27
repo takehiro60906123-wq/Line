@@ -3,14 +3,30 @@
  * 雑魚戦専用。BOSS戦は既存デッキバトル(scene_battle.js)を使用。
  */
 
+const PANEL_IMAGE_EXTENSIONS = ['png', 'webp'];
+const PANEL_IMAGE_CACHE_BUSTER = `v=${Date.now()}`;
+const PANEL_IMAGE_BASE_DIRS = ['images/panels', 'panels', '.'];
+
+function panelImageCandidates(panelId) {
+  const candidates = [];
+    for (const baseDir of PANEL_IMAGE_BASE_DIRS) {
+        for (const ext of PANEL_IMAGE_EXTENSIONS) {
+            const normalizedBase = baseDir === '.' ? '' : `${baseDir}/`;
+            const path = `${normalizedBase}${panelId}.${ext}`;
+            candidates.push(`${path}?${PANEL_IMAGE_CACHE_BUSTER}`);
+        }
+    }
+    return candidates;
+}
+
 const PANEL_TYPES = {
-    sword:   { id: 'sword',   icon: '⚔',  label: 'こうげき',   color: '#4488ff', weight: 20 },
-    magic:   { id: 'magic',   icon: '🔥', label: 'まほう',     color: '#ff6622', weight: 20 },
-    coin:    { id: 'coin',    icon: '💰', label: 'こいん',     color: '#ddaa00', weight: 20 },
-    heal:    { id: 'heal',    icon: '💚', label: '回復',       color: '#44cc44', weight: 20 },
-    lvup:    { id: 'lvup',    icon: '😈', label: 'モンスター', color: '#8844aa', weight: 20 },
-    chick:   { id: 'chick',   icon: '🎫', label: 'チケット',   color: '#ffdd44', weight: 4 },
-    diamond: { id: 'diamond', icon: '💎', label: 'ダイア',     color: '#66e0ff', weight: 2 }
+    sword:   { id: 'sword',   icon: '⚔',  label: 'こうげき',   color: '#4488ff', weight: 20, image: panelImageCandidates('sword') },
+    magic:   { id: 'magic',   icon: '🔥', label: 'まほう',     color: '#ff6622', weight: 20, image: panelImageCandidates('magic') },
+    coin:    { id: 'coin',    icon: '💰', label: 'こいん',     color: '#ddaa00', weight: 20, image: panelImageCandidates('coin') },
+    heal:    { id: 'heal',    icon: '💚', label: '回復',       color: '#44cc44', weight: 20, image: panelImageCandidates('heal') },
+    lvup:    { id: 'lvup',    icon: '😈', label: 'モンスター', color: '#8844aa', weight: 20, image: panelImageCandidates('lvup') },
+    chick:   { id: 'chick',   icon: '🎫', label: 'チケット',   color: '#ffdd44', weight: 4, image: panelImageCandidates('chick') },
+    diamond: { id: 'diamond', icon: '💎', label: 'ダイア',     color: '#66e0ff', weight: 2, image: panelImageCandidates('diamond') }
 };
 const MAX_CHICK_PANELS_ON_BOARD = 2;
 

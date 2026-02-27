@@ -58,12 +58,22 @@ class FormationScreenRedesign {
     }
 
     getCardBgUrl(typeId, cost) {
-        const colors = ['purple', 'gold', 'pink', 'green', 'blue', 'red'];
+       // 属性とカード背面の色を一致させる
+        // 火:赤 / 水:青 / 草:緑 / 闇:紫 / 光:金 / 無:白
+        // 無属性の白背景は単素材運用のため、レアリティに関わらず white_ur を利用
+        if (typeId === 5) return 'images/bg/bg_white_ur.webp';
+        const colors = ['red', 'blue', 'green', 'purple', 'gold', 'white'];
         const color = colors[typeId] || 'red';
         let rarity = 'r';
         if (cost >= 5) rarity = 'ur';
         else if (cost >= 3) rarity = 'sr';
         return `images/bg/bg_${color}_${rarity}.webp`;
+    }
+
+     getTypeIconUrl(typeId) {
+       const icons = ['red', 'blue', 'green', 'purple', 'gold', 'void_white'];
+        const key = icons[typeId] || 'red';
+        return `images/icons/type_${key}.webp`;
     }
 
      _getStarIconPath(kind = 'normal') {
@@ -150,6 +160,15 @@ class FormationScreenRedesign {
                     font-size: 14px !important;
                 }
 
+                 .formation-board-large .grid-cell.type-color-0 { background: rgba(255, 64, 64, 0.32) !important; border-color: rgba(255,120,120,0.55) !important; }
+                .formation-board-large .grid-cell.type-color-1 { background: rgba(72, 150, 255, 0.32) !important; border-color: rgba(130,190,255,0.55) !important; }
+                .formation-board-large .grid-cell.type-color-2 { background: rgba(80, 200, 120, 0.32) !important; border-color: rgba(140,230,170,0.55) !important; }
+                .formation-board-large .grid-cell.type-color-3 { background: rgba(165, 90, 255, 0.32) !important; border-color: rgba(205,150,255,0.55) !important; }
+                .formation-board-large .grid-cell.type-color-4 { background: rgba(255, 215, 90, 0.34) !important; border-color: rgba(255,235,150,0.6) !important; }
+                .formation-board-large .grid-cell.type-color-5 { background: rgba(240, 245, 255, 0.30) !important; border-color: rgba(255,255,255,0.72) !important; }
+
+
+
                 /* --- ユニット配置レイヤー --- */
                 #edit-units-layer-large {
                     overflow: visible !important;
@@ -165,21 +184,27 @@ class FormationScreenRedesign {
                 }
 
                  .board-unit-stars {
-
+                    position: absolute;
+                    
+                    left: 50%;
+                    bottom: 8px;
+                    transform: translateX(-50%);
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    transform: translateX(-50%);
-                    z-index: 24;
-                    background: transparent;
-                    border-radius: 0;
-                    padding: 0;
+                    z-index:40;
+                    
+                    background: rgba(0, 0, 0, 0.55);
+                    border: 1px solid rgba(255, 255, 255, 0.18);
+                    border-radius: 10px;
+                    padding: 1px 6px;
+                    white-space: nowrap;
                     pointer-events: none;
                 }
                 .board-unit-stars .star-icon {
-                    width: 19px;
-                    height: 19px;
-                    margin-right: -6px;
+                    width: 17px;
+                    height: 17px;
+                    margin-right: -4px;
                 }
                 .board-unit-stars .star-icon:last-child {
                     margin-right: 0;
@@ -503,6 +528,7 @@ class FormationScreenRedesign {
             }
 
             .card-item-horizontal .list-card.portrait-style {
+            position: relative;
                 width: 64px;
                 height: 92px;
                 border-radius: 8px;
@@ -518,27 +544,60 @@ class FormationScreenRedesign {
 
             
 
-            .card-item-horizontal .list-card.portrait-style .lc-card-stars-top .footer-stars {
+            .card-item-horizontal .list-card.portrait-style .card-lv-label {
+                position: absolute;
+                top: 4px;
+                left: 5px;
+                color: #f3fbff;
+                font-size: 13px;
+                font-weight: 800;
+                line-height: 1;
+                
+                letter-spacing: 0.2px;
+               -webkit-text-stroke: 0.7px rgba(8, 22, 42, 0.9);
+                text-shadow:
+                    0 1px 0 rgba(0, 0, 0, 0.85),
+                    0 0 4px rgba(16, 60, 120, 0.85),
+                    0 0 8px rgba(0, 0, 0, 0.65);
+                z-index: 4;
+            }
+
+            .card-item-horizontal .list-card.portrait-style .card-type-icon {
+                position: absolute;
+                 top: 2px;
+                right: 3px;
+                width: 18px;
+                height: 18px;
+                object-fit: contain;
+                filter:
+                    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.9))
+                    drop-shadow(0 0 4px rgba(5, 16, 34, 0.95));
+                z-index: 4;
+            }
+
+            .card-item-horizontal .list-card.portrait-style .lc-card-stars-bottom {
+                position: absolute;
+                left: 4px;
+                right: 4px;
+                bottom: 2px;
+                display: flex;
+                justify-content: center;
+                z-index: 3;
+            }
+
+            .card-item-horizontal .list-card.portrait-style .lc-card-stars-bottom .footer-stars {
                 display: flex;
                 gap: 0;
             }
 
-            .card-item-horizontal .list-card.portrait-style .lc-card-stars-top .star-icon {
-                width: 17px;
-                height: 17px;
-                margin-right: -6px;
+            .card-item-horizontal .list-card.portrait-style .lc-card-stars-bottom .star-icon {
+                width: 15px;
+                height: 15px;
+                margin-right: -5px;
             }
 
-            .card-item-horizontal .list-card.portrait-style .lc-card-stars-top .star-icon:last-child {
+            .card-item-horizontal .list-card.portrait-style .lc-card-stars-bottom .star-icon:last-child {
                 margin-right: 0;
-            }
-
-            .card-item-horizontal .card-lv-label {
-                color: #d6deef;
-                font-size: 13px;
-                line-height: 1;
-                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
-                letter-spacing: 0.2px;
             }
 
             .card-item-horizontal .list-card.portrait-style {
@@ -932,8 +991,11 @@ class FormationScreenRedesign {
            // --- 星の表示（通常星 + 覚醒星アイコン） ---
             const starsHtml = this._renderRarityStars(unit.base.cost, unit.lbCount || 0, 5);
 
+            const typeIconUrl = this.getTypeIconUrl(unit.base.type);
             card.innerHTML = `
-                 <div class="lc-card-stars-top">
+                 <div class="card-lv-label">Lv${unit.save.lv}</div>
+                <img class="card-type-icon" src="${typeIconUrl}" alt="${(this.types[unit.base.type] && this.types[unit.base.type].name) || ''}" onerror="this.style.display='none'">
+                <div class="lc-card-stars-bottom">
                     <div class="footer-stars">${starsHtml}</div>
                 </div>
             `;
@@ -948,10 +1010,7 @@ class FormationScreenRedesign {
             };
             
             wrapper.appendChild(card);
-             const lvText = document.createElement('div');
-            lvText.className = 'card-lv-label';
-            lvText.textContent = `Lv${unit.save.lv}`;
-            wrapper.appendChild(lvText);
+          
             container.appendChild(wrapper);
         });
     }
@@ -1015,29 +1074,13 @@ class FormationScreenRedesign {
             
             card.style.left = `calc(${col * cellW}% + 2px)`;
             card.style.top = `calc(${row * cellH}% + 2px)`;
+            
 
             
             const starEl = document.createElement('div');
             starEl.className = 'board-unit-stars';
            starEl.innerHTML = this._renderRarityStars(unit.base.cost, unit.lbCount || 0, 5);
-             const cells = (occupiedCells && occupiedCells.length > 0)
-                ? occupiedCells
-                : [entry.anchorIdx];
-            const cols = cells.map(idx => idx % 4);
-            const rows = cells.map(idx => Math.floor(idx / 4));
-            const minCol = Math.min(...cols);
-            const maxCol = Math.max(...cols);
-            const maxRow = Math.max(...rows);
-
-            const centerX = ((minCol + maxCol + 1) * 25) / 2;
-             const starRowTop = (maxRow <= 0) ? 44 : 94;
-            starEl.style.left = `calc(${centerX}% + 2px)`;
-             starEl.style.top = `${starRowTop}%`;
-            starEl.style.bottom = 'auto';
-            starEl.style.width = 'auto';
-            starEl.style.transform = 'translate(-50%, -50%)';
-
-            layer.appendChild(starEl);
+             card.appendChild(starEl);
 
             card.addEventListener('click', () => {
                 if (app.sound) app.sound.tap();
