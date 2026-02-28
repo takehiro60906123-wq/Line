@@ -16,7 +16,7 @@ function createEnemyAnchorTextElement(text, className, color, order = 0) {
     const el = document.createElement('div');
     el.className = `pb-floating-text pb-result-pop ${className || ''}`;
     el.textContent = text;
-    if (color) el.style.color = color;
+
 
     const popupX = targetBox.left - layerRect.left + targetBox.width * 0.5;
     const popupY = targetBox.top - layerRect.top - 12 + order * 4;
@@ -49,11 +49,25 @@ function createPlayerAnchorTextElement(text, className, color, order = 0) {
     return el;
 }
 
+const PANEL_PLAYER_SPRITE_SHEETS = {
+     // NOTE: 主人公シートは 2段配置（4x2 / 5x2）が前提。
+      idle:   { src: 'images/player_main_idle_sheet.png', cols: 4, rows: 2, frames: 7, fps: 8, loop: true },
+ move:   { src: 'images/player_main_move_sheet.png', cols: 4, rows: 2, frames: 5, fps: 10, loop: true },
+    attack: { src: 'images/player_main_attack_sheet.png', cols: 4, rows: 2, frames: 6, fps: 12, loop: false },
+    damage: { src: 'images/player_main_damage_sheet.png', cols: 4, rows: 2, frames: 5, fps: 10, loop: false },
+    die:    { src: 'images/player_main_die_sheet.png', cols: 5, rows: 2, frames: 10, fps: 10, loop: false }};
+
 class PanelBattleUI {
     constructor(controller) {
         this.ctrl = controller;
         this.container = null;
         this._hud = null;
+        this._spriteAnimTimer = null;
+        this._spriteAnimKey = '';
+        this._playerAnimTimer = null;
+        this._playerAnimKey = '';
+        this._playerAnimFallbackTimer = null;
+        this._playerVisualSnapshot = null;
     }
 
     // ========================================
@@ -92,6 +106,7 @@ class PanelBattleUI {
         if (enemyArea) enemyArea.style.display = '';
         this.setEnemyHudMoving(false);
         this.setInputLocked(false);
+        this.setPlayerMotion('idle');
 
     }
 
@@ -126,12 +141,13 @@ class PanelBattleUI {
        const atkEl = document.getElementById('pb-enemy-atk');
         const enemyHpText = document.getElementById('pb-enemy-hp-text');
         const enemyHpSlider = document.getElementById('pb-enemy-hp-slider');
-       if (nameEl) nameEl.textContent = '敵の様子';
+        if (nameEl) { nameEl.textContent = '🔍 敵の様子'; nameEl.classList.add('pb-enemy-look-icon'); }
         if (spriteEl) spriteEl.textContent = '';
         if (weakEl) weakEl.textContent = '弱点: -';
         if (realNameEl) realNameEl.textContent = '-';
-        if (atkEl) atkEl.textContent = 'ATK 0';
-        if (enemyHpText) enemyHpText.textContent = 'HP 0 / 0';
+         const safeAtk = 0;
+        if (atkEl) atkEl.textContent = `ATK ${safeAtk}`;
+         if (enemyHpText) enemyHpText.textContent = 'HP 0 / 0';
        if (enemyHpSlider) {
             enemyHpSlider.max = '100';
             enemyHpSlider.value = '0';
@@ -228,9 +244,9 @@ class PanelBattleUI {
                         <div class="pb-enemy-real-name" id="pb-enemy-real-name">-</div>
                         <div class="pb-enemy-title-row">
                             <div class="pb-enemy-lv" id="pb-enemy-lv">Lv.1</div>
-                            <div class="pb-enemy-atk" id="pb-enemy-atk">ATK 0</div>
+                           <div class="pb-enemy-hp-text" id="pb-enemy-hp-text">HP 0 / 0</div>     
                         </div>
-                        <div class="pb-enemy-hp-text" id="pb-enemy-hp-text">HP 0 / 0</div>
+                       <div class="pb-enemy-atk" id="pb-enemy-atk">ATK 0</div>
                         <div class="pb-enemy-weak" id="pb-enemy-weak">弱点: -</div>
                     </div>
                  
@@ -300,6 +316,101 @@ class PanelBattleUI {
         container.style.display = 'flex';
     }
 
+      _getPlayerVisualEl() {
+        return document.getElementById('char-visual');
+    }
+
+    _clearPlayerMotionTimer() {
+        if (this._playerAnimTimer) {
+            clearInterval(this._playerAnimTimer);
+            this._playerAnimTimer = null;
+        }
+        if (this._playerAnimFallbackTimer) {
+            clearTimeout(this._playerAnimFallbackTimer);
+            this._playerAnimFallbackTimer = null;
+        }
+        this._playerAnimKey = '';
+    }
+
+    _restorePlayerVisualSnapshot() {
+        const visualEl = this._getPlayerVisualEl();
+        if (!visualEl || !this._playerVisualSnapshot) return;
+        visualEl.style.backgroundImage = this._playerVisualSnapshot.backgroundImage;
+        visualEl.style.backgroundSize = this._playerVisualSnapshot.backgroundSize;
+        visualEl.style.backgroundPosition = this._playerVisualSnapshot.backgroundPosition;
+        this._playerVisualSnapshot = null;
+    }
+
+    setPlayerMotion(motion) {
+        const cfg = PANEL_PLAYER_SPRITE_SHEETS[motion];
+        const visualEl = this._getPlayerVisualEl();
+        const charContainer = document.getElementById('char-container');
+        if (!visualEl || !cfg || !cfg.src) return;
+
+        if (!this._playerVisualSnapshot) {
+            this._playerVisualSnapshot = {
+                backgroundImage: visualEl.style.backgroundImage || '',
+                backgroundSize: visualEl.style.backgroundSize || '',
+                backgroundPosition: visualEl.style.backgroundPosition || ''
+            };
+        }
+
+        this._clearPlayerMotionTimer();
+
+        if (charContainer) {
+            charContainer.classList.toggle('anim-run', motion === 'move');
+            charContainer.classList.toggle('anim-idle', motion !== 'move');
+        }
+
+        const cols = Math.max(1, Math.floor(cfg.cols || 1));
+        const rows = Math.max(1, Math.floor(cfg.rows || 1));
+        const frames = Math.max(1, Math.floor(cfg.frames || (cols * rows)));
+        const fps = Math.max(1, Math.floor(cfg.fps || 8));
+        const loop = cfg.loop !== false;
+
+       visualEl.style.backgroundImage = `url('${cfg.src}')`;
+        visualEl.style.backgroundSize = `${cols * 100}% ${rows * 100}%`;
+        visualEl.style.backgroundRepeat = 'no-repeat'; // 👈 追加（ループさせない）
+        visualEl.style.imageRendering = 'pixelated';   // 👈 追加（ドットをくっきりさせる
+        let frame = 0;
+        const frameMs = Math.max(40, Math.floor(1000 / fps));
+        const key = `${motion}|${cfg.src}|${cols}|${rows}|${frames}|${fps}|${loop}`;
+        this._playerAnimKey = key;
+
+        const applyFrame = (idx) => {
+            const safe = Math.max(0, Math.min(frames - 1, idx));
+            const col = safe % cols;
+            const row = Math.floor(safe / cols);
+            const xPct = cols <= 1 ? 0 : (col / (cols - 1)) * 100;
+            const yPct = rows <= 1 ? 0 : (row / (rows - 1)) * 100;
+            visualEl.style.backgroundPosition = `${xPct}% ${yPct}%`;
+        };
+
+        applyFrame(0);
+        this._playerAnimTimer = setInterval(() => {
+            const current = this._getPlayerVisualEl();
+            if (!current || current !== visualEl || this._playerAnimKey !== key) {
+                this._clearPlayerMotionTimer();
+                return;
+            }
+            frame += 1;
+            if (frame >= frames) {
+                if (loop) {
+                    frame = 0;
+                } else {
+                    frame = frames - 1;
+                    applyFrame(frame);
+                    this._clearPlayerMotionTimer();
+                    this._playerAnimFallbackTimer = setTimeout(() => {
+                        this.setPlayerMotion(motion === 'die' ? 'die' : 'idle');
+                    }, motion === 'attack' ? 100 : 180);
+                    return;
+                }
+            }
+            applyFrame(frame);
+        }, frameMs);
+    }
+
     // ========================================
     // レンダリング
     // ========================================
@@ -323,24 +434,20 @@ class PanelBattleUI {
         const hpSlider = document.getElementById('pb-enemy-hp-slider');
         const weakEl = document.getElementById('pb-enemy-weak');
         const atkEl = document.getElementById('pb-enemy-atk');
-         if (nameEl) nameEl.textContent = '敵の様子';
+          if (nameEl) { nameEl.textContent = '🔍 敵の様子'; nameEl.classList.add('pb-enemy-look-icon'); }
         if (realNameEl) realNameEl.textContent = enemy.name || '-';
         if (lvEl) lvEl.textContent = `Lv.${Math.max(1, enemy.level || enemy.lv || 1)}`;
          if (spriteEl) {
-            const hasImage = !!(enemy.imageUrl);
-            spriteEl.classList.toggle('has-image', hasImage);
-            if (hasImage) {
-                spriteEl.textContent = '';
-                spriteEl.style.backgroundImage = `url('${enemy.imageUrl}')`;
-            } else {
-                spriteEl.style.backgroundImage = '';
-                spriteEl.textContent = enemy.emoji || '👾';
-            }
+            spriteEl.classList.remove('pb-enemy-defeated');
+            spriteEl.style.visibility = '';
+            spriteEl.style.opacity = '';
+             this._renderEnemySprite(enemy, spriteEl);
         }
         const safeMax = Math.max(1, maxHp || enemy.hp || 1);
         const safeHp = Math.max(0, enemy.hp || 0);
+      const enemyAtk = Math.max(0, Math.floor(enemy.atk || 0));
         if (hpText) hpText.textContent = `HP ${safeHp} / ${safeMax}`;
-         if (atkEl) atkEl.textContent = `ATK ${Math.max(0, Math.floor(enemy.atk || 0))}`;
+        if (atkEl) atkEl.textContent = `ATK ${enemyAtk}`;
         if (hpSlider) {
             hpSlider.max = String(safeMax);
             hpSlider.value = String(Math.min(safeHp, safeMax));
@@ -355,6 +462,73 @@ class PanelBattleUI {
             if (enemy.resistMagic > 0.3) w.push('🔥耐性');
             weakEl.textContent = `弱点/耐性: ${w.join(' ') || 'なし'}`;
         }
+    }
+
+     _clearEnemySpriteAnimation(spriteEl = null) {
+        if (this._spriteAnimTimer) {
+            clearInterval(this._spriteAnimTimer);
+            this._spriteAnimTimer = null;
+        }
+        this._spriteAnimKey = '';
+        const target = spriteEl || document.getElementById('pb-enemy-sprite');
+        if (!target) return;
+        target.style.backgroundSize = 'contain';
+        target.style.backgroundPosition = 'center';
+    }
+
+    _renderEnemySprite(enemy, spriteEl) {
+        this._clearEnemySpriteAnimation(spriteEl);
+        const sheet = enemy && enemy.spriteSheet;
+        const hasSheet = !!(sheet && sheet.src && sheet.cols > 0 && sheet.rows > 0 && sheet.frames > 0);
+        const hasImage = hasSheet || !!(enemy && enemy.imageUrl);
+        spriteEl.classList.toggle('has-image', hasImage);
+        spriteEl.classList.toggle('has-sheet', hasSheet);
+
+        if (!hasImage) {
+            spriteEl.style.backgroundImage = '';
+            spriteEl.textContent = (enemy && enemy.emoji) || '👾';
+            return;
+        }
+
+        spriteEl.textContent = '';
+        spriteEl.style.backgroundImage = `url('${hasSheet ? sheet.src : enemy.imageUrl}')`;
+
+        if (!hasSheet) return;
+
+        const key = `${sheet.src}|${sheet.cols}|${sheet.rows}|${sheet.frames}|${sheet.fps}|${sheet.loop !== false}`;
+        this._spriteAnimKey = key;
+        spriteEl.style.backgroundSize = `${sheet.cols * 100}% ${sheet.rows * 100}%`;
+
+        let frame = 0;
+        const frameMs = Math.max(40, Math.floor(1000 / Math.max(1, sheet.fps || 8)));
+        const applyFrame = (idx) => {
+            const safeIdx = Math.max(0, Math.min((sheet.frames || 1) - 1, idx));
+            const col = safeIdx % sheet.cols;
+            const row = Math.floor(safeIdx / sheet.cols);
+            const xPct = sheet.cols <= 1 ? 0 : (col / (sheet.cols - 1)) * 100;
+            const yPct = sheet.rows <= 1 ? 0 : (row / (sheet.rows - 1)) * 100;
+            spriteEl.style.backgroundPosition = `${xPct}% ${yPct}%`;
+        };
+
+        applyFrame(frame);
+        this._spriteAnimTimer = setInterval(() => {
+            const current = document.getElementById('pb-enemy-sprite');
+            if (!current || current !== spriteEl || this._spriteAnimKey !== key) {
+                this._clearEnemySpriteAnimation(spriteEl);
+                return;
+            }
+            frame += 1;
+            if (frame >= sheet.frames) {
+                if (sheet.loop === false) {
+                    frame = sheet.frames - 1;
+                    applyFrame(frame);
+                    this._clearEnemySpriteAnimation(spriteEl);
+                    return;
+                }
+                frame = 0;
+            }
+            applyFrame(frame);
+        }, frameMs);
     }
 
     renderPlayerHP(hp, maxHp) {
@@ -492,6 +666,64 @@ class PanelBattleUI {
         });
     }
 
+      animatePanelEnergyTransfer(panelList = []) {
+        const layer = document.getElementById('pb-effect-layer');
+        const gridEl = document.getElementById('pb-grid');
+        if (!layer || !gridEl || !Array.isArray(panelList) || panelList.length === 0) return 0;
+
+        const layerRect = layer.getBoundingClientRect();
+        const charEl = document.getElementById('char-container') || document.getElementById('my-character');
+        const enemyArea = document.getElementById('pb-enemy-area');
+        const enemySprite = document.getElementById('pb-enemy-sprite');
+        const enemyRect = (enemySprite || enemyArea) ? (enemySprite || enemyArea).getBoundingClientRect() : null;
+        const playerRect = charEl ? charEl.getBoundingClientRect() : null;
+
+        const playerTarget = playerRect
+            ? {
+                x: playerRect.left - layerRect.left + playerRect.width * 0.52,
+                y: playerRect.top - layerRect.top + playerRect.height * 0.45
+            }
+            : { x: layerRect.width * 0.24, y: layerRect.height * 0.65 };
+        const enemyTarget = enemyRect
+            ? {
+                x: enemyRect.left - layerRect.left + enemyRect.width * 0.5,
+                y: enemyRect.top - layerRect.top + enemyRect.height * 0.6
+            }
+            : { x: layerRect.width * 0.75, y: layerRect.height * 0.45 };
+
+        let maxMs = 0;
+        panelList.forEach((pos, i) => {
+            if (!pos || typeof pos.row !== 'number' || typeof pos.col !== 'number') return;
+            const idx = pos.row * 6 + pos.col;
+            const cell = gridEl.children[idx];
+            if (!cell) return;
+
+            const cellRect = cell.getBoundingClientRect();
+            const sx = cellRect.left - layerRect.left + cellRect.width * 0.5;
+            const sy = cellRect.top - layerRect.top + cellRect.height * 0.5;
+            const toEnemy = pos.type === 'lvup';
+            const target = toEnemy ? enemyTarget : playerTarget;
+            const delay = i * 22;
+            const duration = 240 + Math.min(140, i * 4);
+
+            const orb = document.createElement('div');
+            orb.className = `pb-energy-orb ${toEnemy ? 'pb-energy-orb-enemy' : 'pb-energy-orb-player'}`;
+            orb.style.setProperty('--pb-energy-sx', `${sx}px`);
+            orb.style.setProperty('--pb-energy-sy', `${sy}px`);
+            orb.style.setProperty('--pb-energy-ex', `${target.x}px`);
+            orb.style.setProperty('--pb-energy-ey', `${target.y}px`);
+            orb.style.setProperty('--pb-energy-delay', `${delay}ms`);
+            orb.style.setProperty('--pb-energy-duration', `${duration}ms`);
+            orb.style.setProperty('--pb-energy-color', this._getEnergyColor(pos.type));
+            layer.appendChild(orb);
+            const ttl = delay + duration + 90;
+            maxMs = Math.max(maxMs, ttl);
+            setTimeout(() => orb.remove(), ttl);
+        });
+
+        return maxMs;
+    }
+
      animateDrop(grid = null) {
         const maxDropSteps = Array.isArray(grid)
             ? grid.flat().reduce((m, p) => Math.max(m, (p && p.dropSteps) ? p.dropSteps : 0), 0)
@@ -501,12 +733,11 @@ class PanelBattleUI {
     }
  showDamageToEnemy(dmg, type, chainCount, hitIndex = 0) {
        
-         const delay = Math.max(0, (hitIndex || 0) * 140);
-        setTimeout(() => {
+       
             
           const layer = document.getElementById('pb-effect-layer');
           
-            if (!layer) return;
+            if (!layer) return 0;
              const showImpact = () => {
                 const spriteEl = document.getElementById('pb-enemy-sprite');
                 if (spriteEl) { spriteEl.classList.add('pb-enemy-hit'); setTimeout(() => spriteEl.classList.remove('pb-enemy-hit'), 220); }
@@ -515,16 +746,29 @@ class PanelBattleUI {
                 const el = createEnemyAnchorTextElement(`${dmg}`, 'pb-dmg-text', null, hitIndex);
                 if (!el) return;
                 layer.appendChild(el);
-                setTimeout(() => el.remove(), 1200);
+                setTimeout(() => el.remove(), 2000);
             };
 
             if (type === 'magic') {
                 this._spawnMagicBullet(hitIndex, showImpact);
-            } else {
-                showImpact();
+             return 420;
             }
             
-        }, delay);
+       showImpact();
+            return 180;
+    }
+
+    animateEnemyDefeat() {
+        return new Promise(resolve => {
+            const spriteEl = document.getElementById('pb-enemy-sprite');
+            if (!spriteEl) { resolve(); return; }
+            spriteEl.classList.add('pb-enemy-defeated');
+            setTimeout(() => {
+                spriteEl.style.opacity = '0';
+                spriteEl.style.visibility = 'hidden';
+                resolve();
+            }, 420);
+        });
     }
 
     showHealEffect(amount) { this._showFloatingText(`💚 +${amount}`, 'pb-heal-text', '#44cc44'); }
@@ -555,7 +799,7 @@ class PanelBattleUI {
                 const el = document.createElement('div');
                 el.className = 'pb-floating-text pb-chick-reward-text';
                 el.textContent = text;
-                el.style.color = '#ffef8a';
+               
                 layer.appendChild(el);
                 setTimeout(() => el.remove(), 2000);
             }, idx * slotMs);
@@ -625,6 +869,10 @@ class PanelBattleUI {
     // 後片付け（バトル終了時）
     // ========================================
     _teardown() {
+         this._clearEnemySpriteAnimation();
+        this._clearPlayerMotionTimer();
+        this._restorePlayerVisualSnapshot();
+
         // HUD削除
         const hud = document.getElementById('pb-battle-hud');
         if (hud) hud.remove();
@@ -663,10 +911,29 @@ class PanelBattleUI {
         const el = document.createElement('div');
         el.className = `pb-floating-text ${className || ''}`;
         el.textContent = text;
-        if (color) el.style.color = color;
         layer.appendChild(el);
-        setTimeout(() => el.remove(), 1200);
+        setTimeout(() => el.remove(), 2000);
     }
+
+
+     _getEnergyColor(type) {
+        const fallback = '#ffffff';
+        if (typeof PANEL_TYPES !== 'undefined' && PANEL_TYPES[type] && PANEL_TYPES[type].color) {
+            return PANEL_TYPES[type].color;
+        }
+        const map = {
+            sword: '#4488ff',
+            magic: '#ff6622',
+            coin: '#ddaa00',
+            heal: '#44cc44',
+            lvup: '#8844aa',
+            chick: '#ffdd44',
+            diamond: '#66e0ff'
+        };
+        return map[type] || fallback;
+    }
+
+
      _createEnemyAnchorText(text, className, color, order = 0) {
         return createEnemyAnchorTextElement(text, className, color, order);
     }
@@ -679,7 +946,7 @@ class PanelBattleUI {
             return;
         }
         layer.appendChild(el);
-        setTimeout(() => el.remove(), 1400);
+        setTimeout(() => el.remove(), 2000);
     }
 
     _showPlayerPopupText(text, className, color, order = 0) {
@@ -690,7 +957,7 @@ class PanelBattleUI {
             return;
         }
         layer.appendChild(el);
-        setTimeout(() => el.remove(), 1200);
+        setTimeout(() => el.remove(), 2000);
     }
 
     setInputLocked(locked) {
@@ -718,8 +985,19 @@ class PanelBattleUI {
 
         const bulletSize = 28;
         const half = bulletSize * 0.5;
-        const startX = Math.max(18, layerRect.width * 0.26) - half;
-        const startY = Math.max(24, layerRect.height * 0.62 - Math.min(16, hitIndex * 3)) - half;
+         const charEl = document.getElementById('char-container') || document.getElementById('my-character');
+        const charRect = charEl ? charEl.getBoundingClientRect() : null;
+        const launch = charRect
+            ? {
+                x: charRect.left - layerRect.left + charRect.width * 0.72,
+                y: charRect.top - layerRect.top + charRect.height * 0.42 - Math.min(10, hitIndex * 2)
+            }
+            : {
+                x: Math.max(18, layerRect.width * 0.26),
+                y: Math.max(24, layerRect.height * 0.62 - Math.min(16, hitIndex * 3))
+            };
+        const startX = launch.x - half;
+        const startY = launch.y - half;
         const endX = aim.x - half;
         const endY = aim.y - half;
         const bullet = document.createElement('div');

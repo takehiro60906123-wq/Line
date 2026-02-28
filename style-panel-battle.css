@@ -49,7 +49,7 @@
 }
 #sg-progress-bar.pb-progress-inline .sg-progress-track {
     height: 8px;
-    border-radius: 999px;
+    border-radius: 0;
     border: 1px solid rgba(255,255,255,0.55);
     background: rgba(0,0,0,0.35);
 }
@@ -67,8 +67,8 @@
 /* --- 敵エリア（右側に配置） --- */
 .pb-enemy-area {
     position: absolute;
-   right: clamp(160px, 22vw, 280px);
-    bottom: 18%;
+    right: clamp(-200px, -10vw, 96px);
+    bottom: 3%;
     display: flex;
      flex-direction: row;
      align-items: flex-end;
@@ -87,8 +87,8 @@
 }
 
 .pb-enemy-sprite {
-    width: 80px;
-    height: 80px;
+    width: 140px;
+    height: 140px;
     border-radius: 0;
     border: none;
     font-size:40px;
@@ -104,6 +104,10 @@
     filter: drop-shadow(0 8px 14px rgba(0,0,0,0.5));
     transition: transform 0.2s;
     flex-shrink: 0;
+}
+
+.pb-enemy-sprite.has-sheet {
+    image-rendering: pixelated;
 }
 
 .pb-enemy-sprite.has-image:not(.pb-enemy-hit) {
@@ -161,7 +165,14 @@
 .pb-enemy-lvup { animation: enemyLvUpGlow 0.6s ease-out; }
 @keyframes enemyLvUpGlow { 0%{filter:drop-shadow(0 0 0 transparent);transform:scale(1)} 50%{filter:drop-shadow(0 0 20px #aa44ff);transform:scale(1.2)} 100%{filter:drop-shadow(0 0 0 transparent);transform:scale(1)} }
 
-
+.pb-enemy-sprite.pb-enemy-defeated {
+    animation: enemyDefeatVanish 0.42s ease-in forwards !important;
+}
+@keyframes enemyDefeatVanish {
+    0% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: drop-shadow(0 8px 14px rgba(0,0,0,0.5)); }
+    70% { opacity: 0.55; transform: translate3d(0, -8px, 0) scale(0.95); filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35)); }
+    100% { opacity: 0; transform: translate3d(0, -16px, 0) scale(0.86); filter: drop-shadow(0 0 0 rgba(0,0,0,0)); }
+}
 .pb-enemy-foot-counter {
     position: static;
     z-index: 6;
@@ -179,7 +190,7 @@
 }
 
 .pb-enemy-hud-box {
-   min-width: 124px;
+   min-width: 130px;
     max-width: 168px;
     padding: 5px 7px;
     border-radius: 10px;
@@ -188,7 +199,7 @@
     box-shadow: 0 3px 10px rgba(0,0,0,0.45);
      margin-bottom: 4px;
     transform: translateX(-5px);
-    z-index: 2;
+    z-index: 0;
 }
 
 .pb-enemy-basic {
@@ -230,18 +241,22 @@
     background: rgba(8, 12, 24, 0.9);
 }
 .pb-enemy-atk {
-    font-size: 12px;
-    color: #ffad66;
+    font-size: 11px;
+    color: #ffffff;
     font-weight: 900;
     text-shadow: 0 1px 2px #000;
+    margin: 1px 0 0;
+    text-align: left;
 }
 .pb-enemy-name {
-    font-size: 13px; font-weight: 900;
-    color: #ff6666;
+     font-size: 11px; font-weight: 900;
+    color: #ffffff;
     text-shadow: 0 1px 3px #000, 0 0 6px rgba(0,0,0,0.8);
     margin-bottom: 2px;
     white-space: nowrap;
 }
+
+
 
 .pb-enemy-real-name {
     font-size: 10px;
@@ -250,16 +265,17 @@
     text-shadow: 0 1px 2px #000;
 }
 
-.pb-enemy-title-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.pb-enemy-title-row { display: flex; justify-content: flex-start; align-items: baseline; gap: 8px; flex-wrap: nowrap; }
 .pb-enemy-lv {
     font-size: 12px; font-weight: 900;
-    color: #ffd46b;
+    color: #ffffff;
     text-shadow: 0 1px 3px #000;
 }
 .pb-enemy-hp-text {
     font-size: 11px; color: #fff;
-    margin: 2px 0 1px;
+    margin: 0;
     text-shadow: 0 1px 2px #000;
+    white-space: nowrap;
 }
 
 .pb-hp-slider {
@@ -275,7 +291,7 @@
 
 .pb-hp-slider::-webkit-slider-runnable-track {
     height: 8px;
-    border-radius: 999px;
+    border-radius: 0;
     background: linear-gradient(to bottom, #2b2b36, #1a1a22);
     border: 1px solid rgba(255,255,255,0.35);
 }
@@ -292,7 +308,7 @@
 }
 .pb-hp-slider::-moz-range-track {
     height: 8px;
-    border-radius: 999px;
+    border-radius: 0;
     background: linear-gradient(to bottom, #2b2b36, #1a1a22);
     border: 1px solid rgba(255,255,255,0.35);
 }
@@ -323,16 +339,14 @@
 }
 .pb-enemy-slider::-webkit-slider-runnable-track {
   height: 8px;
-    border-radius: 999px;
+    border-radius: 0;
     border: 1px solid rgba(255,255,255,0.35);
-    background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rgba(52,16,16,0.95) var(--pb-enemy-hp-pct, 100%) 100%);
-}
+  background: linear-gradient(to right, #ff0000 0 var(--pb-enemy-hp-pct, 100%), #ff0000 var(--pb-enemy-hp-pct, 100%), rgba(52,16,16,0.95) var(--pb-enemy-hp-pct, 100%) 100%);}
 .pb-enemy-slider::-moz-range-track {
   height: 8px;
-    border-radius: 999px;
+    border-radius: 0px;
     border: 1px solid rgba(255,255,255,0.35);
-background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rgba(52,16,16,0.95) var(--pb-enemy-hp-pct, 100%) 100%);
-}
+background: linear-gradient(to right, #ff0000 0 var(--pb-enemy-hp-pct, 100%), #ff0000 var(--pb-enemy-hp-pct, 100%), rgba(52,16,16,0.95) var(--pb-enemy-hp-pct, 100%) 100%);}
 .pb-enemy-hp-bar {
     width: 100%; height: 10px;
     background: rgba(0,0,0,0.6); border-radius: 5px;
@@ -340,7 +354,7 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
 }
 .pb-enemy-hp-fill {
     height: 100%;
-    background: linear-gradient(to bottom, #ff4444, #cc0000);
+    background: linear-gradient(to bottom, #d10000, #cc0000);
     border-radius: 5px;
     transition: width 0.4s ease-out;
 }
@@ -357,10 +371,13 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
 
 /* --- エフェクトレイヤー --- */
 .pb-effect-layer {
-    position: absolute; top: 0; left: 0;
-    width: 100%; height: 100%;
-    pointer-events: none; z-index: 100;
-    overflow: hidden;
+     position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 160;
+    overflow: visible;
 }
 
 /* =========================================
@@ -399,7 +416,7 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
     position: relative;
     width: 120px;
     height: 10px;
-     border-radius: 999px;
+     border-radius: 0;
     background: linear-gradient(to bottom, #2b2b36, #1a1a22);
     border: 1px solid rgba(255,255,255,0.35);
     overflow: hidden;
@@ -410,7 +427,7 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
     height: 100%;
     width: 100%;
     background: linear-gradient(to right, #ffd400, #ffb300);
-    border-radius: inherit;
+    border-radius: 0;
     transition: width 0.35s ease-out;
 }
 .pb-hp-label-sm { font-size: 11px; color: #00ccff; font-weight: 900; }
@@ -589,11 +606,11 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
    ========================================= */
 .pb-floating-text {
     position: absolute; top: 40%; left: 50%; transform: translate(-50%,-50%);
-    font-size: 22px; font-weight: 900; text-shadow: 0 2px 4px #000, 0 0 10px currentColor;
-    pointer-events: none; z-index: 200; animation: floatUp 1.0s ease-out forwards; white-space: nowrap;
+   font-size: 22px; font-weight: 900; color: #fff !important; text-shadow: 0 2px 4px #000, 0 0 10px rgba(255,255,255,0.35);
+    pointer-events: none; z-index: 200; animation: floatUp 2.0s ease-out forwards; white-space: nowrap;
 }
 @keyframes floatUp { 0%{opacity:1;transform:translate(-50%,-50%) scale(0.5)} 20%{opacity:1;transform:translate(-50%,-60%) scale(1.2)} 60%{opacity:1;transform:translate(-50%,-80%) scale(1.0)} 100%{opacity:0;transform:translate(-50%,-120%) scale(0.8)} }
-.pb-chain-text { font-size: 26px; color: #ffd700 !important; text-shadow: 0 2px 6px #000, 0 0 20px #ffd700; top: 20%; }
+.pb-chain-text { font-size: 26px; color: #fff !important; text-shadow: 0 2px 6px #000, 0 0 14px rgba(255,255,255,0.4); top: 20%; }
 .pb-dmg-text {
     top: 20%;
     color: #fff !important;
@@ -613,7 +630,7 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
 }
 .pb-lvup-text { top: 15%; font-size: 18px; }
 .pb-enemy-atk-label { font-size: 22px; top: 25%; }
-.pb-player-dmg-text { font-size: 26px; top: 65%; color: #ff4444 !important; }
+.pb-player-dmg-text { font-size: 26px; top: 65%; color: #fff !important; }
 .pb-result-pop {
     font-size: 20px;
     animation-duration: 1.2s;
@@ -640,7 +657,7 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
 .pb-hit-core-slash {
     width: 72px;
     height: 14px;
-    border-radius: 999px;
+    border-radius: 0px;
     background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(220,245,255,0.95) 35%, rgba(160,210,255,0.95) 60%, rgba(255,255,255,0) 100%);
     box-shadow: 0 0 12px rgba(120,190,255,0.9);
     transform: translate(-50%, -50%) rotate(var(--pb-slash-rot, -12deg)) scaleX(0.4);
@@ -810,4 +827,39 @@ background: linear-gradient(to right, #ff6b6b 0 var(--pb-enemy-hp-pct, 100%), rg
 }
 @media (min-width: 500px) {
     .pb-grid { max-width: 400px; }
+}
+
+/* パネル消去エネルギー飛翔 */
+.pb-energy-orb {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 220;
+    background: radial-gradient(circle at 34% 32%, rgba(255,255,255,0.95) 0 28%, var(--pb-energy-color, #ffffff) 62%, rgba(255,255,255,0.0) 100%);
+    box-shadow: 0 0 10px var(--pb-energy-color, #fff), 0 0 18px var(--pb-energy-color, #fff);
+    transform: translate(calc(var(--pb-energy-sx, 0px) - 6px), calc(var(--pb-energy-sy, 0px) - 6px)) scale(0.75);
+    animation: pbEnergyFlight var(--pb-energy-duration, 280ms) cubic-bezier(0.2, 1, 0.35, 1) var(--pb-energy-delay, 0ms) forwards;
+    opacity: 0;
+}
+.pb-energy-orb-enemy {
+    width: 14px;
+    height: 14px;
+}
+
+@keyframes pbEnergyFlight {
+    0% {
+        opacity: 0;
+        transform: translate(calc(var(--pb-energy-sx, 0px) - 6px), calc(var(--pb-energy-sy, 0px) - 6px)) scale(0.7);
+    }
+    15% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0.9;
+        transform: translate(calc(var(--pb-energy-ex, 0px) - 6px), calc(var(--pb-energy-ey, 0px) - 6px)) scale(1.08);
+    }
 }

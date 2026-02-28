@@ -527,7 +527,12 @@ const DB = [
 // ★画像データの自動登録 (後方互換)
 // =============================================
 const IMG_DATA = {};
+const PANEL_SPRITE_SHEETS = {
+    // 例:
+    // 1: { src: 'images/panel_enemy_1_sheet.webp', cols: 5, rows: 1, frames: 5, fps: 8, loop: true }
+};
 const CHARA_IDS = DB.map(c => c.id);
 CHARA_IDS.forEach(id => {
-    IMG_DATA[id] = `images/${id}.webp`;
+    
+    IMG_DATA[id] = PANEL_SPRITE_SHEETS[id] || `images/${id}.webp`;
 });

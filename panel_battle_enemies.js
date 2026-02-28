@@ -90,6 +90,26 @@ function buildPanelEnemyPattern(chara) {
     return pattern;
 }
 
+function normalizePanelEnemySpriteSheet(asset) {
+    if (!asset || typeof asset !== 'object') return null;
+    const src = String(asset.src || asset.url || '').trim();
+    const cols = Math.max(1, Math.floor(Number(asset.cols || asset.columns || 1)));
+    const rows = Math.max(1, Math.floor(Number(asset.rows || 1)));
+    const totalFrames = Math.max(1, cols * rows);
+    const frames = Math.max(1, Math.min(totalFrames, Math.floor(Number(asset.frames || totalFrames))));
+    const fps = Math.max(1, Math.floor(Number(asset.fps || asset.speed || 8)));
+    if (!src) return null;
+    return {
+        src,
+        cols,
+        rows,
+        frames,
+        fps,
+        loop: asset.loop !== false
+    };
+}
+
+
 function buildPanelEnemyFromCharacter(chara) {
     const elementEmoji = {
         fire: '🔥',
@@ -110,11 +130,18 @@ function buildPanelEnemyFromCharacter(chara) {
     const resistPhys = clampPanelEnemyValue((rawDef - 60) / 220, -0.35, 0.45);
     const resistMagic = clampPanelEnemyValue((rawRes - 60) / 220, -0.35, 0.45);
 
+    const imageAsset = (typeof IMG_DATA !== 'undefined' && IMG_DATA) ? IMG_DATA[chara.id] : '';
+    const spriteSheet = normalizePanelEnemySpriteSheet(imageAsset);
+    const imageUrl = typeof imageAsset === 'string'
+        ? imageAsset
+        : ((spriteSheet && spriteSheet.src) ? spriteSheet.src : '');
+
     return {
         id: `db_${chara.id}`,
         name: chara.name,
         emoji: elementEmoji[chara.element] || '👾',
-         imageUrl: (typeof IMG_DATA !== 'undefined' && IMG_DATA && IMG_DATA[chara.id]) ? IMG_DATA[chara.id] : '',
+        imageUrl,
+        spriteSheet,
         hp: Math.max(90, Math.floor(rawHp * 0.34)),
         atk: Math.max(10, Math.floor(rawAtk * 0.42)),
         resistPhys,

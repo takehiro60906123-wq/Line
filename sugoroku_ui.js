@@ -8,6 +8,10 @@ class SugorokuUI {
         this.ctrl = controller;
         this.layers = [];
         this._scrollPos = 0;
+        this._baseParallaxPx = 0;
+        this._cloudDriftPx = 0;
+        this._cloudDriftRaf = null;
+        this._cloudDriftLastTs = 0;
         this._pixelsPerStep = 160;
     }
 
@@ -61,6 +65,9 @@ class SugorokuUI {
         area.querySelectorAll('.enemy-entrance-container').forEach(e => e.remove());
         this.layers = [];
         this._scrollPos = 0;
+        this._baseParallaxPx = 0;
+        this._cloudDriftPx = 0;
+        this._stopCloudDrift();
         layerConfig.forEach((conf, i) => {
             const d = document.createElement('div');
             d.className = 'bg-layer';
@@ -72,11 +79,46 @@ class SugorokuUI {
         });
         const cv = document.getElementById('char-visual');
         if (cv) cv.style.backgroundImage = "url('images/chara_run.webp')";
+    this._startCloudDrift();
     }
 
     syncParallax(pos) {
-        const px = pos * this._pixelsPerStep;
-        this.layers.forEach(l => { l.el.style.backgroundPositionX = `${-(px * l.speed)}px`; });
+        this._baseParallaxPx = pos * this._pixelsPerStep;
+        this._applyParallax();
+    }
+
+    _applyParallax() {
+        this.layers.forEach((l, i) => {
+            const drift = i === 0 ? this._cloudDriftPx : 0;
+            l.el.style.backgroundPositionX = `${-((this._baseParallaxPx * l.speed) + drift)}px`;
+        });
+    }
+
+    _startCloudDrift() {
+        this._stopCloudDrift();
+        this._cloudDriftLastTs = 0;
+        const speedPxPerSec = 7;
+        const tick = (ts) => {
+            if (!this.layers || this.layers.length === 0) {
+                this._cloudDriftRaf = null;
+                return;
+            }
+            if (!this._cloudDriftLastTs) this._cloudDriftLastTs = ts;
+            const dt = Math.max(0, ts - this._cloudDriftLastTs);
+            this._cloudDriftLastTs = ts;
+            this._cloudDriftPx += (dt / 1000) * speedPxPerSec;
+            this._applyParallax();
+            this._cloudDriftRaf = requestAnimationFrame(tick);
+        };
+        this._cloudDriftRaf = requestAnimationFrame(tick);
+    }
+
+    _stopCloudDrift() {
+        if (this._cloudDriftRaf) {
+            cancelAnimationFrame(this._cloudDriftRaf);
+            this._cloudDriftRaf = null;
+        }
+        this._cloudDriftLastTs = 0;
     }
 
     // ========================================

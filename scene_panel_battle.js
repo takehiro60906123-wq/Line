@@ -185,22 +185,35 @@ class PanelBattleScreen {
         if (!panel || panel.removing) return;
         this.isProcessing = true;
         this.ui.setInputLocked(true);
+        if (this.ui && typeof this.ui.setPlayerMotion === 'function') this.ui.setPlayerMotion('move');
         const type = panel.type;
 
       
         const chain = this.findChain(row, col, type);
-        if (chain.length === 0) { this.isProcessing = false; return; }
-
-         if (chain.length === 0) { this.isProcessing = false; this.ui.setInputLocked(false); return; }
+       if (chain.length === 0) {
+            this.isProcessing = false;
+            this.ui.setInputLocked(false);
+            if (this.ui && typeof this.ui.setPlayerMotion === 'function') this.ui.setPlayerMotion('idle');
+            return;
+        }
         let killedLvUps = [];
         if (type === 'sword') killedLvUps = this._findAdjacentLvUps(chain);
 
         const allRemoving = [...chain, ...killedLvUps];
 
-        await this.ui.animatePanelRemove(allRemoving);
-        const effectDelayMs = this.applyPanelEffect(type, chain.length, killedLvUps.length);
-        if (effectDelayMs > 0) await this.sleep(effectDelayMs);
+         const removingWithType = allRemoving.map(pos => ({
+            row: pos.row,
+            col: pos.col,
+            type: (this.grid[pos.row] && this.grid[pos.row][pos.col] && this.grid[pos.row][pos.col].type) || type
+        }));
 
+        await this.ui.animatePanelRemove(allRemoving);
+        const energyMs = this.ui.animatePanelEnergyTransfer(removingWithType);
+       if (energyMs > 0) await this.sleep(energyMs);
+
+        await this.applyPanelEffect(type, chain.length, killedLvUps.length);
+        if (this.ui && typeof this.ui.setPlayerMotion === 'function') this.ui.setPlayerMotion('idle');
+        
         for (const pos of allRemoving) this.grid[pos.row][pos.col] = null;
 
         await this.dropAndFill();
@@ -209,7 +222,13 @@ class PanelBattleScreen {
         this.turnCount++;
         this.enemyActionCounter--;
 
-       if (this.enemy.hp <= 0) { this.ui.setInputLocked(false); await this.sleep(300); this.endBattle(true); return; }
+      if (this.enemy.hp <= 0) {
+            this.ui.setInputLocked(false);
+            await this.ui.animateEnemyDefeat();
+            await this.sleep(120);
+            this.endBattle(true);
+            return;
+        }
         if (this.enemyActionCounter <= 0) {
             await this.sleep(300);
             await this.doEnemyTurn();
@@ -269,11 +288,12 @@ class PanelBattleScreen {
     // ========================================
     // 効果適用
     // ========================================
-    applyPanelEffect(type, chainCount, killedLvUpCount) {
+    async applyPanelEffect(type, chainCount, killedLvUpCount) {
         const cc = chainCount;
         let waitMs = 0;
         switch (type) {
             case 'sword': {
+                if (this.ui && typeof this.ui.setPlayerMotion === 'function') this.ui.setPlayerMotion('attack');
                  const resist = (this.enemy.resistPhys || 0);
                 const hitCount = Math.max(1, cc);
                 const perHitBase = Math.max(1, Math.floor(this.playerBaseAtk * 0.55));
@@ -282,16 +302,18 @@ class PanelBattleScreen {
                     hitDmg = Math.max(1, hitDmg);
                     hitDmg = this._applyEnemyDamageCap('physical', hitDmg);
                     this.enemy.hp = Math.max(0, this.enemy.hp - hitDmg);
-                    this.ui.showDamageToEnemy(hitDmg, 'physical', 1, i);
+                   this.ui.renderEnemy(this.enemy, this.enemyMaxHp);
+                    const hitAnimMs = this.ui.showDamageToEnemy(hitDmg, 'physical', 1, i);
+                    const hitWaitMs = Math.max(120, Math.floor(hitAnimMs || 0));
+                    await this.sleep(hitWaitMs);
                     if (this.enemy.hp <= 0) break;
                 }
-                if (killedLvUpCount > 0) {
-                    this._applyMonsterLvUp(killedLvUpCount);
-                }
+               
                 if (app && app.sound) app.sound.play('se_attack');
                 break;
             }
             case 'magic': {
+                if (this.ui && typeof this.ui.setPlayerMotion === 'function') this.ui.setPlayerMotion('attack');
                 const resist = (this.enemy.resistMagic || 0);
                 const hitCount = Math.max(1, cc);
                 const perHitBase = Math.max(1, Math.floor(this.playerBaseAtk * 0.6));
@@ -300,7 +322,10 @@ class PanelBattleScreen {
                     hitDmg = Math.max(1, hitDmg);
                     hitDmg = this._applyEnemyDamageCap('magic', hitDmg);
                     this.enemy.hp = Math.max(0, this.enemy.hp - hitDmg);
-                       this.ui.showDamageToEnemy(hitDmg, 'magic', 1, i);
+                        this.ui.renderEnemy(this.enemy, this.enemyMaxHp);
+                    const hitAnimMs = this.ui.showDamageToEnemy(hitDmg, 'magic', 1, i);
+                    const hitWaitMs = Math.max(120, Math.floor(hitAnimMs || 0));
+                    await this.sleep(hitWaitMs);
                     if (this.enemy.hp <= 0) break;
                 }
                 if (app && app.sound) app.sound.play('se_attack');
@@ -356,6 +381,7 @@ class PanelBattleScreen {
                 break;
             }
         }
+        if (waitMs > 0) await this.sleep(waitMs);
         return waitMs;
     }
 
@@ -432,11 +458,7 @@ class PanelBattleScreen {
     // 敵ターン
     // ========================================
     async doEnemyTurn() {
-        const lvUpCount = this._countLvUpPanels();
-        if (lvUpCount > 0) {
-             this._applyMonsterLvUp(lvUpCount);
-            await this.sleep(600);
-        }
+        
 
         let action = null;
         for (const p of this.enemy.pattern) {
@@ -454,6 +476,7 @@ class PanelBattleScreen {
         if (action.action === 'drain') {
             const dmg = Math.max(1, Math.floor(this.enemy.atk * (action.power || 1.0)));
             this.playerHp = Math.max(0, this.playerHp - dmg);
+             if (this.ui && typeof this.ui.setPlayerMotion === 'function') this.ui.setPlayerMotion(this.playerHp <= 0 ? 'die' : 'damage');
             const heal = Math.max(1, Math.floor(dmg * (action.healRate || 0.5)));
             this.enemy.hp = Math.min(this.enemyMaxHp, this.enemy.hp + heal);
             await this.ui.animateEnemyAttack(dmg, action.label || '吸血攻撃');
@@ -462,6 +485,7 @@ class PanelBattleScreen {
         }
         const dmg = Math.max(1, Math.floor(this.enemy.atk * (action.power || 1.0)));
         this.playerHp = Math.max(0, this.playerHp - dmg);
+         if (this.ui && typeof this.ui.setPlayerMotion === 'function') this.ui.setPlayerMotion(this.playerHp <= 0 ? 'die' : 'damage');
         await this.ui.animateEnemyAttack(dmg, action.label || '攻撃');
     }
 
