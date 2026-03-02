@@ -1046,6 +1046,10 @@ class FormationScreenRedesign {
         const passiveName = unit.base.passive ? unit.base.passive.name : 'なし';
         const passiveDesc = unit.base.passive ? unit.base.passive.desc : '-';
 
+          const genderIconMap = { M: '♂️', F: '♀️', N: '⚥' };
+        const genderIcon = genderIconMap[unit.base.gender] || '❓';
+        const typeName = (this.types[unit.base.type] && this.types[unit.base.type].name) || '属性';
+        const typeIconSafe = (typeof this.getTypeIconUrl === 'function') ? this.getTypeIconUrl(unit.base.type) : '';
          const leaderSkill = unit.base.leaderSkill || null;
          const genderMap = { M: '男性', F: '女性', N: '無/不明' };
         const genderLabel = genderMap[unit.base.gender] || '不明';
@@ -1057,6 +1061,18 @@ class FormationScreenRedesign {
             ? `url(${IMG_DATA[unit.base.id]})` : 'none';
         const starsHtml = this._renderRarityStars(unit.base.cost, unit.lbCount || 0, 5);
 
+         const clampPct = (v, max) => Math.max(0, Math.min(100, Math.round((v / Math.max(1, max)) * 100)));
+        const mkStatBar = (label, value, max, color) => {
+            const pct = clampPct(value, max);
+            return `<div style="display:flex;align-items:center;gap:4px;"><span style="width:24px;font-size:9px;font-weight:700;color:${color};">${label}</span><div style="flex:1;height:6px;background:rgba(255,255,255,0.14);border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);"><div style="width:${pct}%;height:100%;background:${color};box-shadow:0 0 6px ${color};"></div></div><span style="width:30px;text-align:right;font-size:9px;color:${color};">${value}</span></div>`;
+        };
+        const statBarsHtml = [
+            mkStatBar('HP', unit.maxHp, 700, '#7dff9d'),
+            mkStatBar('ATK', unit.atk, 260, '#ff8c8c'),
+            mkStatBar('DEF', unit.def || 0, 260, '#8ec5ff'),
+            mkStatBar('SPD', unit.spd, 180, '#ffe37d'),
+            mkStatBar('RES', unit.res || 0, 260, '#d7a0ff')
+        ].join('');
         let gridHtml = '<div class="shape-icon">';
         (unit.base.shape.grid || []).forEach(bit => { gridHtml += `<div class="shape-cell-dot ${bit ? 'on' : ''}"></div>`; });
         gridHtml += '</div>';
@@ -1086,11 +1102,12 @@ class FormationScreenRedesign {
                                 <span style="font-size:10px;color:#ffe9b0;">${genderLabel}</span>
                             </div>
                         </div>
+                        <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.14);border-radius:6px;padding:5px 6px;display:flex;flex-direction:column;gap:3px;">${statBarsHtml}</div>
                     </div>
                    <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0;">
                         <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${unit.base.name} <span style="font-size:11px;color:#ffd54f;">[${rarity.label}]</span></div>
                         <div style="display:flex;gap:8px;flex-wrap:wrap;color:#ddd;font-size:11px;">
-                            <span>Lv ${unit.save.lv}/${unit.save.maxLv}</span><span>HP ${unit.maxHp}</span><span>ATK ${unit.atk}</span><span>SPD ${unit.spd}</span><span>Size ${unit.base.shape.label}</span><span>性別 ${genderLabel}</span>
+ <span>Lv ${unit.save.lv}/${unit.save.maxLv}</span><span>Size ${unit.base.shape.label}</span><span>性別 ${genderLabel}</span>
                         </div>
                         <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:7px;">
                             <div style="color:#00ced1;font-weight:700;font-size:11px;">SKILL: ${skillName}</div>

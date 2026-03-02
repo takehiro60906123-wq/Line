@@ -195,28 +195,44 @@ class Unit {
     getSkillCurrentDesc() {
         if (!this.base.skill) return "-";
         
-        let desc = this.base.skill.desc;
-        
-        // 攻撃スキルの場合 (powがある場合)
-        if (this.base.skill.pow && this.skillPow) {
-            // skillPowは calcStats() で計算済みの最終倍率(2.2など)
-            // これをパーセント(220)に変換して、テキスト内の '#val#' を置き換える
-            const pct = Math.floor(this.skillPow * 100);
-            desc = desc.replace('#val#', pct);
+        const skill = this.base.skill;
+        let desc = skill.desc || '-';
+
+        // 置換用の具体値
+        const powerPct = Math.floor(this.skillPowerPct || (this.skillPow ? this.skillPow * 100 : 0));
+        if (desc.includes('#val#') && powerPct > 0) {
+            desc = desc.replaceAll('#val#', powerPct);
         }
         
-        // バフスキルの場合 (valがある場合)
-        if (this.base.skill.val) {
-            let val = this.base.skill.val;
-            // "1.3倍" などの場合
-            if(desc.includes('#val_rate#')) {
-                desc = desc.replace('#val_rate#', val.toFixed(1)); 
+        if (skill.val != null) {
+            const val = skill.val;
+            if (desc.includes('#val_rate#')) {
+                desc = desc.replaceAll('#val_rate#', val.toFixed(1));
             }
-            // "+30%" などの場合 (1.3 -> 30)
-            if(desc.includes('#val_add#')) {
+             if (desc.includes('#val_add#')) {
                 const add = Math.floor((val - 1) * 100);
-                desc = desc.replace('#val_add#', add);
+               desc = desc.replaceAll('#val_add#', add);
             }
+        }
+
+         // テンプレ未使用の曖昧説明向けに、具体値を補足で付与する
+        const extras = [];
+        if (powerPct > 0) {
+            extras.push(`攻撃力の${powerPct}%`);
+        }
+        if (skill.val != null) {
+            const val = skill.val;
+            if (val > 1) {
+                extras.push(`効果量+${Math.floor((val - 1) * 100)}%`);
+            } else if (val > 0 && val < 1) {
+                extras.push(`倍率${Math.floor(val * 100)}%`);
+            }
+        }
+        if (skill.turns) {
+            extras.push(`${skill.turns}T`);
+        }
+        if (extras.length > 0 && !desc.includes('（')) {
+            desc += `（${extras.join(' / ')}）`;
         }
         
         return desc;

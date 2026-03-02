@@ -9,12 +9,15 @@ class EnhanceScreen {
         // 一括モード管理用
         this.isBulkMode = false;
         this.bulkSelection = new Set(); 
+        
 
+        this.detailHtmlCache = '';
         this.injectStyles();
     }
 
     onEnter() {
         this.ensureTabArea();
+         this.ensureDetailModal();
         
         // モードリセット
         this.isBulkMode = false;
@@ -46,6 +49,70 @@ class EnhanceScreen {
             if (listArea) screen.insertBefore(tabArea, listArea);
             else screen.appendChild(tabArea);
         }
+    }
+
+     ensureDetailModal() {
+        let modal = document.getElementById('enh-detail-modal');
+        if (modal) return;
+
+        modal = document.createElement('div');
+        modal.id = 'enh-detail-modal';
+        modal.className = 'enh-detail-modal';
+        modal.innerHTML = `
+            <div class="enh-detail-modal-card">
+                <button class="enh-detail-modal-close" onclick="app.enhanceScreen.closeDetailModal()">×</button>
+                <div id="enh-detail-modal-body"></div>
+            </div>
+        `;
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) this.closeDetailModal();
+        });
+        document.body.appendChild(modal);
+    }
+
+    openDetailModal() {
+        
+        const modal = document.getElementById('enh-detail-modal');
+        const body = document.getElementById('enh-detail-modal-body');
+        if (!modal || !body || !this.detailHtmlCache) return;
+        body.innerHTML = this.detailHtmlCache;
+        modal.style.display = 'flex';
+    }
+
+    closeDetailModal() {
+        const modal = document.getElementById('enh-detail-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    startBulkFromDetail() {
+        this.closeDetailModal();
+        if (!this.isBulkMode) this.toggleBulkMode();
+    }
+    getFilteredInventory() {
+        const inventory = [...app.data.inventory].sort((a, b) => {
+            const inDeckA = app.data.deck.some(d => d.uid === a.uid) ? 1 : 0;
+            const inDeckB = app.data.deck.some(d => d.uid === b.uid) ? 1 : 0;
+            if (inDeckA !== inDeckB) return inDeckB - inDeckA;
+            if (b.lv !== a.lv) return b.lv - a.lv;
+            return a.unitId - b.unitId;
+        });
+        return inventory.filter(save => {
+            const base = DB.find(u => u.id === save.unitId);
+            if (!base) return false;
+            return this.currentTab === -1 || base.type === this.currentTab;
+        });
+    }
+
+    renderOwnedSummaryStrip() {
+        const filtered = this.getFilteredInventory();
+       
+
+        return `
+            <div class="enh-owned-strip">
+                <div class="enh-owned-title">所持キャラ一覧 (${filtered.length})</div>
+               <button class="btn-bulk-start top-inline" onclick="app.enhanceScreen.startBulkFromDetail()">一括整理</button>
+            </div>
+        `;
     }
 
     renderTabs() {
@@ -82,9 +149,12 @@ class EnhanceScreen {
     // --- ロック切り替え ---
     toggleLock() {
         if(!this.selectedUid) return;
+        const modal = document.getElementById('enh-detail-modal');
+        const wasModalOpen = !!(modal && getComputedStyle(modal).display !== 'none');
         app.sound.tap();
         app.data.toggleLock(this.selectedUid);
         this.refresh(); 
+        if (wasModalOpen) this.openDetailModal();
     }
 
     // --- 一括モード切り替え ---
@@ -173,20 +243,14 @@ class EnhanceScreen {
 
         // 【一括モード時】
         if (this.isBulkMode) {
+            this.detailHtmlCache = '';
             const count = this.bulkSelection.size;
             panel.innerHTML = `
-                <div class="bulk-panel-container">
-                    <div class="bulk-message">
-                        <div class="bulk-title">一括送付モード</div>
-                        <div class="bulk-count">選択中: <span class="num">${count}</span> 体</div>
-                        <div class="bulk-note">※ロック中、編成中のキャラは選択できません</div>
-                    </div>
-                    <div class="bulk-actions">
-                        <button class="btn-bulk-cancel" onclick="app.enhanceScreen.toggleBulkMode()">キャンセル</button>
-                        <button class="btn-bulk-exec ${count===0?'disabled':''}" onclick="app.enhanceScreen.execBulkTransfer()">
-                            博士に送る (実行)
-                        </button>
-                    </div>
+                 <div class="bulk-top-strip">
+                    <div class="bulk-top-title">一括送付モード</div>
+                    <div class="bulk-top-count">選択: <span>${count}</span> 体</div>
+                    <button class="btn-bulk-cancel compact" onclick="app.enhanceScreen.toggleBulkMode()">キャンセル</button>
+                    <button class="btn-bulk-exec compact ${count===0?'disabled':''}" onclick="app.enhanceScreen.execBulkTransfer()">送る</button>
                 </div>
             `;
             return;
@@ -194,7 +258,8 @@ class EnhanceScreen {
 
         // 【通常モード時】
         if(!this.selectedUid) {
-            panel.innerHTML = `<div class="empty-msg">キャラクターを選択してください</div>`;
+           this.detailHtmlCache = '';
+           panel.innerHTML = this.renderOwnedSummaryStrip();
             return;
         }
 
@@ -308,10 +373,9 @@ class EnhanceScreen {
         const transferBtn = `<button class="btn-transfer ${canTransfer?'':'disabled'}" onclick="app.enhanceScreen.transferUnit()">
             ${unit.isLocked ? 'ロック中' : (isInDeck ? '編成中' : '博士に送る (🍬+)')}
         </button>`;
-        const bulkStartBtn = `<button class="btn-bulk-start" onclick="app.enhanceScreen.toggleBulkMode()">一括整理</button>`;
-
+      const bulkStartBtn = `<button class="btn-bulk-start" onclick="app.enhanceScreen.startBulkFromDetail()">一括整理</button>`;
         // ★★★ レイアウト構築 ★★★
-        panel.innerHTML = `
+        const detailHtml = `
             <div class="enh-new-layout">
                 
                 <div class="enh-col-left" style="background-image: ${bgUrl}; background-size: cover; background-position: center;">
@@ -382,6 +446,8 @@ class EnhanceScreen {
                 </div>
             </div>
         `;
+        this.detailHtmlCache = detailHtml;
+       panel.innerHTML = this.renderOwnedSummaryStrip();
     }
 
     renderList() {
@@ -389,23 +455,16 @@ class EnhanceScreen {
         if(!list) return;
         list.innerHTML = '';
         
-        const inventory = [...app.data.inventory].sort((a, b) => {
-            const inDeckA = app.data.deck.some(d => d.uid === a.uid) ? 1 : 0;
-            const inDeckB = app.data.deck.some(d => d.uid === b.uid) ? 1 : 0;
-            if(inDeckA !== inDeckB) return inDeckB - inDeckA;
-            if(b.lv !== a.lv) return b.lv - a.lv;
-            return a.unitId - b.unitId;
-        });
+       const inventory = this.getFilteredInventory();
 
         inventory.forEach(save => {
             const base = DB.find(u => u.id === save.unitId);
             if(!base) return;
-            if (this.currentTab !== -1 && base.type !== this.currentTab) return;
-
+            
             const unit = new Unit(base, save); 
             const el = document.createElement('div');
             
-            let className = `list-card type-${base.type}`;
+             let className = `list-card portrait-style type-${base.type}`;
             if (base.cost >= 5) className += ' rarity-ur';
             const isInDeck = app.data.deck.some(d => d.uid === unit.uid);
             const isLocked = unit.isLocked;
@@ -428,7 +487,7 @@ class EnhanceScreen {
             el.style.backgroundSize = "cover, cover";
             
             // バッジ類
-            const inDeckHtml = isInDeck ? '<div class="deck-mark">編成中</div>' : '';
+           
             const lockHtml = isLocked ? '<div class="lc-lock-icon">🔒</div>' : '';
             const checkHtml = (this.isBulkMode && this.bulkSelection.has(unit.uid)) 
                 ? '<div class="lc-bulk-selected-label"><div>✔</div>選択済</div>' : '';
@@ -443,12 +502,12 @@ class EnhanceScreen {
 
             // ★編成画面と統一したHTML構造
             el.innerHTML = `
-                <div class="lc-header">${gridHtml}</div>
-                <div class="lc-lv-badge" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.7); color:#fff; font-size:10px; padding:1px 3px; border-radius:3px; z-index:15;">Lv.${unit.save.lv}</div>
-                <div class="lc-rarity" style="color:${rarity.color}">${rarity.stars}</div>
-                ${inDeckHtml}
+                 <div class="card-lv-label">Lv${unit.save.lv}</div>
+                <div class="card-size-badge">${gridHtml}</div>
+                <div class="lc-card-stars-bottom"><div class="footer-stars">${rarity.stars}</div></div>
                 ${lockHtml}
                 ${checkHtml}
+                ${inDeck ? '<div class="card-deck-mark" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-15deg); background:rgba(200,0,0,0.8); border:1px solid #fff; padding:2px 5px; font-size:10px; z-index:26;">編成中</div>' : ''}
             `;
             list.appendChild(el);
         });
@@ -458,6 +517,7 @@ class EnhanceScreen {
         this.selectedUid = uid;
         this.updateDetailPanel();
         this.renderList();
+        this.openDetailModal();
     }
     
     getCardBgUrl(typeId, cost) {
@@ -618,12 +678,89 @@ class EnhanceScreen {
             #screen-enhance.active { display: flex !important; }
             
             #enh-panel.enhance-layout-panel {
-                flex: 0 0 400px !important; padding: 0 !important; margin: 0 !important;
-                border-bottom: 2px solid #555 !important; 
-               background-color: transparent !important;
+                flex: 0 0 62px !important; padding: 0 !important; margin: 0 !important;
+                border-bottom: 2px solid #555 !important;
+                background-color: rgba(8, 12, 20, 0.9) !important;
                 overflow: hidden !important;
+                 display: flex; align-items: center; justify-content: center;
+            }
+            #enh-panel .empty-msg { color: #bcd; font-size: 12px; }
+
+             .enh-owned-strip {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+                padding: 6px 10px;
+                box-sizing: border-box;
+                overflow: hidden;
+            }
+            .enh-owned-title {
+                flex: 0 0 auto;
+                font-size: 12px;
+                color: #d6f4ff;
+                font-weight: 700;
+                white-space: nowrap;
+            }
+             .bulk-top-strip {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 8px;
+                box-sizing: border-box;
+                background: rgba(20, 24, 30, 0.95);
+            }
+            .bulk-top-title { color: #00d8ff; font-size: 11px; font-weight: 700; white-space: nowrap; }
+            .bulk-top-count { color: #d8eaff; font-size: 10px; white-space: nowrap; }
+            .bulk-top-count span { color: #ffd54f; font-weight: 700; }
+            .btn-bulk-cancel.compact,
+            .btn-bulk-exec.compact {
+                padding: 5px 8px;
+                font-size: 10px;
+                border-radius: 4px;
+                border: 1px solid #666;
+                line-height: 1;
+                white-space: nowrap;
+            }
+            .btn-bulk-cancel.compact { background: #353535; color: #fff; }
+            .btn-bulk-exec.compact { background: #7a0000; color: #fff; border-color: #c33; }
+            .btn-bulk-exec.compact.disabled { opacity: 0.45; pointer-events: none; }
+
+            .enh-detail-modal {
+                position: fixed; inset: 0; display: none; z-index: 12000;
+                align-items: center; justify-content: center;
+                background: rgba(0,0,0,0.72);
+                padding: 12px;
+            }
+            .enh-detail-modal-card {
+                width: min(96vw, 980px);
+                max-height: 92vh;
+                overflow: auto;
+                border: 2px solid #d4af37;
+                border-radius: 10px;
+                background: #0b1020;
+                box-shadow: 0 16px 38px rgba(0,0,0,0.6);
+                position: relative;
+            }
+            .enh-detail-modal-close {
+                position: sticky;
+                top: 8px;
+                float: right;
+                margin: 8px 8px 0 0;
+                width: 34px;
+                height: 34px;
+                border-radius: 50%;
+                border: 1px solid #b99;
+                background: #3a1a1a;
+                color: #fff;
+                font-size: 20px;
+                z-index: 2;
             }
 
+              #enh-detail-modal-body { clear: both; }
             .enh-new-layout { display: flex; width: 100%; height: 100%; }
 
        /* === 左カラム === */
@@ -753,12 +890,16 @@ class EnhanceScreen {
 
             /* 1. スペック詳細 (上部) */
             .enh-specs-list-top {
-                flex: 1; overflow-y: auto; 
-                display: flex; flex-direction: column; gap: 4px;
+               flex: 0 0 70%;
+                max-height: 70%;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
             }
-            .f-section-compact { padding: 4px; background: rgba(0,0,0,0.3); border-left: 3px solid #555; border-radius: 2px; }
-            .f-section-compact .head { font-size: 10px; font-weight: bold; margin-bottom: 2px; color: #ccc; }
-            .f-section-compact .desc { font-size: 10px; color: #999; line-height: 1.2; }
+            .f-section-compact { padding: 3px 4px; background: rgba(0,0,0,0.3); border-left: 3px solid #555; border-radius: 2px; }
+            .f-section-compact .head { font-size: 10px; font-weight: bold; margin-bottom: 1px; color: #ccc; }
+            .f-section-compact .desc { font-size: 9px; color: #999; line-height: 1.15; }
             .c-skill { border-color: #00ced1; } .c-skill .head { color: #00ced1; }
             .c-passive { border-color: #ffd700; } .c-passive .head { color: #ffd700; }
             .c-ability { border-color: #f0f; } .c-ability .head { color: #f0f; }
@@ -790,7 +931,7 @@ class EnhanceScreen {
             .btn-transfer:active { background: #500; color: #fff; }
             .btn-bulk-start { flex: 1; background: #003; border: 1px solid #008; color: #ccf; font-size: 11px; padding: 10px; border-radius: 4px; font-weight: bold; }
             .btn-bulk-start:active { background: #005; color: #fff; }
-
+.btn-bulk-start.top-inline { margin-left: auto; flex: 0 0 auto; padding: 6px 10px; font-size: 10px; }
 
             /* 一括モードなど */
             .bulk-panel-container { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #222; }
@@ -836,9 +977,9 @@ class EnhanceScreen {
                 100% { transform: scale(1); opacity: 1; }
             }
             /* リストエリア */
-            .enhance-list-area { flex: 1; background: #111 !important; border-top: 2px solid #333 !important; padding: 4px !important; overflow: hidden; }
-            .enhance-list-area .card-list { display: flex !important; flex-wrap: nowrap !important; gap: 4px !important; overflow-x: auto !important; overflow-y: hidden !important; -webkit-overflow-scrolling: touch; padding: 4px !important; align-items: flex-start; }
-            .enhance-list-area .card-list .list-card { width: 70px !important; min-width: 70px !important; flex-shrink: 0 !important; }
+            .enhance-list-area { flex: 1; background: #111 !important; border-top: 2px solid #333 !important; padding: 6px !important; overflow: hidden; }
+            .enhance-list-area .card-list { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px !important; overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch; padding: 4px !important; align-items: start; }
+            .enhance-list-area .card-list .list-card { width: 100% !important; min-width: 0 !important; aspect-ratio: 3 / 4; }
             
            .tab-area { 
                 display: flex; 
