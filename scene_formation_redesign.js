@@ -168,6 +168,13 @@ class FormationScreenRedesign {
                 .formation-board-large .grid-cell.type-color-5 { background: rgba(240, 245, 255, 0.30) !important; border-color: rgba(255,255,255,0.72) !important; }
 
 
+                  .formation-board-large .grid-cell.leader-slot {
+                    border: 2px solid rgba(255, 215, 0, 0.95) !important;
+                    box-shadow: inset 0 0 10px rgba(255, 215, 0, 0.35), 0 0 8px rgba(255, 215, 0, 0.25);
+                    color: #ffe082 !important;
+                    font-weight: 700;
+                    text-shadow: 0 0 4px rgba(0,0,0,0.9);
+                }
 
                 /* --- ユニット配置レイヤー --- */
                 #edit-units-layer-large {
@@ -183,12 +190,12 @@ class FormationScreenRedesign {
                     filter: drop-shadow(0 5px 5px rgba(0,0,0,0.8));
                 }
 
-                 .board-unit-stars {
+                .formation-board-large .board-unit-stars {
                     position: absolute;
-                    
-                    left: 50%;
-                    bottom: 8px;
-                    transform: translateX(-50%);
+                   left: 50% !important;
+                    top: auto !important;
+                    bottom: 4px !important;
+                    transform: translateX(-50%) !important;
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -199,6 +206,7 @@ class FormationScreenRedesign {
                     border-radius: 10px;
                     padding: 1px 6px;
                     white-space: nowrap;
+                    width: max-content;
                     pointer-events: none;
                 }
                 .board-unit-stars .star-icon {
@@ -272,28 +280,28 @@ class FormationScreenRedesign {
 
                 /* --- 所持カードリスト --- */
                 #formation-cards-horizontal {
-                    display: flex !important;
-                    flex-wrap: nowrap !important;
-                    justify-content: flex-start !important;
-                    align-items: flex-start !important;
-                    padding: 2px !important;
-                    gap: 4px !important;
-                    overflow-x: auto !important;
-                    overflow-y: hidden !important;
+                    display: grid !important;
+                    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+                    justify-items: center !important;
+                    align-items: start !important;
+                    padding: 4px !important;
+                    gap: 6px 4px !important;
+                    overflow-x: hidden !important;
+                    overflow-y: auto !important;
                     -webkit-overflow-scrolling: touch;
                 }
                 .card-item-horizontal {
-                    width: 70px !important;
-                    min-width: 70px !important;
-                    padding: 2px !important;
+                    width: 100% !important;
+                    min-width: 0 !important;
+                    padding: 0 !important;
                     margin: 0 !important;
-                    flex-grow: 0 !important;
-                    flex-shrink: 0 !important;
+                    
                     box-sizing: border-box !important;
+                     display: flex !important;
+                    justify-content: center !important;
                 }
                 .card-item-horizontal .list-card {
-                    width: 100% !important;
-                    height: 100% !important;
+                    
                     margin: 0 !important;
                 }
 
@@ -506,17 +514,34 @@ class FormationScreenRedesign {
                     0 0 8px rgba(0, 0, 0, 0.65);
                 z-index: 4;
             }
-             .f-detail-img.portrait-style .card-type-icon {
+             .f-detail-img.portrait-style .card-size-badge {
                 position: absolute;
                 top: 2px;
                 right: 3px;
                 width: 20px;
                 height: 20px;
-                object-fit: contain;
-                filter:
-                    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.9))
-                    drop-shadow(0 0 4px rgba(5, 16, 34, 0.95));
+               background: rgba(8, 18, 30, 0.85);
+                border: 1px solid rgba(180, 220, 255, 0.8);
+                border-radius: 3px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
                 z-index: 4;
+            }
+                 .f-detail-img.portrait-style .card-size-badge .shape-icon {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1px;
+                width: 12px;
+                height: 12px;
+            }
+            .f-detail-img.portrait-style .card-size-badge .shape-cell-dot {
+                background: #444;
+                border-radius: 1px;
+            }
+            .f-detail-img.portrait-style .card-size-badge .shape-cell-dot.on {
+                background: #9eff9e;
+                box-shadow: 0 0 3px #3cff3c;
             }
             .f-detail-img.portrait-style .lc-card-stars-bottom {
                 position: absolute;
@@ -543,8 +568,8 @@ class FormationScreenRedesign {
 
              /* 所持カード一覧：縦長カード風の見た目（画像2イメージ） */
             .card-item-horizontal {
-                width: 74px;
-                min-width: 74px;
+                width: 100%;
+                min-width: 0;
                 align-items: center;
                 gap: 4px;
             }
@@ -584,16 +609,33 @@ class FormationScreenRedesign {
                 z-index: 4;
             }
 
-            .card-item-horizontal .list-card.portrait-style .card-type-icon {
+             .card-item-horizontal .list-card.portrait-style .card-size-badge .shape-icon {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1px;
+                width: 12px;
+                height: 12px;
+            }
+            .card-item-horizontal .list-card.portrait-style .card-size-badge .shape-cell-dot {
+                background: #444;
+                border-radius: 1px;
+            }
+            .card-item-horizontal .list-card.portrait-style .card-size-badge .shape-cell-dot.on {
+                background: #9eff9e;
+                box-shadow: 0 0 3px #3cff3c;
+            }
+
+           .card-item-horizontal .list-card.portrait-style .card-size-badge {
                 position: absolute;
-                 top: 2px;
                 right: 3px;
                 width: 18px;
                 height: 18px;
-                object-fit: contain;
-                filter:
-                    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.9))
-                    drop-shadow(0 0 4px rgba(5, 16, 34, 0.95));
+               background: rgba(8, 18, 30, 0.85);
+                border: 1px solid rgba(180, 220, 255, 0.8);
+                border-radius: 3px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
                 z-index: 4;
             }
 
@@ -836,14 +878,12 @@ class FormationScreenRedesign {
             const atkPct = Math.min(100, (unit.atk / maxAtk) * 100);
             const spdPct = Math.min(100, (unit.spd / maxSpd) * 100);
 
-             const typeIconUrl = this.getTypeIconUrl(unit.base.type);
-
+         
             // ★HTML書き換え: 所持カード一覧と同じUI構成
             leftCol.innerHTML = `
                 <div class="f-detail-img list-card portrait-style type-${unit.base.type}" style="background-image: ${charImg}, url('${bgUrl}')">
                     <div class="card-lv-label">Lv${unit.save.lv}</div>
-                    <img class="card-type-icon" src="${typeIconUrl}" alt="${(this.types[unit.base.type] && this.types[unit.base.type].name) || ''}" onerror="this.style.display='none'">
-                    <div class="lc-card-stars-bottom">
+                    <div class="card-size-badge">${gridHtml}</div>
                         <div class="footer-stars">${starsHtml}</div>
                     </div>
                 </div>
@@ -877,8 +917,12 @@ class FormationScreenRedesign {
                 : (unit.base.skill ? unit.base.skill.desc : '-');
             const passiveName = unit.base.passive ? unit.base.passive.name : 'なし';
             const passiveDesc = unit.base.passive ? unit.base.passive.desc : '-';
-            
-            // アビリティ情報の取得 (存在チェック付き)
+             const genderIconMap = { M: '♂️', F: '♀️', N: '⚥' };
+        const genderIcon = genderIconMap[unit.base.gender] || '❓';
+       
+        const typeName = (this.types[unit.base.type] && this.types[unit.base.type].name) || '属性';
+           const typeIconSafe = (typeof this.getTypeIconUrl === 'function') ? this.getTypeIconUrl(unit.base.type) : '';
+        // アビリティ情報の取得 (存在チェック付き)
             const abilities = (typeof unit.getAbilityStatus === 'function') ? unit.getAbilityStatus() : [];
             const abHtml = abilities.map(a => `<div class="f-ab-chip ${a.unlocked?'on':''}">${a.text}</div>`).join('');
 
@@ -964,7 +1008,7 @@ class FormationScreenRedesign {
             if (statsArea) {
                 lsBox = document.createElement('div');
                 lsBox.id = 'leader-skill-display';
-                lsBox.style.cssText = 'text-align:center;padding:3px 8px;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.3);border-radius:4px;font-size:11px;color:#ffd700;margin:4px 8px 0;display:none;';
+                 lsBox.style.cssText = 'display:none;align-items:flex-start;gap:8px;padding:5px 8px;background:rgba(55, 45, 15, 0.92);border-top:1px solid #d4af37;border-bottom:1px solid #d4af37;border-left:none;border-right:none;border-radius:0;font-size:11px;color:#ffe082;margin:0;box-shadow:inset 0 0 10px rgba(255,215,0,0.18);';
                 statsArea.parentNode.insertBefore(lsBox, statsArea.nextSibling);
             }
         }
@@ -975,7 +1019,7 @@ class FormationScreenRedesign {
                 const leaderUnit = this._getUnit(leaderEntry.uid);
                 if (leaderUnit && leaderUnit.base.leaderSkill) {
                     const ls = leaderUnit.base.leaderSkill;
-                    lsBox.innerHTML = '👑 ' + leaderUnit.base.name + '「' + ls.name + '」<br><span style="font-size:10px;color:#ccc;">' + ls.desc + '</span>';
+                   lsBox.innerHTML = `リーダーバフ<br><span style="font-size:10px;color:#ccc;">${ls.desc}</span>`;
                     lsBox.style.display = 'block';
                 } else {
                     lsBox.style.display = 'none';
@@ -984,6 +1028,96 @@ class FormationScreenRedesign {
         } else if (lsBox) {
             lsBox.style.display = 'none';
         }
+    }
+
+    
+
+    showLongPressUnitDetail(unit) {
+        if (!unit) return;
+
+        const old = document.getElementById('formation-longpress-detail');
+        if (old) old.remove();
+
+        const rarity = this.getRarityInfo(unit.base.cost);
+        const skillName = unit.base.skill ? unit.base.skill.name : 'なし';
+        const skillDesc = (typeof unit.getSkillCurrentDesc === 'function')
+            ? unit.getSkillCurrentDesc()
+            : (unit.base.skill ? unit.base.skill.desc : '-');
+        const passiveName = unit.base.passive ? unit.base.passive.name : 'なし';
+        const passiveDesc = unit.base.passive ? unit.base.passive.desc : '-';
+
+         const leaderSkill = unit.base.leaderSkill || null;
+         const genderMap = { M: '男性', F: '女性', N: '無/不明' };
+        const genderLabel = genderMap[unit.base.gender] || '不明';
+         const abilities = (typeof unit.getAbilityStatus === 'function') ? unit.getAbilityStatus() : [];
+        const abHtml = abilities.map(a => `<div style="font-size:10px;background:${a.unlocked ? 'rgba(0,80,80,0.75)' : 'rgba(30,30,30,0.75)'};border:1px solid ${a.unlocked ? '#00ced1' : '#555'};color:${a.unlocked ? '#ccffff' : '#888'};padding:2px 5px;border-radius:3px;">${a.text}</div>`).join('');
+
+        const bgUrl = this.getCardBgUrl(unit.base.type, unit.base.cost);
+        const charImg = (typeof IMG_DATA !== 'undefined' && IMG_DATA[unit.base.id])
+            ? `url(${IMG_DATA[unit.base.id]})` : 'none';
+        const starsHtml = this._renderRarityStars(unit.base.cost, unit.lbCount || 0, 5);
+
+        let gridHtml = '<div class="shape-icon">';
+        (unit.base.shape.grid || []).forEach(bit => { gridHtml += `<div class="shape-cell-dot ${bit ? 'on' : ''}"></div>`; });
+        gridHtml += '</div>';
+        const overlay = document.createElement('div');
+        overlay.id = 'formation-longpress-detail';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:9999;display:flex;align-items:center;justify-content:center;padding:14px;';
+        overlay.innerHTML = `
+           <div style="width:min(94vw,460px);max-height:86vh;overflow:auto;background:linear-gradient(180deg,#1a1a2d,#10101a);border:2px solid #d4af37;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,0.65);color:#fff;">
+              <div style="display:flex;justify-content:center;align-items:center;padding:8px 10px;border-bottom:1px solid rgba(212,175,55,0.5);">
+                    <div style="font-weight:700;color:#ffd54f;">キャラ詳細</div>
+                   
+                </div>
+                <div style="padding:10px;display:flex;gap:10px;align-items:flex-start;">
+                     <div style="width:110px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
+                        <div class="f-detail-img list-card portrait-style type-${unit.base.type}" style="height:150px;background-image:${charImg}, url('${bgUrl}');">
+                            <div class="card-lv-label">Lv${unit.save.lv}</div>
+                            <div class="card-size-badge">${gridHtml}</div>
+                            <div class="lc-card-stars-bottom"><div class="footer-stars">${starsHtml}</div></div>
+                        </div>
+                         <div style="display:flex;justify-content:center;gap:6px;">
+                            <div style="display:flex;align-items:center;gap:3px;background:rgba(0,0,0,0.45);border:1px solid rgba(120,180,255,0.6);border-radius:5px;padding:2px 6px;">
+                                  <img src="${typeIconSafe}" alt="${typeName}" style="width:14px;height:14px;object-fit:contain;" onerror="this.style.display='none'">
+                                <span style="font-size:10px;color:#cfe8ff;">${typeName}</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:3px;background:rgba(0,0,0,0.45);border:1px solid rgba(255,215,120,0.6);border-radius:5px;padding:2px 6px;">
+                                <span style="font-size:12px;line-height:1;">${genderIcon}</span>
+                                <span style="font-size:10px;color:#ffe9b0;">${genderLabel}</span>
+                            </div>
+                        </div>
+                    </div>
+                   <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0;">
+                        <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${unit.base.name} <span style="font-size:11px;color:#ffd54f;">[${rarity.label}]</span></div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;color:#ddd;font-size:11px;">
+                            <span>Lv ${unit.save.lv}/${unit.save.maxLv}</span><span>HP ${unit.maxHp}</span><span>ATK ${unit.atk}</span><span>SPD ${unit.spd}</span><span>Size ${unit.base.shape.label}</span><span>性別 ${genderLabel}</span>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:7px;">
+                            <div style="color:#00ced1;font-weight:700;font-size:11px;">SKILL: ${skillName}</div>
+                            <div style="color:#d5e8f0;font-size:11px;">${skillDesc}</div>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:7px;">
+                            <div style="color:#ffd54f;font-weight:700;font-size:11px;">PASSIVE: ${passiveName}</div>
+                            <div style="color:#ddd;font-size:11px;">${passiveDesc}</div>
+                        </div>
+                         ${leaderSkill ? `<div style="background:rgba(255,215,0,0.10);border:1px solid rgba(255,215,0,0.35);border-radius:6px;padding:7px;"><div style="color:#ffd54f;font-weight:700;font-size:11px;">リーダーバフ</div><div style="color:#ffe9a6;font-size:11px;">${leaderSkill.desc || '-'}</div></div>` : ''}
+                        ${abilities.length > 0 ? `<div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:7px;"><div style="color:#ff9cff;font-weight:700;font-size:11px;margin-bottom:4px;">ABILITY</div><div style="display:flex;flex-wrap:wrap;gap:4px;">${abHtml}</div></div>` : ''}
+                        <div style="font-size:11px;">${this._renderEquippedCards(unit)}</div>
+                    </div>
+                </div>
+                 <div style="display:flex;justify-content:center;padding:8px 10px 12px;border-top:1px solid rgba(212,175,55,0.35);">
+                    <button id="lp-detail-close" style="min-width:120px;background:#4a1f1f;color:#fff;border:1px solid #aa7777;border-radius:6px;padding:6px 14px;font-weight:700;">閉じる</button>
+                </div>
+            </div>
+        `;
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        document.body.appendChild(overlay);
+        const closeBtn = document.getElementById('lp-detail-close');
+        if (closeBtn) closeBtn.onclick = () => overlay.remove();
     }
 
     updateOwnedCount() {
@@ -1045,10 +1179,12 @@ class FormationScreenRedesign {
            // --- 星の表示（通常星 + 覚醒星アイコン） ---
             const starsHtml = this._renderRarityStars(unit.base.cost, unit.lbCount || 0, 5);
 
-            const typeIconUrl = this.getTypeIconUrl(unit.base.type);
+             let gridHtml = '<div class="shape-icon">';
+            (unit.base.shape.grid || []).forEach(bit => { gridHtml += `<div class="shape-cell-dot ${bit ? 'on' : ''}"></div>`; });
+            gridHtml += '</div>';
             card.innerHTML = `
                  <div class="card-lv-label">Lv${unit.save.lv}</div>
-                <img class="card-type-icon" src="${typeIconUrl}" alt="${(this.types[unit.base.type] && this.types[unit.base.type].name) || ''}" onerror="this.style.display='none'">
+                <div class="card-size-badge">${gridHtml}</div>
                 <div class="lc-card-stars-bottom">
                     <div class="footer-stars">${starsHtml}</div>
                 </div>
@@ -1058,7 +1194,39 @@ class FormationScreenRedesign {
                 card.innerHTML += `<div class="card-deck-mark" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-15deg); background:rgba(200,0,0,0.8); border:1px solid #fff; padding:2px 5px; font-size:10px; z-index:26;">編成中</div>`;
             }
 
+            let pressTimer = null;
+            let longPressed = false;
+            const startPress = (e) => {
+                if (e.type === 'mousedown' && e.button !== 0) return;
+                longPressed = false;
+                if (pressTimer) clearTimeout(pressTimer);
+                pressTimer = setTimeout(() => {
+                    longPressed = true;
+                    if (app.sound) app.sound.tap();
+                    this.showLongPressUnitDetail(unit);
+                }, 450);
+            };
+            const cancelPress = () => {
+                if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                }
+            };
+
+            card.addEventListener('touchstart', startPress, { passive: true });
+            card.addEventListener('touchend', cancelPress);
+            card.addEventListener('touchcancel', cancelPress);
+            card.addEventListener('touchmove', cancelPress, { passive: true });
+            card.addEventListener('mousedown', startPress);
+            card.addEventListener('mouseup', cancelPress);
+            card.addEventListener('mouseleave', cancelPress);
+            card.addEventListener('contextmenu', (e) => e.preventDefault());
+
             card.onclick = () => {
+                 if (longPressed) {
+                    longPressed = false;
+                    return;
+                }
                 if (app.sound) app.sound.tap();
                 this.selectCard(unit.uid);
             };
@@ -1084,7 +1252,7 @@ class FormationScreenRedesign {
 
         const openSlots = (typeof DeckManager !== 'undefined') ? DeckManager.getOpenSlots() : [0,1,4,5];
         document.querySelectorAll('.formation-board-large .grid-cell').forEach(c => {
-            c.classList.remove('valid', 'slot-locked');
+             c.classList.remove('valid', 'slot-locked', 'leader-slot');
             for (let t = 0; t < 6; t++) c.classList.remove('type-color-' + t);
             c.style.cursor = '';
             const idx = parseInt(c.dataset.idx);
@@ -1093,7 +1261,13 @@ class FormationScreenRedesign {
                 c.classList.add('slot-locked');
                 c.innerHTML = '🔒';
             } else {
-                c.innerHTML = idx < 4 ? 'F' + (idx+1) : 'B' + (idx-3);
+                const slotLabel = idx < 4 ? 'F' + (idx+1) : 'B' + (idx-3);
+                if (idx === 0) {
+                    c.classList.add('leader-slot');
+                    c.innerHTML = '👑 ' + slotLabel;
+                } else {
+                    c.innerHTML = slotLabel;
+                }
             }
         });
 
@@ -1146,6 +1320,29 @@ class FormationScreenRedesign {
              card.appendChild(starEl);
 
             card.addEventListener('click', () => {
+                   const selectingUid = this.selectedUid;
+                const selectingAnother = selectingUid && selectingUid !== entry.uid && !(app.data.deck || []).some(d => d.uid === selectingUid);
+
+                if (selectingAnother) {
+                    const nextUnit = this._getUnit(selectingUid);
+                    if (!nextUnit) return;
+
+                    const prevDeck = [...(app.data.deck || [])];
+                    app.data.deck = (app.data.deck || []).filter(d => d.uid !== entry.uid);
+
+                    if (app.deckManager.canPlace(nextUnit, entry.anchorIdx)) {
+                        if (app.sound) app.sound.tap();
+                        app.data.deck.push({ uid: selectingUid, unitId: nextUnit.base.id, anchorIdx: entry.anchorIdx });
+                        app.data.saveDeck();
+                        this.selectedUid = null;
+                        this.refresh();
+                    } else {
+                        app.data.deck = prevDeck;
+                        alert('この位置には置き換えできません');
+                        this.refresh();
+                    }
+                    return;
+                }
                 if (app.sound) app.sound.tap();
                 this.selectedUid = entry.uid;
                 this.refresh();
