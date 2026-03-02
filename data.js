@@ -219,13 +219,18 @@ const PASSIVE = ABILITY;
 // ★限界突破(LB)テーブル (SPEC_v2対応)
 // =============================================
 const LB_TEMPLATES = {
-    // BST 250~340 (序盤)
+    // BST 250~340 (序盤) — ★低BST救済: 固定値ボーナス追加
     LOW_BST: [
         { lv:1, type:'STAT', stat:'hp',  val:1.5, txt:'HP+50%' },
+        { lv:1, type:'FLAT_BOOST', hp:150, atk:30, def:15, res:15, txt:'基礎ステUP' },
         { lv:2, type:'STAT', stat:'atk', val:1.5, txt:'ATK+50%' },
+        { lv:2, type:'FLAT_BOOST', hp:100, atk:20, txt:'基礎ATK&HP UP' },
         { lv:3, type:'STAT', stat:'all', val:1.3, txt:'全ステ+30%' },
+        { lv:3, type:'PASSIVE', code:'CRIT_UP', val:0.15, txt:'会心率+15%' },
         { lv:4, type:'STATUS_RESIST', val:0.50, txt:'状態異常耐性50%' },
-        { lv:5, type:'STAT', stat:'all', val:1.3, txt:'全ステ+30%(2回目)' }
+        { lv:4, type:'FLAT_BOOST', atk:25, def:20, res:20, txt:'守りの型' },
+        { lv:5, type:'STAT', stat:'all', val:1.3, txt:'全ステ+30%(2回目)' },
+        { lv:5, type:'PASSIVE', code:'GUTS', val:1, txt:'不屈(致死ダメ耐え1回)' }
     ],
     // BST 350~520 (中堅~主力)
     MID_BST: [

@@ -24,9 +24,11 @@ class Unit {
         // BST基準の成長率: 低BSTほどレベルで伸びやすい
         const bst = this.base.bst || 300;
         let growthPerLv = 0.03;
-        if (bst <= 340 || this.base.cost <= 2) growthPerLv = 0.05;
-        else if (bst <= 520 || this.base.cost <= 4) growthPerLv = 0.04;
+        let flatGrowth = 0; // ★低BST救済: レベル毎の固定値加算
+        if (bst <= 340 || this.base.cost <= 2) { growthPerLv = 0.05; flatGrowth = 2; }
+        else if (bst <= 520 || this.base.cost <= 4) { growthPerLv = 0.04; flatGrowth = 1; }
         const mul = 1 + growthPerLv * (this.save.lv - 1);
+        const lvBonus = flatGrowth * (this.save.lv - 1); // Lv1=0, Lv50=98(低BST), 49(中BST)
 
         const baseHp  = (this.base.stats && this.base.stats.hp)  || this.base.hp  || 100;
         const baseAtk = (this.base.stats && this.base.stats.atk) || this.base.atk || 50;
@@ -34,11 +36,11 @@ class Unit {
         const baseSpd = (this.base.stats && this.base.stats.spd) || this.base.spd || 10;
         const baseRes = (this.base.stats && this.base.stats.res) || this.base.res || 30;
 
-        this.maxHp = Math.floor(baseHp * mul);
-        this.atk   = Math.floor(baseAtk * mul);
-        this.def   = Math.floor(baseDef * mul);
-        this.spd   = baseSpd;
-        this.res   = Math.floor(baseRes * mul);
+        this.maxHp = Math.floor(baseHp * mul) + lvBonus * 5; // HP帯はスケール×5
+        this.atk   = Math.floor(baseAtk * mul) + lvBonus;
+        this.def   = Math.floor(baseDef * mul) + lvBonus;
+        this.spd   = baseSpd + Math.floor((this.save.lv - 1) * flatGrowth * 0.15); // ★SPD微成長
+        this.res   = Math.floor(baseRes * mul) + lvBonus;
 
         // =================================================
         // ★修正: スキルレベル依存の倍率計算 (タイプ別強化)
@@ -96,6 +98,14 @@ class Unit {
                 if (b.type === 'STATUS_RESIST') {
                     this.lbResist = (this.lbResist || 0) + b.val;
                 }
+                // ★低BST救済: 固定値加算タイプ
+                if (b.type === 'FLAT_BOOST') {
+                    this.maxHp += (b.hp || 0);
+                    this.atk += (b.atk || 0);
+                    this.def += (b.def || 0);
+                    this.res += (b.res || 0);
+                    this.spd += (b.spd || 0);
+                }
             }
         });
 
@@ -134,6 +144,16 @@ class Unit {
             this.cardCritPct = this.cardEffects.critPct || 0;
             // 状態異常耐性（LB耐性に加算）
             this.lbResist = (this.lbResist || 0) + (this.cardEffects.statusResist || 0) / 100;
+
+            // ★下剋上カード: BST低いほどフラット加算がスケーリング
+            if (this.cardEffects.underdogAtk > 0 || this.cardEffects.underdogHp > 0) {
+                const ubst = this.base.bst || 300;
+                let scale = 0.25; // BST521+: ほぼ効果なし
+                if (ubst <= 340) scale = 2.5;       // 序盤キャラ: ×2.5
+                else if (ubst <= 520) scale = 1.0;   // 中堅: 等倍
+                this.atk   += Math.floor((this.cardEffects.underdogAtk || 0) * scale);
+                this.maxHp += Math.floor((this.cardEffects.underdogHp || 0) * scale);
+            }
         }
     }
 

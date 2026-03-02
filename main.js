@@ -381,6 +381,13 @@ class GameApp {
             this.zukanScreen.onLeave();
         }
 
+        if (currentSceneId === 'screen-enhance' && targetId !== 'screen-enhance' && this.enhanceScreen && this.enhanceScreen.onLeave) {
+            this.enhanceScreen.onLeave();
+        }
+
+          if (currentSceneId === 'screen-enhance' && targetId !== 'screen-enhance' && this.enhanceScreen && this.enhanceScreen.onLeave) {
+            this.enhanceScreen.onLeave();
+        }
         
         const onSceneReady = () => {
             if(targetId === 'screen-edit' && this.formationScreen) this.formationScreen.onEnter(options);

@@ -292,6 +292,21 @@ const CARD_EFFECTS = {
             { lv:4, lifestealPct: 5,   txt: '吸血+5%' },
             { lv:5, lifestealPct: 10, atkFlat: 500, txt: '吸血+10% & ATK+500' }
         ]
+    },
+
+    // ★低BST救済カード: BSTが低いほど効果倍増
+    UNDERDOG: {
+        color: 'purple', name: '下剋上', desc: '弱者の誇り：ATK&HP大幅UP(低BST優遇)',
+        calc: (lv) => ({ underdogAtk: lv * 4, underdogHp: lv * 12 }),
+        // BST≤340: ×2.5, BST341~520: ×1.0, BST521+: ×0.25
+        // Lv20 BST≤340: ATK+200, HP+600 (base only)
+        awakenBonus: [
+            { lv:1, underdogAtk: 15,  underdogHp: 50,  txt: 'ATK&HP UP(小)' },
+            { lv:2, underdogAtk: 25,  underdogHp: 80,  txt: 'ATK&HP UP(中)' },
+            { lv:3, underdogAtk: 40,  underdogHp: 120, critPct: 10, txt: 'ATK&HP UP(大) 会心+10%' },
+            { lv:4, underdogAtk: 60,  underdogHp: 180, txt: 'ATK&HP UP(特大)' },
+            { lv:5, underdogAtk: 100, underdogHp: 300, spdFlat: 5, txt: 'ATK&HP UP(極) SPD+5' }
+        ]
     }
 };
 
@@ -316,7 +331,7 @@ const CARD_DROP_CONFIG = {
         red:    ['ATK_UP', 'CRIT_UP', 'CRIT_DMG_UP', 'RED_LIFESTEAL', 'RED_DESPERATION', 'TYPE_SLAYER', 'EXTRA_ATTACK', 'GENDER_SLAYER', 'GLASS_CANNON'],
         yellow: ['HP_UP', 'DMG_CUT', 'TYPE_RESIST', 'DODGE_UP', 'YELLOW_SHIELD', 'HEAL_BOOST', 'FRONT_RESIST', 'BACK_RESIST', 'TANK_MODE'],
         blue:   ['SPD_UP', 'CHARGE_DOWN', 'INIT_CHARGE', 'STATUS_RES', 'SKILL_LV_UP', 'POWER_UP', 'HEAVY_SKILL', 'PROB_SKILL'],
-        purple: ['ALL_UP', 'FIERCE', 'FORTRESS', 'GALE', 'SHIELD', 'DESPERATION', 'LIFESTEAL']
+        purple: ['ALL_UP', 'FIERCE', 'FORTRESS', 'GALE', 'SHIELD', 'DESPERATION', 'LIFESTEAL', 'UNDERDOG']
     }
 };
 
@@ -533,7 +548,9 @@ class CardManager {
             // ▼ 追加項目
             critDmgPct: 0, weakSlayerPct: 0, extraAttackProb: 0, genderSlayerPct: 0, hpDownPct: 0,
             dmgCutPct: 0, weakResistPct: 0, dodgePct: 0, healBoostPct: 0, frontResistPct: 0, backResistPct: 0, atkDownPct: 0,
-            skillLvBonus: 0, chargePen: 0, probSkillActivate: 0
+            skillLvBonus: 0, chargePen: 0, probSkillActivate: 0,
+            // ★下剋上カード用
+            underdogAtk: 0, underdogHp: 0
         };
 
         if (!equipCards) return totals;

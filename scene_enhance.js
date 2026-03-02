@@ -31,10 +31,15 @@ class EnhanceScreen {
         this.refresh();
     }
 
+     onLeave() {
+        this.closeDetailModal();
+    }
+
     refresh() {
         this.renderTabs();
         this.renderList();
         this.updateDetailPanel();
+        this.syncDetailModalIfOpen();
     }
 
     ensureTabArea() {
@@ -83,6 +88,20 @@ class EnhanceScreen {
         const modal = document.getElementById('enh-detail-modal');
         if (modal) modal.style.display = 'none';
     }
+
+    syncDetailModalIfOpen() {
+        const modal = document.getElementById('enh-detail-modal');
+        const body = document.getElementById('enh-detail-modal-body');
+        if (!modal || !body) return;
+        if (getComputedStyle(modal).display === 'none') return;
+
+        if (!this.detailHtmlCache) {
+            this.closeDetailModal();
+            return;
+        }
+        body.innerHTML = this.detailHtmlCache;
+    }
+
 
     startBulkFromDetail() {
         this.closeDetailModal();
@@ -507,7 +526,7 @@ class EnhanceScreen {
                 <div class="lc-card-stars-bottom"><div class="footer-stars">${rarity.stars}</div></div>
                 ${lockHtml}
                 ${checkHtml}
-                ${inDeck ? '<div class="card-deck-mark" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-15deg); background:rgba(200,0,0,0.8); border:1px solid #fff; padding:2px 5px; font-size:10px; z-index:26;">編成中</div>' : ''}
+                 ${isInDeck ? '<div class="card-deck-mark" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-15deg); background:rgba(200,0,0,0.8); border:1px solid #fff; padding:2px 5px; font-size:10px; z-index:26;">編成中</div>' : ''}
             `;
             list.appendChild(el);
         });
@@ -1038,6 +1057,64 @@ class EnhanceScreen {
             }
             .lc-lv-badge { position: absolute; top:0; right:0; background:rgba(0,0,0,0.7); color:#fff; font-size:9px; padding:0 2px; }
             .lc-lock-icon { position: absolute; top:0; left:0; font-size:10px; text-shadow:0 0 2px #000; }
+
+                /* 編成画面と統一したカード表示（所持一覧） */
+            #enhance-list .list-card.portrait-style {
+                border: 2px solid rgba(255,255,255,0.35);
+                border-radius: 6px;
+                box-shadow: 0 0 8px rgba(0,0,0,0.5);
+                background-size: cover, cover;
+                background-position: center, center;
+            }
+            #enhance-list .list-card.portrait-style.selected {
+                border-color: #ffd700;
+                box-shadow: 0 0 10px #ffd700;
+            }
+            #enhance-list .list-card.portrait-style.in-deck {
+                opacity: 0.85;
+                filter: saturate(0.95);
+            }
+            #enhance-list .list-card.portrait-style .card-lv-label {
+                position: absolute;
+                top: 3px;
+                right: 3px;
+                background: rgba(0,0,0,0.75);
+                border: 1px solid rgba(255,255,255,0.35);
+                border-radius: 3px;
+                color: #fff;
+                font-size: 10px;
+                padding: 1px 4px;
+                z-index: 21;
+            }
+            #enhance-list .list-card.portrait-style .card-size-badge {
+                position: absolute;
+                top: 3px;
+                left: 3px;
+                background: rgba(0,0,0,0.62);
+                border: 1px solid rgba(255,255,255,0.2);
+                border-radius: 3px;
+                padding: 2px;
+                z-index: 21;
+            }
+            #enhance-list .list-card.portrait-style .shape-icon { display:grid; grid-template-columns:repeat(2,6px); gap:1px; }
+            #enhance-list .list-card.portrait-style .shape-cell-dot { width:6px; height:6px; background:#444; border-radius:1px; }
+            #enhance-list .list-card.portrait-style .shape-cell-dot.on { background:#39ff14; box-shadow:0 0 3px #39ff14; }
+            #enhance-list .list-card.portrait-style .lc-card-stars-bottom {
+                position: absolute;
+                left: 0;
+                bottom: 0;
+                width: 100%;
+                background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.4));
+                padding: 1px 2px 2px;
+                z-index: 20;
+            }
+            #enhance-list .list-card.portrait-style .footer-stars {
+                color: #ffd700;
+                font-size: 10px;
+                letter-spacing: -1px;
+                text-shadow: 1px 1px 0 #000;
+                white-space: nowrap;
+            }
 
             /* =========================================
                強化画面専用：光沢エフェクト (Kira-Kira Effect)
