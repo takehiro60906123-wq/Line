@@ -50,13 +50,18 @@ function createPlayerAnchorTextElement(text, className, color, order = 0) {
 }
 
 const PANEL_PLAYER_SPRITE_SHEETS = {
-     // NOTE: 主人公シートは 2段配置（4x2 / 5x2）が前提。
-      idle:   { src: 'images/player_main_idle_sheet.png', cols: 4, rows: 2, frames: 7, fps: 8, loop: true },
- move:   { src: 'images/player_main_move_sheet.png', cols: 4, rows: 2, frames: 5, fps: 10, loop: true },
-    attack: { src: 'images/player_main_attack_sheet.png', cols: 4, rows: 2, frames: 6, fps: 12, loop: false },
-    damage: { src: 'images/player_main_damage_sheet.png', cols: 4, rows: 2, frames: 5, fps: 10, loop: false },
-    die:    { src: 'images/player_main_die_sheet.png', cols: 5, rows: 2, frames: 10, fps: 10, loop: false }};
+    idle:   { src: 'images/player_main_idle_sheet.png',   cols: 4, rows: 4, frames: 7,  fps: 8,  loop: true },
+    move:   { src: 'images/player_main_move_sheet.png',   cols: 4, rows: 4, frames: 5,  fps: 10, loop: true },
+    attack: { src: 'images/player_main_attack_sheet.png', cols: 4, rows: 4, frames: 6,  fps: 24, loop: false },
+    damage: { src: 'images/player_main_damage_sheet.png', cols: 4, rows: 4, frames: 5,  fps: 10, loop: false },
+    die:    { src: 'images/player_main_die_sheet.png',    cols: 4, rows: 4, frames: 10, fps: 10, loop: false }
+};
 
+// ▼ 追加：画像を事前にブラウザに読み込ませて、切り替え時のチラつき（一瞬消える現象）を防ぐ
+Object.values(PANEL_PLAYER_SPRITE_SHEETS).forEach(sheet => {
+    const img = new Image();
+    img.src = sheet.src;
+});
 class PanelBattleUI {
     constructor(controller) {
         this.ctrl = controller;
@@ -182,6 +187,34 @@ class PanelBattleUI {
         const walkLabel = document.getElementById('pb-enemy-walk-label');
         if (enemyArea) enemyArea.classList.toggle('pb-enemy-moving', !!isMoving);
         if (walkLabel) walkLabel.style.display = isMoving ? 'block' : 'none';
+    }
+
+    // ▼ 追加: 敵のチャージ（力溜め）エフェクトのON/OFF
+   // ▼ 修正: 敵のチャージ（力溜め）エフェクトとテキストの変更
+    setEnemyCharging(isCharging, counter) {
+        const spriteEl = document.getElementById('pb-enemy-sprite');
+        if (spriteEl) {
+            if (isCharging) {
+                spriteEl.classList.add('pb-enemy-charging');
+            } else {
+                spriteEl.classList.remove('pb-enemy-charging');
+            }
+        }
+
+        // ▼ 追加: スキル時はテキストを「大技」など危険な表示に切り替える
+        if (counter !== undefined) {
+            // 足元のテキスト
+            const text = isCharging ? `⚠️ 大技まで あと ${counter}` : `敵攻撃まで あと ${counter}`;
+            this._renderEnemyFootCounter(text);
+            
+            // （おまけ）画面上部のターンカウンターもスキル時は赤くしてテキストを変える
+            const counterBox = document.getElementById('pb-enemy-counter');
+            if (counterBox) {
+                counterBox.innerHTML = isCharging 
+                    ? `<span style="color:#ff6666;">⚠️大技まで <span id="pb-counter-num">${counter}</span></span>` 
+                    : `あと <span id="pb-counter-num">${counter}</span> ターン`;
+            }
+        }
     }
 
      _renderEnemyFootCounter(labelText) {
@@ -464,14 +497,14 @@ class PanelBattleUI {
         }
     }
 
-     _clearEnemySpriteAnimation(spriteEl = null) {
+     _clearEnemySpriteAnimation(spriteEl = null, resetStyles = true) {
         if (this._spriteAnimTimer) {
             clearInterval(this._spriteAnimTimer);
             this._spriteAnimTimer = null;
         }
         this._spriteAnimKey = '';
         const target = spriteEl || document.getElementById('pb-enemy-sprite');
-        if (!target) return;
+        if (!target || !resetStyles) return;
         target.style.backgroundSize = 'contain';
         target.style.backgroundPosition = 'center';
     }
@@ -493,6 +526,7 @@ class PanelBattleUI {
         spriteEl.textContent = '';
         spriteEl.style.backgroundImage = `url('${hasSheet ? sheet.src : enemy.imageUrl}')`;
 
+        spriteEl.style.backgroundRepeat = 'no-repeat';
         if (!hasSheet) return;
 
         const key = `${sheet.src}|${sheet.cols}|${sheet.rows}|${sheet.frames}|${sheet.fps}|${sheet.loop !== false}`;
@@ -522,7 +556,7 @@ class PanelBattleUI {
                 if (sheet.loop === false) {
                     frame = sheet.frames - 1;
                     applyFrame(frame);
-                    this._clearEnemySpriteAnimation(spriteEl);
+                      this._clearEnemySpriteAnimation(spriteEl, false);
                     return;
                 }
                 frame = 0;
@@ -649,6 +683,145 @@ class PanelBattleUI {
         }
     }
 
+   // ========================================
+    // パネルの魔法変換演出 (😈 -> 💰) コイン版
+    // ========================================
+    animatePanelsTransform(changedCoords, finalGridData) {
+        return new Promise((resolve) => {
+            const gridEl = document.getElementById('pb-grid');
+            if (!gridEl) {
+                resolve();
+                return;
+            }
+
+            const panelsToAnimate = [];
+            changedCoords.forEach(coord => {
+                const panelEl = gridEl.querySelector(`.pb-panel[data-row="${coord.r}"][data-col="${coord.c}"]`);
+                if (panelEl) {
+                    panelsToAnimate.push({ el: panelEl, coord: coord });
+                }
+            });
+
+            if (panelsToAnimate.length === 0) {
+                resolve();
+                return;
+            }
+
+            const totalDuration = 1000;
+            const staggerDelay = 50; 
+
+            panelsToAnimate.forEach((item, index) => {
+                const panelEl = item.el;
+                const delay = index * staggerDelay;
+
+                const glowEl = document.createElement('div');
+                glowEl.className = 'pb-transform-glow';
+                glowEl.style.position = 'absolute';
+                glowEl.style.inset = '-5px'; 
+                glowEl.style.borderRadius = 'inherit';
+                glowEl.style.boxShadow = '0 0 10px 5px rgba(255, 100, 100, 0.5)'; 
+                glowEl.style.zIndex = '1';
+                panelEl.appendChild(glowEl);
+
+                panelEl.animate([
+                    { transform: 'rotateY(0deg) scale(1)', filter: 'brightness(1)' },
+                    { transform: 'rotateY(90deg) scale(1.1)', filter: 'brightness(1.5)', offset: 0.5 }, 
+                    { transform: 'rotateY(180deg) scale(1)', filter: 'brightness(1)', offset: 1.0 }
+                ], {
+                    duration: 600,
+                    delay: delay,
+                    easing: 'ease-in-out'
+                });
+
+                // ▼ 修正: コインに合わせて光の色を「金色（ゴールド）」に変更！
+                glowEl.animate([
+                    { boxShadow: '0 0 10px 5px rgba(255, 100, 100, 0.5)', opacity: 0.8 }, 
+                    { boxShadow: '0 0 20px 10px #fff', opacity: 1, offset: 0.5 }, 
+                    { boxShadow: '0 0 15px 8px rgba(255, 215, 0, 0.8)', opacity: 1, offset: 0.6 }, // 💰 (金色)
+                    { boxShadow: '0 0 10px 5px rgba(255, 215, 0, 0.5)', opacity: 0, offset: 1.0 }  // 消える
+                ], {
+                    duration: totalDuration - staggerDelay,
+                    delay: delay,
+                    easing: 'ease-out'
+                });
+
+                setTimeout(() => {
+                    // ▼ 修正: クラスを😈から💰(coin)へ変更
+                    panelEl.classList.remove('pb-panel-lvup');
+                    panelEl.classList.add('pb-panel-coin');
+                    
+                    // ▼ 修正: 取得するパネルデータを 'coin' に変更
+                    panelEl.innerHTML = ''; 
+                    const pType = typeof PANEL_TYPES !== 'undefined' ? PANEL_TYPES['coin'] : null;
+                    if (pType) {
+                        this._setPanelVisual(panelEl, pType);
+                    }
+
+                    glowEl.remove(); 
+
+                    const rect = panelEl.getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+                    if (this._createTransformSparkle) {
+                        this._createTransformSparkle(centerX, centerY);
+                    } else if (this._createProgrammaticEffect) {
+                        this._createProgrammaticEffect('success', centerY, centerX);
+                    }
+
+                }, delay + 300); 
+            });
+
+            const maxDelay = (panelsToAnimate.length - 1) * staggerDelay;
+            const completeDelay = maxDelay + totalDuration + 200; 
+
+            setTimeout(() => {
+                this.renderGrid(finalGridData);
+                resolve();
+            }, completeDelay);
+        });
+    }
+
+    // ========================================
+    // 変換時のキラキラエフェクト（内部用）
+    // ========================================
+    _createTransformSparkle(x, y) {
+        const effectLayer = document.getElementById('pb-effect-layer');
+        if (!effectLayer) return;
+
+        // キラキラ（星）の生成
+        for (let i = 0; i < 4; i++) {
+            const star = document.createElement('div');
+            star.style.position = 'absolute';
+            star.style.left = `${x}px`;
+            star.style.top = `${y}px`;
+            star.style.width = '3px';
+            star.style.height = '3px';
+            star.style.borderRadius = '50%';
+            star.style.backgroundColor = '#fff';
+            star.style.boxShadow = '0 0 10px #fff';
+            star.style.zIndex = '101';
+            star.style.pointerEvents = 'none';
+
+            effectLayer.appendChild(star);
+
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 30 + Math.random() * 20;
+            const dx = Math.cos(angle) * dist;
+            const dy = Math.sin(angle) * dist;
+
+            star.animate([
+                { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+                { transform: `translate(${dx}px, ${dy}px) scale(3)`, opacity: 0, offset: 0.7 },
+                { transform: `translate(${dx * 1.2}px, ${dy * 1.2}px) scale(0)`, opacity: 0, offset: 1.0 }
+            ], {
+                duration: 500 + Math.random() * 200,
+                easing: 'ease-out'
+            });
+
+            setTimeout(() => star.remove(), 700);
+        }
+    }
+
     // ========================================
     // アニメーション
     // ========================================
@@ -731,10 +904,8 @@ class PanelBattleUI {
         const duration = 220 + Math.min(260, maxDropSteps * 45);
         return new Promise(resolve => setTimeout(resolve, duration));
     }
- showDamageToEnemy(dmg, type, chainCount, hitIndex = 0) {
-       
-       
-            
+// ▼ 修正: 引数の最後に `isCritical = false` を追加
+    showDamageToEnemy(dmg, type, chainCount, hitIndex = 0, isCritical = false) {
           const layer = document.getElementById('pb-effect-layer');
           
             if (!layer) return 0;
@@ -745,6 +916,18 @@ class PanelBattleUI {
 
                 const el = createEnemyAnchorTextElement(`${dmg}`, 'pb-dmg-text', null, hitIndex);
                 if (!el) return;
+
+                // =========================================
+                // ▼ 追加: クリティカルの時は数字をド派手に強調する！
+                // =========================================
+                if (isCritical) {
+                    el.style.setProperty('color', '#ffff00', 'important'); // 真っ黄色に！
+                    el.style.setProperty('font-size', '26px', 'important'); // 文字をデカく！(通常より目立たせる)
+                    el.style.setProperty('font-weight', '900', 'important'); // さらに太字に！
+                    el.style.setProperty('text-shadow', '0px 0px 4px #ff0000, 0px 0px 8px #000000', 'important'); // 赤と黒のフチ取りで会心っぽく！
+                    el.style.setProperty('z-index', '3000', 'important'); // 他の通常ダメージの数字より手前に表示させる
+                }
+
                 layer.appendChild(el);
                 setTimeout(() => el.remove(), 2000);
             };
@@ -758,16 +941,91 @@ class PanelBattleUI {
             return 180;
     }
 
+   // =========================================
+    // ▼ バトル勝利時（敵撃破）のド派手な演出
+    // =========================================
     animateEnemyDefeat() {
-        return new Promise(resolve => {
-            const spriteEl = document.getElementById('pb-enemy-sprite');
-            if (!spriteEl) { resolve(); return; }
-            spriteEl.classList.add('pb-enemy-defeated');
-            setTimeout(() => {
-                spriteEl.style.opacity = '0';
-                spriteEl.style.visibility = 'hidden';
-                resolve();
-            }, 420);
+        return new Promise(async resolve => {
+            const enemySpriteEl = document.getElementById('pb-enemy-sprite');
+            if (!enemySpriteEl) return resolve();
+
+            // 1. 既存のフワフワアニメーションを強制停止
+            enemySpriteEl.style.animation = 'none';
+            enemySpriteEl.style.transition = 'none';
+
+            // 2. 致死ダメージの硬直（赤く激しく光ってビクッとする）
+            if (app && app.sound) app.sound.play('se_damage');
+            enemySpriteEl.style.filter = 'brightness(2) sepia(1) hue-rotate(-50deg) saturate(5)';
+            enemySpriteEl.style.transform = 'scale(1.15) rotate(8deg)'; // 少し傾ける
+
+            // 画面を激しく揺らす（2回連続でドメスティックに）
+            const screen = document.getElementById('screen-sugoroku') || document.body;
+            if (screen) {
+                screen.classList.add('pb-screen-shake');
+                setTimeout(() => screen.classList.remove('pb-screen-shake'), 200);
+                setTimeout(() => screen.classList.add('pb-screen-shake'), 250);
+                setTimeout(() => screen.classList.remove('pb-screen-shake'), 500);
+            }
+
+            // 硬直時間（トドメを刺した手応えを味わう）
+            await new Promise(r => setTimeout(r, 500));
+
+            // 3. 爆発エフェクトと崩壊
+            if (app && app.sound) {
+                app.sound.play('se_damage');
+                setTimeout(() => app.sound.play('se_attack'), 150); // 崩れる音の代用
+            }
+
+            // ▼ JSのみで完結する爆発の火花（パーティクル）を15個飛ばす
+            const rect = enemySpriteEl.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+
+            for (let i = 0; i < 15; i++) {
+                const p = document.createElement('div');
+                p.style.position = 'fixed';
+                p.style.left = `${cx}px`;
+                p.style.top = `${cy}px`;
+                p.style.width = `${10 + Math.random() * 15}px`; // 大小バラバラの破片
+                p.style.height = p.style.width;
+                // 赤・オレンジ・黄色の火花カラー
+                p.style.backgroundColor = Math.random() > 0.6 ? '#ff3300' : (Math.random() > 0.5 ? '#ffaa00' : '#ffffff');
+                p.style.borderRadius = '50%';
+                p.style.boxShadow = '0 0 10px gold';
+                p.style.zIndex = '3000';
+                p.style.pointerEvents = 'none';
+                
+                // 飛んでいく方向と距離（全方位にランダム）
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 80 + Math.random() * 100;
+                const tx = Math.cos(angle) * distance;
+                const ty = Math.sin(angle) * distance;
+                
+                p.style.transition = `transform ${0.4 + Math.random() * 0.4}s ease-out, opacity 0.6s ease-out`;
+                p.style.transform = 'translate(-50%, -50%) scale(1)';
+                
+                document.body.appendChild(p);
+                
+                // 次のフレームで一斉に弾け飛ぶ
+                requestAnimationFrame(() => {
+                    p.style.transform = `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(0)`;
+                    p.style.opacity = '0';
+                });
+                
+                // ゴミ掃除
+                setTimeout(() => p.remove(), 800);
+            }
+
+            // 4. 本体が黒焦げになりながら下へ落ちて消える
+            // cubic-bezier(0.55, 0.085, 0.68, 0.53) = 重力で加速しながら落ちる動き
+            enemySpriteEl.style.transition = 'transform 0.6s cubic-bezier(0.55, 0.085, 0.68, 0.53), filter 0.6s, opacity 0.6s';
+            enemySpriteEl.style.transform = 'translateY(150px) scale(0.3) rotate(-30deg)';
+            enemySpriteEl.style.filter = 'brightness(0) grayscale(1) blur(4px)'; // 黒焦げ＆ボヤける
+            enemySpriteEl.style.opacity = '0';
+
+            // 完全に消えるまで待つ（余韻）
+            await new Promise(r => setTimeout(r, 1000));
+            resolve();
         });
     }
 
@@ -817,19 +1075,333 @@ class PanelBattleUI {
         return new Promise(resolve => setTimeout(resolve, 500));
     }
 
-    animateEnemyAttack(dmg, label) {
+  // ▼ 修正: CSSのアニメーション干渉を防ぎ、強制的に動かすように変更
+    animateEnemySkill(label, dmg = 0, type = 'attack') {
         return new Promise(resolve => {
             this._showFloatingText(`${label}!`, 'pb-enemy-atk-label', '#ff4444');
+            
+            const spriteEl = document.getElementById('pb-enemy-sprite');
+            let originalAnimation = '';
+            let originalFilter = '';
+            
+            if (spriteEl) {
+                // ▼ 修正: チャージ中（ブルブル）のクラスを一旦解除して干渉を防ぐ
+                spriteEl.classList.remove('pb-enemy-charging');
+
+                originalAnimation = spriteEl.style.animation;
+                originalFilter = spriteEl.style.filter;
+                
+                // ▼ 修正: JS側からも「important」を指定して、どんなCSSにも負けずに強制的に動かす！
+                spriteEl.style.setProperty('animation', 'none', 'important');
+                spriteEl.style.setProperty('transition', 'transform 0.15s ease-in, filter 0.1s', 'important');
+
+                if (type === 'attack') {
+                    spriteEl.style.setProperty('transform', 'translate(-60px, 30px) scale(1.35)', 'important');
+                    spriteEl.style.setProperty('filter', 'brightness(1.5) drop-shadow(0 0 15px red)', 'important');
+                } else if (type === 'buff') {
+                    spriteEl.style.setProperty('transform', 'scale(1.4)', 'important');
+                    spriteEl.style.setProperty('filter', 'brightness(1.3) drop-shadow(0 0 20px blue)', 'important');
+                }
+                
+                setTimeout(() => {
+                    spriteEl.style.setProperty('transition', 'transform 0.4s ease-out, filter 0.4s', 'important');
+                    spriteEl.style.transform = ''; 
+                    spriteEl.style.filter = originalFilter;
+                    
+                    setTimeout(() => {
+                        spriteEl.style.animation = originalAnimation;
+                    }, 400);
+                }, 150);
+            }
+
             const screen = document.getElementById('screen-sugoroku');
             if (screen) { screen.classList.add('pb-screen-shake'); setTimeout(() => screen.classList.remove('pb-screen-shake'), 400); }
-            setTimeout(() => {
-                this._showPlayerPopupText(`-${dmg}`, 'pb-player-dmg-text', '#ff4444');
-                if (app && app.sound) app.sound.play('se_damage');
-            }, 300);
+            
+            if (dmg > 0) {
+                setTimeout(() => {
+                    this._showPlayerPopupText(`-${dmg}`, 'pb-player-dmg-text', '#ff4444');
+                    if (app && app.sound) app.sound.play('se_damage');
+                }, 300);
+            }
+            
             setTimeout(resolve, 800);
         });
     }
 
+    // =========================================
+    // ▼ スカウト演出用メソッド（絶対エラーにならない完全防御版）
+    // =========================================
+
+ // 1. プレイヤーの頭上に吹き出しを表示（座標計算・完全版）
+    showPlayerSpeechBubble(text) {
+        try {
+            const oldBubble = document.getElementById('pb-speech-bubble');
+            if (oldBubble) oldBubble.remove();
+
+            const bubbleEl = document.createElement('div');
+            bubbleEl.id = 'pb-speech-bubble';
+            bubbleEl.className = 'pb-speech-bubble';
+            bubbleEl.innerText = text;
+
+            // ▼ 修正: 確実な配置のため、画面の一番外側(body)に直接追加する
+            document.body.appendChild(bubbleEl);
+            
+            // ▼ 修正: プレイヤーの画像（またはエリア）を全力で探しに行く
+            const playerImg = document.getElementById('pb-player-sprite') || 
+                              document.querySelector('.sg-char-container') || 
+                              document.getElementById('pb-player-area');
+            
+            if (playerImg) {
+                // 画像の現在の画面上の絶対座標(XY)を取得
+                const rect = playerImg.getBoundingClientRect();
+                
+                // 画像の【上端】から少し上(10px)に、下から押し上げるように配置
+                bubbleEl.style.bottom = `${window.innerHeight - rect.top + 10}px`; 
+                // 画像の左端に合わせて配置
+                bubbleEl.style.left = `${rect.left}px`;
+            } else {
+                // 万が一キャラ画像が見つからなかった場合の安全な位置
+                bubbleEl.style.bottom = '50%';
+                bubbleEl.style.left = '20px';
+            }
+
+            requestAnimationFrame(() => bubbleEl.classList.add('pb-bubble-show'));
+
+            setTimeout(() => {
+                bubbleEl.classList.remove('pb-bubble-show');
+                setTimeout(() => bubbleEl.remove(), 300);
+            }, 1800);
+        } catch (e) { console.error("吹き出しエラー回避:", e); }
+    }
+
+   // 2. ▼新演出：エネミー画像を変形させてスカウト中を演出する
+    animateScoutRolling(panelEl, isSuccess) {
+        return new Promise(async resolve => {
+            try {
+                // エネミー画像を探す
+                const enemySpriteEl = document.getElementById('pb-enemy-sprite');
+                if (!enemySpriteEl) return resolve(false); // 敵がいなければ終了
+
+                // --- A. 交渉(チケット)が飛んでくるフリ (音だけ) ---
+                if (app && app.sound) app.sound.play('se_attack'); 
+
+                // --- B. 敵が躊躇する（迷っている）演出 ---
+                let originalAnimation = enemySpriteEl.style.animation;
+                enemySpriteEl.style.animation = 'none'; // 通常の待機フワフワを止める
+
+                // 「迷っている」アニメーションを適用
+                enemySpriteEl.classList.add('pb-enemy-confused');
+                if (app && app.sound) app.sound.play('se_check_slow'); 
+
+                // ワクワクする待機音
+                if (app && app.sound) {
+                    app.sound.play('se_check'); 
+                    setTimeout(() => app.sound.play('se_check'), 600); 
+                    setTimeout(() => app.sound.play('se_check'), 1200); 
+                }
+
+                // 躊躇演出の完了を待つ (1.8秒)
+                await new Promise(r => setTimeout(r, 1800));
+
+                enemySpriteEl.classList.remove('pb-enemy-confused');
+
+                // --- C. 結果の実行 ---
+                // ▼ ここで確実に敵の現在座標を取得する！
+                const rect = enemySpriteEl.getBoundingClientRect();
+                const effectTop = rect.top + rect.height / 2;
+                const effectLeft = rect.left + rect.width / 2;
+
+                if (isSuccess) {
+                    // 【成功時は光に包まれる】
+                    if (app && app.sound) app.sound.play('se_chest_open'); 
+                    
+                    // プログラムエフェクト（成功）を呼び出す
+                    if (typeof this._createProgrammaticEffect === 'function') {
+                        this._createProgrammaticEffect('success', effectTop, effectLeft);
+                    }
+                    
+                    enemySpriteEl.style.setProperty('transition', 'transform 0.8s ease-out, filter 0.8s, opacity 0.8s', 'important');
+                    enemySpriteEl.style.setProperty('transform', 'translateY(-40px) scale(1.05)', 'important'); 
+                    enemySpriteEl.style.setProperty('filter', 'brightness(2) drop-shadow(0 0 20px #ffffff)', 'important'); 
+                    enemySpriteEl.style.setProperty('opacity', '0', 'important');
+
+                    await new Promise(r => setTimeout(r, 800)); // 余韻
+                    resolve(true);
+                } else {
+                    // 【失敗時は飛び出して威嚇】
+                    if (app && app.sound) app.sound.play('se_damage'); 
+
+                    // プログラムエフェクト（失敗）を呼び出す
+                    if (typeof this._createProgrammaticEffect === 'function') {
+                        this._createProgrammaticEffect('fail', effectTop, effectLeft);
+                    }
+
+                    enemySpriteEl.style.setProperty('transition', 'transform 0.2s ease-out, opacity 0.2s', 'important');
+                    enemySpriteEl.style.setProperty('transform', 'scale(1.2) rotate(-5deg)', 'important');
+                    enemySpriteEl.style.opacity = '1';
+                    
+                    setTimeout(() => {
+                        enemySpriteEl.style.setProperty('transition', 'transform 0.3s ease-out, filter 0.3s', 'important');
+                        enemySpriteEl.style.transform = ''; 
+                        enemySpriteEl.style.filter = '';
+                        setTimeout(() => enemySpriteEl.style.animation = originalAnimation, 300);
+                    }, 200);
+
+                    await new Promise(r => setTimeout(r, 500)); 
+                    resolve(false);
+                }
+            } catch (err) {
+                console.error("演出エラー回避:", err);
+                resolve(true); 
+            }
+        });
+    }
+
+  // ========================================
+    // エネミーの登場演出（ハイクオリティ版）
+    // ========================================
+    animateEnemyAppear() {
+        const enemySpriteEl = document.getElementById('pb-enemy-sprite');
+        if (!enemySpriteEl) return;
+
+        // 登場の予兆音
+        if (app && app.sound) app.sound.play('se_enemy_appear');
+
+        // 1. よりダイナミックなキーフレーム（極小で高速接近 → 激突で潰れる → 反動で伸びる → 着地）
+        enemySpriteEl.animate([
+            { transform: 'translate(200px, -150px) scale(0.1) rotate(45deg)', opacity: 0, filter: 'brightness(3) blur(4px)' },
+            { transform: 'translate(0, 0) scale(1.3, 0.7) rotate(0deg)', opacity: 1, filter: 'brightness(1.5) blur(0px)', offset: 0.5 }, // 激突＆潰れ (50%のタイミング)
+            { transform: 'translate(0, -30px) scale(0.9, 1.1)', filter: 'brightness(1)', offset: 0.75 }, // 反動で少し浮く＆縦伸び
+            { transform: 'translate(0, 0) scale(1, 1)', filter: 'brightness(1)', offset: 1.0 } // 最終着地
+        ], {
+            duration: 600,
+            easing: 'ease-out'
+        });
+
+        // 2. 激突の瞬間（duration 600ms の 50% = 300ms後）に合わせて画面効果を発動
+        setTimeout(() => {
+            // ドスッという重い衝撃音（あれば。なければ通常の攻撃音でもOK）
+            if (app && app.sound) app.sound.play('se_damage'); 
+
+            // 画面をガツンと揺らす
+            const screen = document.getElementById('screen-sugoroku') || document.body;
+            if (screen) {
+                screen.classList.add('pb-screen-shake');
+                setTimeout(() => screen.classList.remove('pb-screen-shake'), 300);
+            }
+
+            // 3. 足元に広がる衝撃波（リング）エフェクトを動的に生成
+            const effectLayer = document.getElementById('pb-effect-layer');
+            if (effectLayer) {
+                const ring = document.createElement('div');
+                const rect = enemySpriteEl.getBoundingClientRect();
+                const layerRect = effectLayer.getBoundingClientRect();
+                
+                // 敵の足元の座標を計算
+                const cx = rect.left - layerRect.left + rect.width / 2;
+                const cy = rect.top - layerRect.top + rect.height - 10; 
+
+                // リングのスタイル設定
+                ring.style.position = 'absolute';
+                ring.style.left = `${cx}px`;
+                ring.style.top = `${cy}px`;
+                ring.style.width = '0px';
+                ring.style.height = '0px';
+                ring.style.border = '4px solid rgba(255, 255, 255, 0.8)';
+                ring.style.borderRadius = '50%';
+                ring.style.transform = 'translate(-50%, -50%) rotateX(60deg)'; // 奥行きを出して地面の波紋っぽく
+                ring.style.boxShadow = '0 0 15px #fff, inset 0 0 10px #fff';
+                ring.style.zIndex = '100';
+                ring.style.pointerEvents = 'none';
+
+                effectLayer.appendChild(ring);
+
+                // 波紋が広がって消えるアニメーション
+                ring.animate([
+                    { width: '0px', height: '0px', opacity: 1, borderWidth: '8px' },
+                    { width: '180px', height: '180px', opacity: 0, borderWidth: '1px' }
+                ], {
+                    duration: 400,
+                    easing: 'ease-out'
+                });
+
+                // 終わったらゴミ掃除
+                setTimeout(() => ring.remove(), 400);
+            }
+        }, 300); // アニメーションの offset: 0.5 と同期
+    }
+    // =========================================
+    // ▼ プログラム生成エフェクト（キラキラ・バツ）
+    // =========================================
+    
+    // エフェクトを生成して表示し、自動的に削除する
+    _createProgrammaticEffect(type, x, y) {
+        // コンテナを作成
+        const container = document.createElement('div');
+        container.className = 'pb-effect-container';
+        container.style.top = `${x}px`; // 引数がx,yだが、CSS的にtop,leftに
+        container.style.left = `${y}px`;
+        document.body.appendChild(container);
+        
+        // --- 成功エフェクト(光のパルス ＋ キラキラ粒子) ---
+        if (type === 'success') {
+            // 中心パルス
+            const pulse = document.createElement('div');
+            pulse.className = 'pb-effect-success-pulse';
+            container.appendChild(pulse);
+            
+            // キラキラ粒子を15個生成
+            for (let i = 0; i < 15; i++) {
+                const sparkle = document.createElement('div');
+                sparkle.className = 'pb-effect-success-sparkle';
+                sparkle.style.top = '50%'; sparkle.style.left = '50%';
+                
+                // 飛び散る方向と距離をランダムにCSS変数として渡す
+                // 角度をランダムにして、そこからXY座標を計算
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 50 + Math.random() * 80; // 50〜130px
+                sparkle.style.setProperty('--tx', `${Math.cos(angle) * distance - 3}px`); // 中心補正(-3px)
+                sparkle.style.setProperty('--ty', `${Math.sin(angle) * distance - 3}px`);
+                
+                // 再生時間を少しランダムに
+                sparkle.style.animationDuration = `${0.8 + Math.random() * 0.4}s`;
+                
+                container.appendChild(sparkle);
+            }
+        
+        // --- 失敗エフェクト(赤いバツ印 ＋ 黒い煙粒子) ---
+        } else if (type === 'fail') {
+            // 赤いバツ
+            const xCross = document.createElement('div');
+            xCross.className = 'pb-effect-fail-x';
+            
+            const line1 = document.createElement('div'); line1.className = 'pb-fail-line pb-fail-line-1'; xCross.appendChild(line1);
+            const line2 = document.createElement('div'); line2.className = 'pb-fail-line pb-fail-line-2'; xCross.appendChild(line2);
+            container.appendChild(xCross);
+            
+            // 煙粒子を8個生成
+            for (let i = 0; i < 8; i++) {
+                const smoke = document.createElement('div');
+                smoke.className = 'pb-effect-fail-smoke';
+                smoke.style.top = '50%'; smoke.style.left = '50%';
+                
+                // 飛び散る方向（上寄り）と距離をランダムに
+                const angle = Math.PI + (Math.random() - 0.5) * Math.PI; // 真上中心の半円
+                const distance = 40 + Math.random() * 60; // 40〜100px
+                smoke.style.setProperty('--tx', `${Math.cos(angle) * distance - 15}px`); // 中心補正(-15px)
+                smoke.style.setProperty('--ty', `${Math.sin(angle) * distance - 15}px`);
+                
+                // 再生時間・遅延をランダムに
+                smoke.style.animationDuration = `${1.0 + Math.random() * 0.5}s`;
+                smoke.style.animationDelay = `${Math.random() * 0.3}s`;
+                
+                container.appendChild(smoke);
+            }
+        }
+        
+        // エフェクト終了後にDOMから削除（最長の失敗煙に合わせて1.5秒後）
+        setTimeout(() => container.remove(), 1500);
+    }
     // ========================================
     // リザルト表示
     // ========================================
@@ -850,8 +1422,8 @@ class PanelBattleUI {
                 lines.push({ text: `😈 LvUPボーナス ×${rewards.monsterLvBonus}`, cls: 'pb-result-pop-special', color: '#caa4ff' });
             }
         }
-        const delay = 420;
-        const finalWait = 900;
+        const delay = 150;
+        const finalWait = 400;
         lines.forEach((item, index) => {
             setTimeout(() => {
                 this._showEnemyPopupText(item.text, item.cls, item.color, index);
@@ -902,17 +1474,73 @@ class PanelBattleUI {
         this._teardown();
     }
 
-    // ========================================
-    // フローティングテキスト
-    // ========================================
-    _showFloatingText(text, className, color) {
-        const layer = document.getElementById('pb-effect-layer');
-        if (!layer) return 0;
-        const el = document.createElement('div');
-        el.className = `pb-floating-text ${className || ''}`;
-        el.textContent = text;
-        layer.appendChild(el);
-        setTimeout(() => el.remove(), 2000);
+    // =========================================
+    // ▼ フワッと浮かぶテキストを表示する機能（色変更対応版）
+    // =========================================
+    _showFloatingText(text, targetId, color = '#ffffff', offsetY = 0) {
+        let targetEl = document.getElementById(targetId);
+        
+        // =========================================
+        // ▼ 修正: IDの名前に 'player' が入っていたら、プレイヤー側を予備にする！
+        // =========================================
+        if (!targetEl) {
+            if (targetId.includes('player')) {
+                // プレイヤー用の予備（プレイヤー画像 or 全体のHUD）
+                targetEl = document.getElementById('pb-player-sprite') || document.getElementById('pb-battle-hud');
+            } else {
+                // 敵用の予備
+                targetEl = document.getElementById('pb-enemy-sprite'); 
+            }
+        }
+        if (!targetEl) targetEl = document.body; // 最後の予備
+
+        const rect = targetEl.getBoundingClientRect();
+        const textEl = document.createElement('div');
+        
+        // （これ以降はそのままです！）
+        
+        textEl.innerText = text;
+        
+        textEl.style.setProperty('color', color, 'important');
+        textEl.style.textShadow = '0px 0px 4px #000, 0px 0px 4px #000, 0px 0px 6px #000';
+        textEl.style.fontWeight = 'bold';
+        
+        // =========================================
+        // ▼ 修正1: 文字サイズを小さめにし、折り返しを禁止する
+        // =========================================
+        textEl.style.fontSize = '15px'; // 18pxから少し小さく
+        textEl.style.whiteSpace = 'nowrap'; // 狭い画面でも文字が縦に潰れないようにする
+        textEl.style.pointerEvents = 'none';
+        textEl.style.zIndex = '4000';
+        textEl.style.position = 'fixed';
+        
+        // =========================================
+        // ▼ 修正2: 文字が重ならないように、出現位置をランダムに散らす！
+        // =========================================
+        const randomX = (Math.random() - 0.5) * 80; // 左右に最大40pxズラす
+        const randomY = (Math.random() - 0.5) * 40; // 上下に最大20pxズラす
+
+        const startX = rect.left + rect.width / 2 + randomX;
+        const startY = rect.top + rect.height / 2 + offsetY + randomY;
+        
+        textEl.style.left = `${startX}px`;
+        textEl.style.top = `${startY}px`;
+        textEl.style.transform = 'translate(-50%, -50%)';
+        
+        // アニメーション時間の設定（1秒かけてフワッと消える）
+        textEl.style.transition = 'transform 1.0s ease-out, opacity 1.0s ease-in';
+        
+        document.body.appendChild(textEl);
+        
+        // ほんの少し待ってから移動とフェードアウトを開始
+        setTimeout(() => {
+            // ▼ 修正3: scale(1.2)を消して巨大化を防ぎ、上に逃がす距離を少し伸ばす
+            textEl.style.transform = 'translate(-50%, calc(-50% - 50px)) scale(1.0)';
+            textEl.style.opacity = '0';
+        }, 50);
+        
+        // アニメーションが終わったらゴミ掃除
+        setTimeout(() => textEl.remove(), 1100);
     }
 
 
@@ -1064,4 +1692,156 @@ class PanelBattleUI {
             setTimeout(() => particle.remove(), 520);
         }
     }
+
+  // ========================================
+    // 背景の演出を開始する機能
+    // ========================================
+ startGridEffect(type) {
+        // IDではなく「クラス名」で確実に要素を捕まえる！
+        const gridWrapper = document.querySelector('.pb-grid-wrapper'); // パネルのすぐ裏
+        const gridArea = document.querySelector('.pb-container');       // 下半分全体
+        const battleScreen = document.getElementById('screen-panel-battle') || document.getElementById('game-area');
+
+        if (type === 'strong_enemy') {
+            if (gridWrapper) {
+                // パネルの真裏を赤黒く発光させる
+                gridWrapper.style.setProperty('background', 'radial-gradient(circle, rgba(150,0,0,0.8) 0%, rgba(20,0,0,0.8) 100%)', 'important');
+                gridWrapper.style.setProperty('box-shadow', '0 0 40px #ff0000 inset', 'important');
+            }
+            if (gridArea) {
+                gridArea.style.setProperty('background', 'rgba(50, 0, 0, 0.8)', 'important');
+            }
+            if (battleScreen) {
+                battleScreen.style.setProperty('background', 'rgba(50, 0, 0, 0.6)', 'important');
+            }
+        }
+    }
+
+  // ========================================
+    // 背景の演出を停止して、通常モードを明るくする機能
+    // ========================================
+    stopGridEffect() {
+        const gridWrapper = document.querySelector('.pb-grid-wrapper');
+        const gridArea = document.querySelector('.pb-container');
+        const battleScreen = document.getElementById('screen-panel-battle') || document.getElementById('game-area');
+
+        if (gridWrapper) {
+            gridWrapper.style.removeProperty('background');
+            gridWrapper.style.removeProperty('box-shadow');
+        }
+        
+        if (gridArea) {
+            // ▼ 修正: 透明だと「黒い下地」が見える罠があるため、
+            // RPGらしい「透明感のあるクリスタルブルー（すりガラス風）」の背景を敷いて明るくする！
+            gridArea.style.setProperty('background', 'linear-gradient(to bottom, rgba(70, 130, 200, 0.5), rgba(30, 70, 130, 0.8))', 'important');
+            gridArea.style.setProperty('backdrop-filter', 'blur(4px)', 'important');
+            gridArea.style.setProperty('-webkit-backdrop-filter', 'blur(4px)', 'important'); // iOS対応
+            gridArea.style.setProperty('box-shadow', 'inset 0 2px 10px rgba(255, 255, 255, 0.2)', 'important'); // 上部にうっすら光るフチ
+        }
+        
+        if (battleScreen) {
+            // 上部の青空背景は、JSの上書きを解除して確実に元のCSSを活かす
+            battleScreen.style.removeProperty('background');
+            battleScreen.style.background = '';
+        }
+    }
+
+// ========================================
+    // プレイヤーのシールド（残像）表示切り替え
+    // ========================================
+    setPlayerShield(isActive) {
+        const charContainer = document.getElementById('char-container');
+        if (!charContainer) return;
+
+        // もし古い「🛡️」アイコンが画面に残っていたら消しておく
+        const oldIcon = document.getElementById('pb-player-shield-icon');
+        if (oldIcon) oldIcon.remove();
+
+        if (isActive) {
+            // すでに残像が出ている状態なら何もしない
+            if (charContainer.dataset.hasShield === 'true') return;
+            charContainer.dataset.hasShield = 'true';
+
+            // drop-shadowを使って、キャラの左右に水色の「分身（残像）」をフワフワさせる
+            charContainer._shieldAnim = charContainer.animate([
+                { filter: 'drop-shadow(0px 0px 0px rgba(100, 200, 255, 0)) drop-shadow(0px 0px 0px rgba(100, 255, 200, 0))' },
+                // 左右に15pxズレた半透明の分身を出現させる
+                { filter: 'drop-shadow(-15px 0px 2px rgba(100, 200, 255, 0.7)) drop-shadow(15px 0px 2px rgba(100, 200, 255, 0.7))', offset: 0.5 },
+                { filter: 'drop-shadow(0px 0px 0px rgba(100, 200, 255, 0)) drop-shadow(0px 0px 0px rgba(100, 255, 200, 0))' }
+            ], {
+                duration: 1200, // 1.2秒周期でフワフワ
+                iterations: Infinity, // 解除されるまで無限ループ
+                easing: 'ease-in-out'
+            });
+
+        } else {
+            // シールドを消費（またはリセット）した時
+            if (charContainer.dataset.hasShield === 'true') {
+                charContainer.dataset.hasShield = 'false';
+                // 残像アニメーションを停止して元の状態に戻す
+                if (charContainer._shieldAnim) {
+                    charContainer._shieldAnim.cancel();
+                    charContainer._shieldAnim = null;
+                }
+            }
+        }
+    }
+
+    animatePlayerDodge() {
+        const charContainer = document.getElementById('char-container');
+        if (!charContainer) return;
+
+        if (app && app.sound) app.sound.play('se_check_slow'); // 回避音
+
+        // 現在のレイアウト設定を崩さないための安全策
+        const baseTransform = getComputedStyle(charContainer).transform;
+        const transformStr = baseTransform === 'none' ? '' : baseTransform;
+
+        charContainer.animate([
+            { transform: `${transformStr} translateX(0px)` },
+            // サッと素早く後ろに下がる
+            { transform: `${transformStr} translateX(-40px)`, offset: 0.2 },
+            // その位置で少し待機して攻撃をかわす
+            { transform: `${transformStr} translateX(-40px)`, offset: 0.7 },
+            // スッと元の位置に戻る
+            { transform: `${transformStr} translateX(0px)` }
+        ], {
+            duration: 400, // 0.4秒のキレのある動き
+            easing: 'ease-in-out'
+        });
+    }
 }
+
+
+
+// =========================================
+// ▼ 追記: キャラクター画像の強制プリロード（チラつき防止）
+// =========================================
+(function forcePreloadPlayerSprites() {
+    const preloadContainer = document.createElement('div');
+    // ブラウザに「画面内に表示されている」と誤認させて確実にデコードさせるためのCSS
+    preloadContainer.style.cssText = 'position:absolute; top:-9999px; left:-9999px; width:1px; height:1px; opacity:0.01; pointer-events:none; z-index:-1;';
+    
+    // スプライトシート全種を強制的にDOMに追加
+    Object.values(PANEL_PLAYER_SPRITE_SHEETS).forEach(sheet => {
+        if (!sheet.src) return;
+        const img = new Image();
+        img.src = sheet.src;
+        preloadContainer.appendChild(img);
+    });
+
+    // DOMの準備ができたらbodyに追加
+    const appendToBody = () => {
+        if (document.body) document.body.appendChild(preloadContainer);
+        else setTimeout(appendToBody, 100);
+    };
+    appendToBody();
+
+    
+
+    
+})();
+
+
+
+

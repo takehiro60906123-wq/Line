@@ -955,6 +955,35 @@ class FormationScreenRedesign {
         // ★スロット情報
         const slotEl = document.getElementById('slot-count-info');
         if (slotEl) slotEl.textContent = n + '/' + (app.data.maxSlots || 4);
+
+        // ★v2.2: リーダースキル表示
+        let lsBox = document.getElementById('leader-skill-display');
+        if (!lsBox) {
+            // 初回: DOMに挿入
+            const statsArea = document.querySelector('.deck-total-stats');
+            if (statsArea) {
+                lsBox = document.createElement('div');
+                lsBox.id = 'leader-skill-display';
+                lsBox.style.cssText = 'text-align:center;padding:3px 8px;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.3);border-radius:4px;font-size:11px;color:#ffd700;margin:4px 8px 0;display:none;';
+                statsArea.parentNode.insertBefore(lsBox, statsArea.nextSibling);
+            }
+        }
+        if (lsBox && n > 0) {
+            const minAnchor = Math.min(...(app.data.deck || []).map(d => d.anchorIdx));
+            const leaderEntry = (app.data.deck || []).find(d => d.anchorIdx === minAnchor);
+            if (leaderEntry) {
+                const leaderUnit = this._getUnit(leaderEntry.uid);
+                if (leaderUnit && leaderUnit.base.leaderSkill) {
+                    const ls = leaderUnit.base.leaderSkill;
+                    lsBox.innerHTML = '👑 ' + leaderUnit.base.name + '「' + ls.name + '」<br><span style="font-size:10px;color:#ccc;">' + ls.desc + '</span>';
+                    lsBox.style.display = 'block';
+                } else {
+                    lsBox.style.display = 'none';
+                }
+            }
+        } else if (lsBox) {
+            lsBox.style.display = 'none';
+        }
     }
 
     updateOwnedCount() {
@@ -1090,6 +1119,15 @@ class FormationScreenRedesign {
                 card.style.backgroundImage = `url(${IMG_DATA[unit.base.id]})`;
             } else {
                 card.innerHTML = `<div style="color:#fff;font-size:10px;text-align:center;">${unit.base.name}</div>`;
+            }
+
+            // ★v2.2: リーダーバッジ
+            const minAnchor = Math.min(...(app.data.deck || []).map(d => d.anchorIdx));
+            if (entry.anchorIdx === minAnchor) {
+                const crown = document.createElement('div');
+                crown.style.cssText = 'position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:14px;z-index:20;filter:drop-shadow(0 0 2px gold);';
+                crown.textContent = '👑';
+                card.appendChild(crown);
             }
             const row = Math.floor(entry.anchorIdx / 4);
             const col = entry.anchorIdx % 4;

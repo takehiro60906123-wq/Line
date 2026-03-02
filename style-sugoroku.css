@@ -41,16 +41,22 @@
     width: 100%; height: 100%;
     background-repeat: no-repeat; background-position: center bottom;
     background-size: contain; image-rendering: pixelated;
-    transform: scaleX(1);
+    /* ※前回追加した transform: scale(1.5) は不要になるので消してOKです */
 }
-.anim-idle { animation: float 2s infinite ease-in-out; }
+.anim-idle { 
+    transform: scale(-1.5, 1.5) !important;
+    transform-origin: bottom center;
+}
 @keyframes float { 0%,100%{transform:scaleX(-1) translateY(0);} 50%{transform:scaleX(-1) translateY(-5px);} }
-.anim-run { animation: runBob 0.25s infinite steps(2); }
+.anim-run { 
+    animation: runBob 0.25s infinite steps(2); 
+    transform-origin: bottom center;
+}
 @keyframes runBob {
-    0%{transform:scaleX(-1) translateY(0) rotate(0deg);}
-    25%{transform:scaleX(-1) translateY(-4px) rotate(3deg);}
-    50%{transform:scaleX(-1) translateY(0) rotate(0deg);}
-    75%{transform:scaleX(-1) translateY(-4px) rotate(-3deg);}
+    0%  {transform: scale(-1.5, 1.5) translateY(0) rotate(0deg);}
+    25% {transform: scale(-1.5, 1.5) translateY(-4px) rotate(3deg);}
+    50% {transform: scale(-1.5, 1.5) translateY(0) rotate(0deg);}
+    75% {transform: scale(-1.5, 1.5) translateY(-4px) rotate(-3deg);}
 }
 
 /* -----------------------------------------
@@ -794,3 +800,218 @@
 @keyframes popIn { 0%{transform:scale(0.8); opacity:0;} 100%{transform:scale(1); opacity:1;} }
 @keyframes slideInItem { 0%{transform:translateX(-20px); opacity:0;} 100%{transform:translateX(0); opacity:1;} }
 @keyframes rsItemIn { 0%{transform:translateX(-20px);opacity:0;} 100%{transform:translateX(0);opacity:1;} }
+
+/* キャラクターのサイズを強制的に1.5倍（210px）にする */
+#char-container.sg-char-container,
+.pb-battle-mode #char-container {
+    width: 210px !important;
+    height: 210px !important;
+}
+
+/* =========================================
+   敵キャラクターの足元の影（修正版）
+   ========================================= */
+
+/* 外枠（コンテナ）を基準に設定 */
+.pb-enemy-visual-stack {
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+/* 影を外枠の足元に配置 */
+.pb-enemy-visual-stack::after {
+    content: '';
+    position: absolute;
+    /* ▼ ここで影の「高さ」を調整します（足元にくるように微調整してください） */
+    bottom: 0px; 
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;  /* 影の横幅 */
+    height: 20px;  /* 影の縦幅 */
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 70%);
+    z-index: 1; /* 影の重なり順 */
+    pointer-events: none;
+}
+
+/* キャラクター自体は影より手前（前面）に出す */
+#pb-enemy-sprite {
+    position: relative;
+    z-index: 10;
+}
+
+/* =========================================
+   敵キャラクターのチャージ（力溜め）演出
+   ========================================= */
+
+/* チャージ中はフワフワを止めて小刻みに震え、紫のドロップシャドウを放つ */
+#pb-enemy-sprite.pb-enemy-charging {
+    /* フワフワを上書きして震えるアニメーションに */
+    animation: enemyChargeShake 0.1s infinite alternate !important;
+    /* 以前の白枠・影を残しつつ、紫色のオーラを追加 */
+    filter: 
+        drop-shadow(0 0 2px rgba(255,255,255,0.7)) 
+        drop-shadow(0 4px 6px rgba(0,0,0,0.5))
+        drop-shadow(0 0 15px rgba(200, 50, 255, 0.9)) !important; 
+}
+
+/* 小刻みに震えるキーフレーム */
+@keyframes enemyChargeShake {
+    0%   { transform: translate(1.5px, 1.5px) scale(1.02); }
+    100% { transform: translate(-1.5px, -1.5px) scale(0.98); }
+}
+
+/* さらに足元からモワモワと光るオーラを追加 */
+#pb-enemy-sprite.pb-enemy-charging::before {
+    content: '';
+    position: absolute;
+    bottom: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 120px;
+    background: radial-gradient(circle, rgba(180, 40, 255, 0.5) 0%, transparent 60%);
+    border-radius: 50%;
+    z-index: -1;
+    animation: enemyChargeAura 1.5s infinite;
+    pointer-events: none;
+}
+
+/* オーラが脈打つキーフレーム */
+@keyframes enemyChargeAura {
+    0%   { transform: translateX(-50%) scale(0.8); opacity: 0.3; }
+    50%  { transform: translateX(-50%) scale(1.2); opacity: 0.8; }
+    100% { transform: translateX(-50%) scale(0.8); opacity: 0.3; }
+}
+
+/* =========================================
+   浮き上がるテキスト（ダメージ・チェイン等）の視認性向上（再調整版）
+   ========================================= */
+.pb-floating-text,
+.pb-dmg-text,
+.pb-chain-text,
+.pb-enemy-atk-label {
+    /* ▼ 修正: フォントを極太（Black）に変更し、文字自体を大きくする */
+    font-weight: 700 !important;
+    font-family: "Arial Black", "Helvetica Neue", "Hiragino Kaku Gothic ProN", sans-serif;
+    letter-spacing: -1px; /* 文字間を詰めて塊感を出す */
+    
+    /* ▼ 修正: キツいアウトラインを廃止し、強力な多重影でくっきりさせる */
+    -webkit-text-stroke: 0; /* フチ取りは無し */
+    
+    /* 3重の影を落として、文字を背景からドカンと浮き上がらせる */
+    text-shadow: 
+        1px 1px 0 #000, 
+        -1px -1px 0 #000,
+        0 4px 8px rgba(0,0,0,0.9) !important;
+        
+    /* アニメーション中の滲み防止（維持） */
+    -webkit-font-smoothing: antialiased;
+    transform: translateZ(0);
+}
+
+/* チェイン（連鎖）テキストは特別に巨大化してゴールドに */
+.pb-chain-text {
+    font-size: 30px !important; /* さらに大きく */
+    color: #ffdd00 !important;
+    text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 0 6px 12px rgba(0,0,0,1) !important;
+}
+
+/* =========================================
+   スカウト演出用CSS
+   ========================================= */
+
+/* A. プレイヤーの吹き出し */
+.pb-speech-bubble {
+    position: absolute;
+    /* プレイヤーのSTATSバーの上付近（renderPlayerStatsで位置が合うように調整してください） */
+    bottom: 120px; 
+    left: 20px;
+    background-color: white;
+    border: 3px solid #666;
+    border-radius: 15px;
+    padding: 10px 15px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+    z-index: 20; /* 盤面より手前 */
+    max-width: 150px;
+    line-height: 1.3;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+    opacity: 0;
+    transform: translateY(10px) scale(0.8);
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none; /* タッチ無効 */
+}
+
+/* 表示時のクラス */
+.pb-speech-bubble.pb-bubble-show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+/* 吹き出しの尻尾（三角） */
+.pb-speech-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -15px; /* 下側に表示 */
+    left: 40px;
+    border-width: 15px 10px 0; /* 下向きの三角 */
+    border-style: solid;
+    border-color: #666 transparent transparent; /* フチの色 */
+}
+.pb-speech-bubble::before {
+    content: '';
+    position: absolute;
+    bottom: -11px; /* フチの内側 */
+    left: 40px;
+    border-width: 15px 10px 0;
+    border-style: solid;
+    border-color: white transparent transparent; /* 中身の色 */
+    z-index: 1;
+}
+
+/* B. 敵に向かって飛んでいくチケット（ボール）のクローン */
+.pb-scout-ball-clone {
+    position: fixed; /* 画面全体を基準に移動 */
+    z-index: 50; /* 敵よりさらに手前 */
+    width: 50px; /* パネルのサイズに合わせる */
+    height: 50px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    pointer-events: none;
+}
+
+/* C. コロコロ転がる（揺れる）アニメーションクラス */
+.pb-scout-rolling {
+    animation: scoutBallRoll 0.6s ease-in-out 3; /* 0.6秒を3回繰り返す（計1.8秒待機） */
+    transform-origin: center bottom; /* 下部を軸に揺らす */
+}
+
+/* 左右に揺れる（抵抗する）キーフレーム */
+@keyframes scoutBallRoll {
+    0%   { transform: rotate(0deg) translateX(0); }
+    25%  { transform: rotate(-15deg) translateX(-5px); }
+    75%  { transform: rotate(15deg) translateX(5px); }
+    100% { transform: rotate(0deg) translateX(0); }
+}
+
+/* =========================================
+   スカウト結果エフェクト用画像
+   ========================================= */
+.pb-scout-effect {
+    position: fixed; /* 画面の絶対座標を使う */
+    z-index: 3000;   /* 敵や吹き出しよりもさらに手前 */
+    pointer-events: none; /* タッチの邪魔をしない */
+    
+    /* 画像の中心を基準座標に合わせるための魔法 */
+    transform: translate(-50%, -50%);
+    
+    /* エフェクトのサイズ（画像に合わせて調整してください） */
+    width: 250px; 
+    height: 250px;
+    object-fit: contain;
+    
+    /* ふわっと消えるアニメーション用 */
+    transition: opacity 0.3s;
+}

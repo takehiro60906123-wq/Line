@@ -248,6 +248,16 @@ class FormationScreen {
             el.style.backgroundImage = charImg;
             if(!IMG_DATA[unit.base.id]) el.innerHTML = `<div class="lc-name">${unit.base.name}</div>`;
             
+            // ★v2.2: リーダーバッジ (anchorIdxが最小のユニット)
+            const isLeader = app.data.deck.length > 0 && 
+                entry.anchorIdx === Math.min(...app.data.deck.map(d => d.anchorIdx));
+            if (isLeader) {
+                const crown = document.createElement('div');
+                crown.className = 'leader-crown';
+                crown.textContent = '👑';
+                el.appendChild(crown);
+            }
+
             const r = Math.floor(entry.anchorIdx / 4);
             const c = entry.anchorIdx % 4;
             const cellW = 75;
@@ -305,6 +315,25 @@ class FormationScreen {
         if(eHp) eHp.innerText = hp;
         if(eAtk) eAtk.innerText = atk;
         if(eSlots) eSlots.innerText = `${app.data.deck.length}/8`;
+
+        // ★v2.2: リーダースキル表示
+        const lsBox = document.getElementById('leader-skill-display');
+        if (lsBox && app.data.deck.length > 0) {
+            const minAnchor = Math.min(...app.data.deck.map(d => d.anchorIdx));
+            const leaderEntry = app.data.deck.find(d => d.anchorIdx === minAnchor);
+            if (leaderEntry) {
+                const leaderUnit = app.data.getUnitInstance(leaderEntry.uid);
+                if (leaderUnit && leaderUnit.base.leaderSkill) {
+                    const ls = leaderUnit.base.leaderSkill;
+                    lsBox.innerHTML = `👑 ${leaderUnit.base.name}「${ls.name}」<br><span style="font-size:10px;color:#ccc;">${ls.desc}</span>`;
+                    lsBox.style.display = 'block';
+                } else {
+                    lsBox.style.display = 'none';
+                }
+            }
+        } else if (lsBox) {
+            lsBox.style.display = 'none';
+        }
     }
 
     injectStyles() {
@@ -380,6 +409,25 @@ class FormationScreen {
                 background-position: center center !important; 
                 background-repeat: no-repeat !important; 
                 background-color: transparent !important; 
+                position: relative;
+            }
+
+            /* ★v2.2: リーダー王冠バッジ */
+            .leader-crown {
+                position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+                font-size: 16px; z-index: 20; filter: drop-shadow(0 0 3px gold);
+                animation: crownBounce 2s ease-in-out infinite;
+            }
+            @keyframes crownBounce {
+                0%, 100% { transform: translateX(-50%) translateY(0); }
+                50% { transform: translateX(-50%) translateY(-3px); }
+            }
+
+            /* ★v2.2: リーダースキル表示 */
+            #leader-skill-display {
+                display: none; text-align: center; padding: 3px 8px;
+                background: rgba(255,215,0,0.12); border: 1px solid rgba(255,215,0,0.3);
+                border-radius: 4px; font-size: 11px; color: #ffd700; margin: 2px 5px;
             }
             
             #unit-detail-panel { height: 260px !important; padding: 5px !important; overflow: hidden; }

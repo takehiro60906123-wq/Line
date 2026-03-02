@@ -52,7 +52,9 @@ class SugorokuScreen {
         this.loadStage(options.stageId || this.currentStageId);
     }
 
-     _applyQuestDefaultLayout(statusText = '移動中') {
+     // scene_sugoroku.js
+
+    _applyQuestDefaultLayout(statusText = '移動中') {
         const pStats = this._getPlayerStats();
         const maxHp = pStats.maxHp || 1;
         const hp = Math.max(0, Math.min(this._panelBattleHp || maxHp, maxHp));
@@ -63,6 +65,15 @@ class SugorokuScreen {
                 : null;
             app.panelBattleScreen.ui.setupQuestLayout(hp, maxHp, gridState);
             app.panelBattleScreen.ui.setQuestStatus(statusText);
+
+            // ==========================================
+            // ▼ 追加: グリッド背景を設定する（ステージ設定のbgPathを使用）
+            // ==========================================
+            const c = this.stageConfigs[this.currentStageId] || this.stageConfigs[1];
+            if (c && c.bgPath && typeof app.panelBattleScreen.ui.setGridBackground === 'function') {
+                // パネルバトルUIに背景画像を設定するメソッド（例：setGridBackground）があると想定
+                app.panelBattleScreen.ui.setGridBackground(c.bgPath);
+            }
         }
     }
 
@@ -170,7 +181,11 @@ class SugorokuScreen {
 
          const combatHpMul = 1.45 + progressRatio * 0.55 + clearCount * 0.08;
             const combatAtkMul = 1.22 + progressRatio * 0.34 + clearCount * 0.05;
-            enemy.hp = Math.floor(enemy.hp * combatHpMul);
+           // =========================================
+            // ▼ 修正: 最後に「* 1.2」を追加して、全体のHPを20%アップさせる！
+            // =========================================
+            enemy.hp = Math.floor(enemy.hp * combatHpMul * 2);
+
             enemy.atk = Math.floor(enemy.atk * combatAtkMul);
             enemy.expBase = Math.floor((enemy.expBase || 30) * (1.05 + progressRatio * 0.2));
             enemy.goldBase = Math.floor((enemy.goldBase || 50) * (1.05 + progressRatio * 0.2));
@@ -307,13 +322,26 @@ class SugorokuScreen {
     // パネルバトル（雑魚戦）
     // ========================================
     async doEnemyPanelBattle(enemyData) {
-        
-
         const pStats = this._getPlayerStats();
         pStats.hp = Math.max(1, Math.min(this._panelBattleHp || pStats.maxHp, pStats.maxHp));
 
+        // ==========================================
+        // ▼ 追加: 強敵なら、バトル開始前に専用の背景演出をオンにする！
+        // ==========================================
+        if (enemyData.isStrong && app.panelBattleScreen && app.panelBattleScreen.ui && typeof app.panelBattleScreen.ui.startGridEffect === 'function') {
+            app.panelBattleScreen.ui.startGridEffect('strong_enemy');
+        }
+
         // パネルバトル開始
         app.panelBattleScreen.start(enemyData, pStats, (rewards) => {
+            
+            // ==========================================
+            // ▼ 追加: バトルが終わったら（勝敗に関わらず）演出をオフにする！
+            // ==========================================
+            if (app.panelBattleScreen && app.panelBattleScreen.ui && typeof app.panelBattleScreen.ui.stopGridEffect === 'function') {
+                app.panelBattleScreen.ui.stopGridEffect();
+            }
+
             // パネルバトル終了後のコールバック
             if (rewards.isWin) {
                 this.adventureLog.battlesWon++;
@@ -333,14 +361,14 @@ class SugorokuScreen {
                 if (rewards.guaranteedPanels && rewards.guaranteedPanels.length > 0) {
                     app.panelBattleScreen.injectPanels(rewards.guaranteedPanels);
                     this.ui.showMessage('強敵撃破！ 次戦用に🎫/💎パネル追加');
-                    
                 }
 
               // チケットパネル効果で即時ガチャした結果をログに反映
                 if (Array.isArray(rewards.chickRewards) && rewards.chickRewards.length > 0) {
                     for (const unit of rewards.chickRewards) {
                         this.adventureLog.unitsGained.push({ name: unit.name, id: unit.id, cost: unit.cost });
-                    }}
+                    }
+                }
 
                 // 装備カードドロップ（30%）
                 if (app.data && app.data.cardManager && Math.random() < 0.30) {

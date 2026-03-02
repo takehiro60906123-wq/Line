@@ -149,6 +149,13 @@ class BattleScreen {
             await this.visuals.playEntrance('enemy');
             await this.sleep(800); 
             
+            // ★v2.2: リーダースキル適用 (パッシブの前に)
+            const pLeaderLogs = this.state.applyLeaderSkill('player');
+            if(pLeaderLogs.length > 0) await this.visuals.playPassiveEffect(pLeaderLogs);
+            
+            const eLeaderLogs = this.state.applyLeaderSkill('enemy');
+            if(eLeaderLogs.length > 0) await this.visuals.playPassiveEffect(eLeaderLogs);
+
             const pLogs = this.state.applyStartPassives('player');
             if(pLogs.length > 0) await this.visuals.playPassiveEffect(pLogs);
             
@@ -386,6 +393,13 @@ class BattleScreen {
 
                     // 1回目のみスキル発動可能、2回目以降は通常攻撃のみ
                     const useSkill = (actionIdx === 0) ? skillAct : false;
+
+                    // ★v2.2: 2回目以降のダメージ減衰 (×0.7)
+                    if (actionIdx >= 1) {
+                        actor._actionDecay = 0.7;
+                    } else {
+                        actor._actionDecay = 1.0;
+                    }
 
                     const targetSide = (actor.side === 'player') ? 'enemy' : 'player';
                     const currentSkillType = useSkill ? actor.base.skill.type : 'NORMAL';
@@ -1181,6 +1195,11 @@ class BattleScreen {
                     // ★睡眠中の敵は被ダメ1.5倍 + 覚醒
                     const wasSleeping = this.state.wakeOnHit(t);
                     if (wasSleeping) val = Math.floor(val * 1.5);
+
+                    // ★v2.2: 複数行動の減衰 (2回目以降×0.7)
+                    if (actor._actionDecay && actor._actionDecay < 1.0) {
+                        val = Math.floor(val * actor._actionDecay);
+                    }
                     
                     if (skillType === 'VAMP') {
                         const drain = Math.floor(val * 0.5);

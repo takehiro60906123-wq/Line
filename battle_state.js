@@ -112,6 +112,95 @@ class BattleState {
         }
     }
 
+    // =============================================
+    // ★v2.2: リーダースキル適用
+    // =============================================
+    applyLeaderSkill(side) {
+        const logs = [];
+        const actors = this.units.filter(u => u.side === side && !u.isDead);
+        if (actors.length === 0) return logs;
+
+        // リーダー = 最も小さいanchorIdxのユニット（1番目に配置された人材）
+        const leader = actors.reduce((a, b) => (a.anchorIdx <= b.anchorIdx) ? a : b);
+        const ls = leader.base && leader.base.leaderSkill;
+        if (!ls || !ls.effects) return logs;
+
+        const cond = ls.condition || {};
+        
+        // 条件判定: 各メンバーが適用対象かどうか + グローバル条件チェック
+        let globalOk = true;
+
+        // グローバル条件: multiElement (属性N種以上)
+        if (cond.multiElement) {
+            const elems = new Set(actors.map(u => u.base.element));
+            if (elems.size < cond.multiElement.min) globalOk = false;
+        }
+        // グローバル条件: allElement (6属性全部)
+        if (cond.allElement) {
+            const elems = new Set(actors.map(u => u.base.element));
+            if (elems.size < 6) globalOk = false;
+        }
+        // グローバル条件: elementCount (特定属性N人以上)
+        if (cond.elementCount) {
+            const cnt = actors.filter(u => u.base.element === cond.elementCount.element).length;
+            if (cnt < cond.elementCount.min) globalOk = false;
+        }
+        // グローバル条件: elementsCount (複数属性の合計N人以上)
+        if (cond.elementsCount) {
+            const cnt = actors.filter(u => cond.elementsCount.elements.includes(u.base.element)).length;
+            if (cnt < cond.elementsCount.min) globalOk = false;
+        }
+        // グローバル条件: genderCount
+        if (cond.genderCount) {
+            const cnt = actors.filter(u => u.base.gender === cond.genderCount.gender).length;
+            if (cnt < cond.genderCount.min) globalOk = false;
+        }
+
+        if (!globalOk) {
+            console.log(`[LeaderSkill] ${ls.name} 条件未達 (${leader.base.name})`);
+            return logs;
+        }
+
+        // 対象絞り込み
+        const targets = actors.filter(u => {
+            if (cond.all) return true;
+            if (cond.element && u.base.element !== cond.element) return false;
+            if (cond.elements && !cond.elements.includes(u.base.element)) return false;
+            if (cond.gender && u.base.gender !== cond.gender) return false;
+            if (cond.shape && u.base.shape.code !== 'S1x1') return false;
+            // グローバル条件系(multiElement等)はglobalOkで既にチェック済み→全員対象
+            if (cond.multiElement || cond.allElement || cond.elementCount || cond.elementsCount || cond.genderCount) return true;
+            return true;
+        });
+
+        if (targets.length === 0) return logs;
+
+        // 効果適用
+        targets.forEach(t => {
+            ls.effects.forEach(eff => {
+                if (eff.stat === 'hp' && eff.mul) {
+                    const oldMax = t.maxHp;
+                    t.maxHp = Math.floor(t.maxHp * eff.mul);
+                    t.battleHp += (t.maxHp - oldMax);
+                }
+                if (eff.stat === 'atk' && eff.mul) { t.atk = Math.floor(t.atk * eff.mul); t.originalAtk = t.atk; }
+                if (eff.stat === 'def' && eff.mul) { t.def = Math.floor(t.def * eff.mul); t.originalDef = t.def; }
+                if (eff.stat === 'spd' && eff.mul) { t.spd = Math.floor(t.spd * eff.mul); }
+                if (eff.stat === 'res' && eff.mul) { t.res = Math.floor(t.res * eff.mul); t.originalRes = t.res; }
+                if (eff.stat === 'crit' && eff.val) {
+                    t._leaderCritBonus = (t._leaderCritBonus || 0) + eff.val;
+                }
+                if (eff.stat === 'statusImmune') { t._leaderStatusImmune = true; }
+                if (eff.stat === 'statusResist' && eff.val) { t._leaderStatusResist = (t._leaderStatusResist || 0) + eff.val; }
+                if (eff.stat === 'regen' && eff.val) { t._leaderRegen = eff.val; }
+            });
+        });
+
+        console.log(`[LeaderSkill] ${leader.base.name} → ${ls.name} (${targets.length}人に適用)`);
+        logs.push({ actor: leader, name: '👑' + ls.name, desc: ls.desc, targets: targets });
+        return logs;
+    }
+
     applyStartPassives(side) {
         const logs = []; 
         const actors = this.units.filter(u => u.side === side && !u.isDead);
@@ -142,6 +231,13 @@ class BattleState {
                 if(p.type === 'DUAL_DEF') {
                     actor.def = Math.floor(actor.def * (p.defVal || 1.1)); actor.originalDef = actor.def;
                     actor.res = Math.floor(actor.res * (p.resVal || 1.1)); actor.originalRes = actor.res;
+                    logs.push({ actor, name: p.name, desc: p.desc, targets: [actor] });
+                }
+
+                // ★v2.2: COMMANDER — 自身ATK+DEF同時UP (旧・鼓舞の代替)
+                if(p.type === 'COMMANDER') {
+                    actor.atk = Math.floor(actor.atk * (p.atkVal || 1.15)); actor.originalAtk = actor.atk;
+                    actor.def = Math.floor(actor.def * (p.defVal || 1.15)); actor.originalDef = actor.def;
                     logs.push({ actor, name: p.name, desc: p.desc, targets: [actor] });
                 }
 
@@ -776,16 +872,13 @@ class BattleState {
         return null;
     }
 
-    // ★追加: 塔専用の敵生成ロジック (修正版)
+    // ★追加: 塔専用の敵生成ロジック (v2.2: テーマ編成)
     generateTowerEnemy(floor, playerOccupied = []) {
         if (typeof DB === 'undefined' || typeof Unit === 'undefined') return;
 
         const enemyOccupied = [];
-
-        // --- 1. 強さの基準 (階層Lv) ---
         let lv = 10 + (floor * 2);
         
-        // --- 2. 育成状況 ---
         let lbCount = 0;
         if (lv >= 30) lbCount = 1;
         if (lv >= 50) lbCount = 2;
@@ -794,15 +887,11 @@ class BattleState {
         if (lv >= 100) lbCount = 5;
 
         const skillLv = Math.min(10, 1 + Math.floor(floor / 5));
-
-        // --- 3. 生成数・枠の制限 ---
         const isBossFloor = (floor % 5 === 0);
 
-        // ★修正点: 「8体」ではなく「8枠(フルメンバー)」を目指す設定にする
-        // 通常階は徐々に増やすが、ボス階は上限を8枠(enemyOccupied.length >= 8)で止める
         let maxUnitsCap = 4; 
         if (isBossFloor) {
-            maxUnitsCap = 8; // 最大8体までOK（ただし枠が埋まれば終了）
+            maxUnitsCap = 8;
         } else {
             if (floor >= 10) maxUnitsCap = 5;
             if (floor >= 20) maxUnitsCap = 6;
@@ -810,11 +899,17 @@ class BattleState {
             if (floor >= 40) maxUnitsCap = 8;
         }
 
+        // ★v2.2: テーマ属性を選ぶ
+        const elements = ['fire','water','grass','light','dark','neutral'];
+        const teamElement = elements[Math.floor(Math.random() * elements.length)];
+        const elementPool = DB.filter(u => u.element === teamElement);
+
         let placedCount = 0;
         
-        // --- 4. ボス配置 (ボス階のみ) ---
         if (isBossFloor) {
-            const bossBase = DB.find(u => (u.bst >= 500 || u.cost >= 5)) || DB[0];
+            const bossPool = elementPool.filter(u => u.bst >= 500 || u.cost >= 5);
+            const bossBase = (bossPool.length > 0) ? bossPool[Math.floor(Math.random() * bossPool.length)] 
+                           : DB.find(u => u.bst >= 500 || u.cost >= 5) || DB[0];
             const leaderLv = lv + 5;
             const leaderMaxLv = Math.max(leaderLv, 50 + (lbCount * 5));
             
@@ -827,11 +922,9 @@ class BattleState {
             });
             boss.battleHp = boss.maxHp;
 
-            // 中央付近(1 or 2)を優先して配置 (2x2などの大型が真ん中に来やすくする)
             const tryAnchors = [1, 2, 5, 6, 0, 3, 4, 7];
             for(let anchor of tryAnchors) {
                 const cells = boss.getOccupiedCells(anchor);
-                // 重なりチェック
                 if (cells && !cells.some(c => enemyOccupied.includes(c))) {
                     cells.forEach(c => enemyOccupied.push(c));
                     this.createUnit(boss, 'enemy', anchor);
@@ -841,21 +934,14 @@ class BattleState {
             }
         }
 
-        // --- 5. 残りの枠を埋める ---
         for(let k=0; k < 50; k++) {
-            // ★重要修正: 「ユニット数が上限」または「盤面(8枠)が全て埋まった」ら終了
             if (placedCount >= maxUnitsCap) break;
             if (enemyOccupied.length >= 8) break; 
 
             let base;
-            if (isBossFloor) {
-                // 取り巻き：基本は中堅以上(コスト3~)だが、隙間埋め用に30%で全キャラから抽選
-                const midPool = DB.filter(u => (u.bst >= 350 || u.cost >= 3));
-                if (Math.random() < 0.7 && midPool.length > 0) {
-                    base = midPool[Math.floor(Math.random() * midPool.length)];
-                } else {
-                    base = DB[Math.floor(Math.random() * DB.length)];
-                }
+            const useSameElement = Math.random() < 0.70 && elementPool.length > 0;
+            if (useSameElement) {
+                base = elementPool[Math.floor(Math.random() * elementPool.length)];
             } else {
                 base = DB[Math.floor(Math.random() * DB.length)];
             }
@@ -880,7 +966,6 @@ class BattleState {
             }
         }
 
-        // 保険: 1体も配置されなかった場合
         if (this.units.filter(x => x.side === 'enemy').length === 0) {
             const u = new Unit(DB[0], { uid: 'fallback', unitId: DB[0].id, lv: lv, maxLv: 99, skillLv: 1 });
             u.battleHp = u.maxHp;

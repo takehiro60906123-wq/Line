@@ -77,8 +77,7 @@ class SugorokuUI {
             if (!conf.isFront) area.insertBefore(d, cc); else area.appendChild(d);
             this.layers.push({ el: d, speed: conf.speed });
         });
-        const cv = document.getElementById('char-visual');
-        if (cv) cv.style.backgroundImage = "url('images/chara_run.webp')";
+        
     this._startCloudDrift();
     }
 
@@ -171,10 +170,18 @@ class SugorokuUI {
     // キャラ
     // ========================================
     setCharRunning(on) {
-        const c = document.getElementById('char-container');
-        if (!c) return;
-        c.classList.toggle('anim-run', on);
-        c.classList.toggle('anim-idle', !on);
+        // ▼ 修正: 古いCSSクラスの切り替え処理を削除・変更し、新しい setPlayerMotion を呼び出す
+        if (app && app.panelBattleScreen && app.panelBattleScreen.ui) {
+            // パネルバトルのUI機能を使って、スプライトシートのアニメーションを切り替える
+            app.panelBattleScreen.ui.setPlayerMotion(on ? 'move' : 'idle');
+        } else {
+            // ※念のためのフォールバック (appが参照できない場合などのため)
+            const c = document.getElementById('char-container');
+            if (c) {
+                c.classList.toggle('anim-run', on);
+                c.classList.toggle('anim-idle', !on);
+            }
+        }
     }
 
     // ========================================

@@ -389,7 +389,7 @@ background: linear-gradient(to right, #ff0000 0 var(--pb-enemy-hp-pct, 100%), #f
     bottom: 0;
     top: calc(56px + clamp(140px, 35%, 240px));
     z-index: 80;
-    background: #111;
+    background: rgba(0, 0, 0, 0.4);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -476,7 +476,7 @@ background: linear-gradient(to right, #ff0000 0 var(--pb-enemy-hp-pct, 100%), #f
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #000;
+    background: transparent;
 }
 .pb-grid {
     display: grid;
@@ -580,9 +580,35 @@ background: linear-gradient(to right, #ff0000 0 var(--pb-enemy-hp-pct, 100%), #f
 @keyframes panelRemove { 0%{transform:scale(1);opacity:1;filter:brightness(1)} 40%{transform:scale(1.3);opacity:1;filter:brightness(2)} 100%{transform:scale(0);opacity:0;filter:brightness(3)} }
 
 .pb-panel-dropping {
-    animation: panelDropSmooth 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    /* JSで計算した遅延時間を適用し、アニメーション前は上空で待機させる */
+    animation: panelRichDrop 0.45s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
     animation-delay: var(--pb-drop-delay, 0ms);
-    will-change: transform, opacity, filter;
+    animation-fill-mode: both;
+    z-index: 10; /* 落下中は他のパネルより手前に表示 */
+}
+
+/* ▼ 新規追加: ヌルっと落ちて、ぷにっと着地するリッチなキーフレーム */
+@keyframes panelRichDrop {
+    0% {
+        /* 指定距離だけ上空から、縦に少し伸びて（加速感）落下開始 */
+        transform: translateY(calc(-1 * var(--pb-drop-distance))) scaleY(1.15) scaleX(0.85);
+        opacity: 0;
+    }
+    20% {
+        opacity: 1; /* スーッと現れる */
+    }
+    60% {
+        /* 地面(本来の位置)に激突して、横に潰れる（ぷにっ！） */
+        transform: translateY(6px) scaleY(0.75) scaleX(1.15);
+    }
+    80% {
+        /* 反動で少し上にポンッと浮く */
+        transform: translateY(-3px) scaleY(1.05) scaleX(0.95);
+    }
+    100% {
+        /* 元の形・位置にピッタリ収まる */
+        transform: translateY(0) scaleY(1) scaleX(1);
+    }
 }
 @keyframes panelDropSmooth {
     0% {
@@ -861,5 +887,224 @@ background: linear-gradient(to right, #ff0000 0 var(--pb-enemy-hp-pct, 100%), #f
     100% {
         opacity: 0.9;
         transform: translate(calc(var(--pb-energy-ex, 0px) - 6px), calc(var(--pb-energy-ey, 0px) - 6px)) scale(1.08);
+    }
+}
+
+/* =========================================
+   スカウト交渉演出用CSS（座標完全追従版）
+   ========================================= */
+
+/* A. プレイヤー吹き出し */
+.pb-speech-bubble {
+    /* ▼ 修正: fixedにすることで、どこに追加されても確実に絶対座標で表示できる */
+    position: fixed; 
+    z-index: 2000; /* 一番手前に表示 */
+    
+    background-color: white;
+    border: 3px solid #666;
+    border-radius: 15px;
+    padding: 10px 15px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+    max-width: 150px;
+    line-height: 1.3;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+    opacity: 0;
+    transform: translateY(10px) scale(0.8);
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+}
+
+/* 表示時のアニメーション */
+.pb-speech-bubble.pb-bubble-show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+/* 吹き出しの尻尾 */
+.pb-speech-bubble::after,
+.pb-speech-bubble::before {
+    content: '';
+    position: absolute;
+    left: 20px; /* 尻尾の位置 */
+    border-style: solid;
+}
+.pb-speech-bubble::after {
+    bottom: -15px; 
+    border-width: 15px 10px 0; 
+    border-color: #666 transparent transparent; 
+}
+.pb-speech-bubble::before {
+    bottom: -11px; 
+    border-width: 15px 10px 0;
+    border-color: white transparent transparent; 
+    z-index: 1;
+}
+
+/* =========================================
+   ★新演出：エネミーの「迷っている」アニメーション
+   ======================================== */
+.pb-enemy-confused {
+    /* 通常の待機フワフワを上書きして、左右に躊躇う動きに */
+    animation: enemyConfusedShake 0.4s ease-in-out infinite alternate !important; 
+    
+    /* 金色のオーラと、少し魅了された色合い（黄・ゴールド系）を追加 */
+    filter: brightness(1.2) sepia(1) hue-rotate(-50deg) drop-shadow(0 0 10px gold) !important;
+}
+
+/* 躊躇（ためらい）のキーフレーム */
+@keyframes enemyConfusedShake {
+    0%   { transform: rotate(0deg) scale(1); }
+    25%  { transform: rotate(-8deg) scale(0.95); } /* 少し縮んで左に傾く */
+    75%  { transform: rotate(8deg) scale(1.05); } /* 少し伸びて右に傾く */
+    100% { transform: rotate(0deg) scale(1); }
+}
+
+/* =========================================
+   プログラム生成エフェクト用CSS
+   ========================================= */
+.pb-effect-container {
+    position: fixed; /* 画面全体の座標を使う */
+    z-index: 3000;   /* 最手前 */
+    pointer-events: none; /* タッチ無効 */
+    /* 中心を基準に配置するための設定 */
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 200px;
+}
+
+/* =========================================
+   ★成功エフェクト：光のパルスと飛び散るキラキラ
+   ======================================== */
+/* 中心から広がる光のパルス */
+.pb-effect-success-pulse {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    /* ゴールドとホワイトのグラデーション */
+    background: radial-gradient(circle, #ffffff 0%, rgba(255,215,0,1) 50%, rgba(255,215,0,0) 70%);
+    box-shadow: 0 0 20px 5px gold;
+    
+    animation: successPulseAni 0.7s ease-out forwards;
+}
+
+@keyframes successPulseAni {
+    0%   { width: 10px; height: 10px; opacity: 1; }
+    100% { width: 180px; height: 180px; opacity: 0; }
+}
+
+/* 飛び散るキラキラ粒子（JSで複数生成） */
+.pb-effect-success-sparkle {
+    position: absolute;
+    width: 6px; height: 6px;
+    background-color: white;
+    border-radius: 50%;
+    box-shadow: 0 0 8px 2px #fff, 0 0 12px 4px gold;
+    opacity: 0;
+    
+    animation: successSparkleAni 1.0s ease-out forwards;
+}
+
+@keyframes successSparkleAni {
+    0%   { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 0; }
+    10%  { opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)) scale(1.2) rotate(360deg); opacity: 0; }
+}
+
+
+/* =========================================
+   ★失敗エフェクト：赤いバツ印と黒い煙
+   ======================================== */
+/* 赤いバツ印（2本の線） */
+.pb-effect-fail-x {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 150px; height: 150px;
+    transform: translate(-50%, -50%);
+}
+
+.pb-fail-line {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 150px; height: 20px;
+    background-color: #ff3333; /* 鮮やかな赤 */
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(255,0,0,0.8), 0 0 5px #fff inset;
+    transform-origin: center center;
+    opacity: 0;
+    
+    animation: failXAni 0.5s ease-out forwards;
+}
+
+/* 2本の線を交差させる */
+.pb-fail-line-1 { animation-delay: 0.1s; --rot: 45deg; }
+.pb-fail-line-2 { animation-delay: 0.2s; --rot: -45deg; }
+
+@keyframes failXAni {
+    0%   { transform: translate(-50%, -50%) rotate(var(--rot)) scale(0); opacity: 0; }
+    50%  { opacity: 1; }
+    100% { transform: translate(-50%, -50%) rotate(var(--rot)) scale(1); opacity: 0; }
+}
+
+/* 周囲に広がる黒・紫の煙粒子（JSで複数生成） */
+.pb-effect-fail-smoke {
+    position: absolute;
+    width: 30px; height: 30px;
+    background-color: rgba(50, 0, 80, 0.7); /* 濃い紫・黒系 */
+    border-radius: 50%;
+    filter: blur(8px); /* ぼかして煙らしく */
+    box-shadow: 0 0 15px 5px rgba(200, 0, 50, 0.6); /* 赤い滲み */
+    opacity: 0;
+    
+    animation: failSmokeAni 1.2s ease-out forwards;
+}
+
+@keyframes failSmokeAni {
+    0%   { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+    20%  { opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)) scale(2.0); opacity: 0; }
+}
+
+/* =========================================
+   ▼ スマホ（実機）表示崩れ修正用コード ▼
+   ========================================= */
+@media screen and (max-width: 600px) {
+    /* 1. キャラクターのサイズと位置をスマホ幅に合わせて縮小（衝突防止） */
+    #char-container.sg-char-container,
+    .pb-battle-mode #char-container {
+        width: clamp(100px, 35vw, 150px) !important;
+        height: clamp(100px, 35vw, 150px) !important;
+        left: 2% !important;
+        bottom: 12% !important; /* パネルと被らないように少し上に */
+    }
+
+    /* 2. 敵エリアを右端に寄せて、味方との重なりを完全に防ぐ */
+    .pb-enemy-area {
+        right: 2% !important;
+        bottom: 8% !important;
+    }
+
+    /* 敵画像のサイズもスマホに合わせて少し小さくする */
+    .pb-enemy-sprite {
+        width: clamp(100px, 30vw, 130px) !important;
+        height: clamp(100px, 30vw, 130px) !important;
+    }
+
+    /* 3. 敵足元の「あと○ターン」テキストの被り・視認性を改善 */
+    .pb-enemy-foot-counter {
+        margin-top: 8px !important;
+        background: rgba(0, 0, 0, 0.6) !important; /* 半透明の黒帯を敷いて読みやすく */
+        padding: 4px 10px !important;
+        border-radius: 12px !important;
+    }
+
+    /* 4. 下のパネルが窮屈（EXPバーにひっつく）問題の解消 */
+    .pb-grid-wrapper {
+        padding: 10px !important; /* パネルの周囲に余裕を持たせる */
+        max-width: 95vw;          /* 横幅いっぱいになりすぎないよう制限 */
+        margin: 0 auto;
     }
 }

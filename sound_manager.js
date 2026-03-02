@@ -184,10 +184,11 @@ class SoundManager {
         osc.stop(this.ctx.currentTime + dur);
     }
 
-    // メロディ再生
+   // メロディ再生
     _melody(freqs, stepTime) {
         freqs.forEach((f, i) => {
-            setTimeout(() => this._osc('square', f, stepTime, 0.1), i * (stepTime * 1000));
+            // ▼ 修正: _osc(波形, 開始周波数, 終了周波数, 長さ, 音量) となるように「f」をもう一つ足す！
+            setTimeout(() => this._osc('square', f, f, stepTime, 0.1), i * (stepTime * 1000));
         });
     }
 

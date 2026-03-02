@@ -75,17 +75,38 @@ function clampPanelEnemyValue(v, min, max) {
 }
 
 function buildPanelEnemyPattern(chara) {
-    const pattern = [{ turn: 'every', action: 'attack', power: 1.0, label: '通常攻撃' }];
-
+    const pattern = [];
     const def = Number(chara.def || (chara.stats && chara.stats.def) || 0);
     const res = Number(chara.res || (chara.stats && chara.stats.res) || 0);
     const atk = Number(chara.atk || (chara.stats && chara.stats.atk) || 0);
     const hp = Number(chara.hp || (chara.stats && chara.stats.hp) || 0);
 
-    if (def >= 90) pattern.push({ turn: 3, action: 'guard_phys', label: '物理ガード' });
-    if (res >= 90) pattern.push({ turn: 4, action: 'guard_magic', label: '魔法ガード' });
-    if (atk >= 120) pattern.push({ turn: 5, action: 'heavy', power: 1.75, label: '強打' });
-    if (hp >= 520) pattern.push({ turn: 6, action: 'drain', power: 0.95, healRate: 0.55, label: '吸収攻撃' });
+    // 行動1: 基本は通常攻撃から入る
+    pattern.push({ action: 'attack', power: 1.0, label: '通常攻撃' });
+
+    // 行動2: 攻撃力が高い場合は大技を組み込む
+    if (atk >= 120) {
+        pattern.push({ action: 'heavy', power: 1.75, label: '強打' });
+    } else {
+        pattern.push({ action: 'attack', power: 1.0, label: '通常攻撃' });
+    }
+
+    // 行動3: 物理防御が高い場合は「ガード → すぐ反撃」のコンボ
+    if (def >= 90) {
+        pattern.push({ action: 'guard_phys', label: '物理ガード' });
+        pattern.push({ action: 'heavy', power: 1.3, label: 'シールドバッシュ' });
+    }
+
+    // 行動4: HPが高い場合は吸収攻撃
+    if (hp >= 520) {
+        pattern.push({ action: 'drain', power: 0.95, healRate: 0.55, label: '吸収攻撃' });
+    }
+
+    // 行動5: 魔法防御が高い場合は「魔法ガード → すぐ反撃」のコンボ
+    if (res >= 90) {
+        pattern.push({ action: 'guard_magic', label: '魔法ガード' });
+        pattern.push({ action: 'heavy', power: 1.3, label: 'マジックバースト' });
+    }
 
     return pattern;
 }
@@ -93,11 +114,13 @@ function buildPanelEnemyPattern(chara) {
 function normalizePanelEnemySpriteSheet(asset) {
     if (!asset || typeof asset !== 'object') return null;
     const src = String(asset.src || asset.url || '').trim();
-    const cols = Math.max(1, Math.floor(Number(asset.cols || asset.columns || 1)));
-    const rows = Math.max(1, Math.floor(Number(asset.rows || 1)));
+    const cols = Math.max(1, Math.floor(Number(asset.cols || asset.columns || asset.col || 1)));
+    const requestedFrames = Math.max(1, Math.floor(Number(asset.frames || asset.frame || asset.frameCount || (cols || 1))));
+    const rowsFromAsset = Math.floor(Number(asset.rows || asset.row || 0));
+    const rows = Math.max(1, rowsFromAsset > 0 ? rowsFromAsset : Math.ceil(requestedFrames / cols));
     const totalFrames = Math.max(1, cols * rows);
-    const frames = Math.max(1, Math.min(totalFrames, Math.floor(Number(asset.frames || totalFrames))));
-    const fps = Math.max(1, Math.floor(Number(asset.fps || asset.speed || 8)));
+     const frames = Math.max(1, Math.min(totalFrames, requestedFrames));
+    const fps = Math.max(1, Math.floor(Number(asset.fps || asset.speed || asset.frameRate || 8)));
     if (!src) return null;
     return {
         src,

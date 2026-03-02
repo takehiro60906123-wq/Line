@@ -65,10 +65,10 @@ function rollActionCount(shape) {
         return Math.random() < 0.40 ? 1 : 2;
     }
     if (slots === 4) {
-        // 4枠: 1回(20%), 2回(50%), 3回(30%)
+        // 4枠: 1回(30%), 2回(50%), 3回(20%) — 期待値1.9
         const r = Math.random();
-        if (r < 0.20) return 1;
-        if (r < 0.70) return 2;
+        if (r < 0.30) return 1;
+        if (r < 0.80) return 2;
         return 3;
     }
     return 1;
@@ -199,8 +199,8 @@ const ABILITY = {
     TENACITY:    {type:'STATUS_RESIST', resist:0.50, name:'強靭', desc:'状態異常耐性50%'},
     POISON_GUARD:{type:'POISON_IMMUNE',              name:'耐毒', desc:'毒・火傷無効'},
     // 味方強化系
-    INSPIRE_AURA:{type:'TEAM_BUFF', stat:'atk', val:1.10, name:'鼓舞',     desc:'味方全体ATK+10%'},
-    MIND_BARRIER:{type:'TEAM_BUFF', stat:'res', val:1.10, name:'精神結界', desc:'味方全体RES+10%'},
+    INSPIRE_AURA:{type:'COMMANDER', atkVal:1.15, defVal:1.15, name:'指揮官の心得', desc:'自身ATK+15%, DEF+15%'},
+    MIND_BARRIER:{type:'STAT_BOOST', stat:'res', val:1.30, name:'精神集中', desc:'自身RES+30%'},
     // 特殊系
     INTIMIDATE:  {type:'INTIMIDATE', val:0.10, name:'威圧',       desc:'戦闘開始時、敵全体ATK-10%'},
     CURSED_BODY: {type:'CURSED_BODY',val:0.30, name:'呪いの返し',   desc:'被弾時30%で相手に毒付与'},
@@ -250,8 +250,36 @@ const LB_TEMPLATES = {
 };
 
 // =============================================
-// ★キャラクター生成ヘルパー
+// ★リーダースキル定義 (SPEC_v2.2 Section 7.5)
 // =============================================
+const LEADER_SKILLS = {
+    // --- 属性染め系 (条件: 指定属性のみ適用) ---
+    FIRE_PATH:    { name:'炎の覇道',   desc:'火属性HP+30%, ATK+40%', condition:{element:'fire'},        effects:[{stat:'hp',mul:1.30},{stat:'atk',mul:1.40}] },
+    WATER_PACT:   { name:'蒼海の盟約', desc:'水属性ATK+30%, RES+30%', condition:{element:'water'},      effects:[{stat:'atk',mul:1.30},{stat:'res',mul:1.30}] },
+    GRASS_GUARD:  { name:'森羅の守り', desc:'草属性HP+40%, RES+30%',  condition:{element:'grass'},       effects:[{stat:'hp',mul:1.40},{stat:'res',mul:1.30}] },
+    LIGHT_VOW:    { name:'聖光の誓い', desc:'光属性DEF+30%, RES+30%, HP+20%', condition:{element:'light'}, effects:[{stat:'def',mul:1.30},{stat:'res',mul:1.30},{stat:'hp',mul:1.20}] },
+    DARK_DOMINION:{ name:'闇の支配',   desc:'闇属性ATK+40%, SPD+30%', condition:{element:'dark'},        effects:[{stat:'atk',mul:1.40},{stat:'spd',mul:1.30}] },
+    NEUTRAL_MIND: { name:'無心の境地', desc:'無属性DEF+30%, ATK+25%', condition:{element:'neutral'},     effects:[{stat:'def',mul:1.30},{stat:'atk',mul:1.25}] },
+
+    // --- 性別条件系 ---
+    PRINCESS_CMD: { name:'姫の号令',   desc:'女性全員ATK+35%, SPD+20%',            condition:{gender:'F'},                    effects:[{stat:'atk',mul:1.35},{stat:'spd',mul:1.20}] },
+    MAIDEN_BOND:  { name:'乙女の結束', desc:'女性4人以上で全員HP+30%, RES+30%',     condition:{genderCount:{gender:'F',min:4}}, effects:[{stat:'hp',mul:1.30},{stat:'res',mul:1.30},{stat:'statusResist',val:0.50}] },
+    MANLY_PRIDE:  { name:'漢の意地',   desc:'男性全員ATK+30%, DEF+20%',            condition:{gender:'M'},                    effects:[{stat:'atk',mul:1.30},{stat:'def',mul:1.20}] },
+    KNIGHT_VOW:   { name:'騎士の誓い', desc:'男性5人以上で全員DEF+40%, HP+20%',     condition:{genderCount:{gender:'M',min:5}}, effects:[{stat:'def',mul:1.40},{stat:'hp',mul:1.20}] },
+
+    // --- 組み合わせ条件系 ---
+    DIVERSE:      { name:'多彩な布陣', desc:'3属性以上で全員ATK+20%, HP+20%, SPD+10%', condition:{multiElement:{min:3}}, effects:[{stat:'atk',mul:1.20},{stat:'hp',mul:1.20},{stat:'spd',mul:1.10}] },
+    ELITE_SQUAD:  { name:'精鋭部隊',   desc:'1x1のみ全員ATK+30%, 会心+20%',       condition:{shape:'S1'},            effects:[{stat:'atk',mul:1.30},{stat:'crit',val:0.20}] },
+    DARK_CODE:    { name:'暗闇の掟',   desc:'闇3人以上で全員状態異常無効, SPD+25%', condition:{elementCount:{element:'dark',min:3}}, effects:[{stat:'spd',mul:1.25},{stat:'statusImmune',val:true}] },
+    HEAL_FORMATION:{ name:'癒しの陣', desc:'草or光3人以上で全員毎ターンHP5%回復, RES+25%', condition:{elementsCount:{elements:['grass','light'],min:3}}, effects:[{stat:'res',mul:1.25},{stat:'regen',val:0.05}] },
+    FIRE_WATER:   { name:'火と水の盟約', desc:'火・水のみATK+35%',                 condition:{elements:['fire','water']},      effects:[{stat:'atk',mul:1.35}] },
+    CHAOS_FEST:   { name:'混沌の宴',   desc:'6属性全部入りで全員ATK+50%',          condition:{allElement:true},                effects:[{stat:'atk',mul:1.50}] },
+
+    // --- 汎用型 (条件なし) ---
+    TRAVEL_BOND:  { name:'旅の仲間',   desc:'全員HP+15%, ATK+10%',   condition:{all:true}, effects:[{stat:'hp',mul:1.15},{stat:'atk',mul:1.10}] },
+    MERC_WAY:     { name:'傭兵の流儀', desc:'全員ATK+15%',           condition:{all:true}, effects:[{stat:'atk',mul:1.15}] },
+    NOVICE_BOND:  { name:'見習いの絆', desc:'全員HP+10%',            condition:{all:true}, effects:[{stat:'hp',mul:1.10}] },
+};
 /** BST → 旧コスト値への変換 (後方互換用) */
 function bstToCost(bst) {
     if (bst >= 600) return 10;
@@ -274,6 +302,7 @@ function bstToRarity(bst) {
  * キャラデータ生成関数
  * @param {number} id - ユニークID
  * @param {string} name - キャラ名
+ * @param {string} gender - 性別 ('M'/'F'/'N')
  * @param {string} element - 属性キー (fire/water/grass/light/dark/neutral)
  * @param {Object} shape - SHAPE.S1 etc.
  * @param {number} bst - 種族値合計
@@ -281,28 +310,32 @@ function bstToRarity(bst) {
  * @param {Object|null} statsOverride - ステータス手動指定 (nullならテンプレ自動生成)
  * @param {string[]} skillIds - スキルID配列
  * @param {string} abilityId - アビリティID
+ * @param {string|null} leaderSkillId - リーダースキルID (LEADER_SKILLSのキー)
  * @param {Object|null} evolution - {next: id, level: lv} or null
  * @param {string} family - 進化系統ID
  * @param {number} stage - 進化段階 (1=初期, 2=中間, 3=最終)
  */
-function makeChar(id, name, element, shape, bst, role, statsOverride, skillIds, abilityId, evolution, family, stage) {
+function makeChar(id, name, gender, element, shape, bst, role, statsOverride, skillIds, abilityId, leaderSkillId, evolution, family, stage) {
     const stats = statsOverride || generateStats(bst, role);
     const skills = skillIds.map(sid => SKILL[sid] || SKILL.NONE);
     const ability = ABILITY[abilityId] || ABILITY.NONE;
+    const leaderSkill = (leaderSkillId && LEADER_SKILLS[leaderSkillId]) ? LEADER_SKILLS[leaderSkillId] : LEADER_SKILLS.NOVICE_BOND;
     const rarity = bstToRarity(bst);
     const cost = bstToCost(bst);
 
     return {
-        // ★新フォーマット
+        // ★新フォーマット v2.2
         id,
         name,
-        element,        // 'fire', 'water', etc.
+        gender,             // 'M', 'F', 'N'
+        element,            // 'fire', 'water', etc.
         shape,
         bst,
-        stats,          // {hp, atk, def, spd, res}
+        stats,              // {hp, atk, def, spd, res}
         skills: skillIds,
         skill: skills[0] || SKILL.NONE,  // ★後方互換: 旧コードは base.skill で参照
         ability,
+        leaderSkill,        // ★v2.2: リーダースキル
         evolution: evolution || null,
         family: family || null,
         stage: stage || 1,
@@ -328,198 +361,198 @@ const DB = [
     // 🔥 火属性 — 軍事・武力 (5人)
     // =========================================
     // ID 1: 剣術の見習い — 物理アタッカー, 3段階昇格の見習い(F1)
-    makeChar(1, '剣術の見習い', 'fire', SHAPE.S1, 300, 'PHY_ATK', 
+    makeChar(1, '剣術の見習い', 'M', 'fire', SHAPE.S1, 300, 'PHY_ATK', 
         {hp:300, atk:80, def:30, spd:75, res:35},
-        ['FIRE_BALL'], 'POWER_UP',
+        ['FIRE_BALL'], 'POWER_UP', 'NOVICE_BOND',
         {next:4, level:20}, 'F1', 1),
 
     // ID 2: 重装騎士 — 物理壁, 昇格なし
-    makeChar(2, '重装騎士', 'fire', SHAPE.S1, 480, 'PHY_WALL',
+    makeChar(2, '重装騎士', 'M', 'fire', SHAPE.S1, 480, 'PHY_WALL',
         {hp:520, atk:55, def:125, spd:20, res:55},
-        ['FLAME_SLASH', 'SHIELD_WALL'], 'HARD_SCALE',
+        ['FLAME_SLASH', 'SHIELD_WALL'], 'HARD_SCALE', 'MANLY_PRIDE',
         null, null, 1),
 
     // ID 3: 従者 — バランス型, 騎士系の見習い(F2)
-    makeChar(3, '従者', 'fire', SHAPE.S1, 280, 'BALANCE',
+    makeChar(3, '従者', 'M', 'fire', SHAPE.S1, 280, 'BALANCE',
         {hp:280, atk:45, def:42, spd:48, res:42},
-        ['FIRE_BALL'], 'REGEN',
+        ['FIRE_BALL'], 'REGEN', 'MERC_WAY',
         null, 'F2', 1),
 
     // ID 4: 剣聖 — エース物理アタッカー, 剣士系の英雄級(F1)
-    makeChar(4, '剣聖', 'fire', SHAPE.V2, 550, 'PHY_ATK',
+    makeChar(4, '剣聖', 'M', 'fire', SHAPE.V2, 550, 'PHY_ATK',
         {hp:480, atk:150, def:55, spd:130, res:65},
-        ['FIRE_BREATH', 'INFERNO'], 'BERSERK',
+        ['FIRE_BREATH', 'INFERNO'], 'BERSERK', 'FIRE_PATH',
         null, 'F1', 3),
 
     // ID 5: 炎帝 — 伝説, BST600, 最強の武人
-    makeChar(5, '炎帝', 'fire', SHAPE.L4, 600, 'PHY_ATK',
+    makeChar(5, '炎帝', 'M', 'fire', SHAPE.L4, 600, 'PHY_ATK',
         {hp:550, atk:170, def:60, spd:145, res:65},
-        ['ERUPTION', 'INFERNO'], 'INTIMIDATE',
+        ['ERUPTION', 'INFERNO'], 'INTIMIDATE', 'FIRE_PATH',
         null, 'LEGEND', 1),
 
     // =========================================
     // 💧 水属性 — 海洋・交易 (5人)
     // =========================================
     // ID 6: 水夫 — スキルアタッカー, 航海士系の見習い(W1)
-    makeChar(6, '水夫', 'water', SHAPE.S1, 300, 'SKL_ATK',
+    makeChar(6, '水夫', 'M', 'water', SHAPE.S1, 300, 'SKL_ATK',
         {hp:280, atk:75, def:35, spd:60, res:40},
-        ['WATER_SHOT'], 'MAGIC_AMP',
+        ['WATER_SHOT'], 'MAGIC_AMP', 'NOVICE_BOND',
         {next:9, level:20}, 'W1', 1),
 
     // ID 7: 珊瑚の巫女 — RES壁, 昇格なし
-    makeChar(7, '珊瑚の巫女', 'water', SHAPE.S1, 420, 'RES_WALL',
+    makeChar(7, '珊瑚の巫女', 'F', 'water', SHAPE.S1, 420, 'RES_WALL',
         {hp:460, atk:35, def:50, spd:22, res:110},
-        ['BUBBLE_SHIELD', 'HEAL_LIGHT'], 'SPIRIT_WALL',
+        ['BUBBLE_SHIELD', 'HEAL_LIGHT'], 'SPIRIT_WALL', 'MAIDEN_BOND',
         null, null, 1),
 
     // ID 8: 海賊見習い — バランス型, 海賊系の見習い(W2)
-    makeChar(8, '海賊見習い', 'water', SHAPE.S1, 290, 'BALANCE',
+    makeChar(8, '海賊見習い', 'M', 'water', SHAPE.S1, 290, 'BALANCE',
         {hp:290, atk:45, def:45, spd:45, res:45},
-        ['WATER_SHOT'], 'TENACITY',
+        ['WATER_SHOT'], 'TENACITY', 'NOVICE_BOND',
         null, 'W2', 1),
 
     // ID 9: 提督 — エーススキルアタッカー, 航海士系の英雄級(W1)
-    makeChar(9, '提督', 'water', SHAPE.V2, 560, 'SKL_ATK',
+    makeChar(9, '提督', 'M', 'water', SHAPE.V2, 560, 'SKL_ATK',
         {hp:450, atk:140, def:65, spd:105, res:70},
-        ['ICE_FANG', 'TIDAL_WAVE'], 'SKILL_MASTER',
+        ['ICE_FANG', 'TIDAL_WAVE'], 'SKILL_MASTER', 'FIRE_WATER',
         null, 'W1', 3),
 
     // ID 10: 蒼海の覇者 — 伝説, BST600, 全海域を支配した覇者
-    makeChar(10, '蒼海の覇者', 'water', SHAPE.L4, 600, 'SKL_ATK',
+    makeChar(10, '蒼海の覇者', 'M', 'water', SHAPE.L4, 600, 'SKL_ATK',
         {hp:570, atk:155, def:70, spd:100, res:110},
-        ['ABYSS_CANNON', 'TIDAL_WAVE'], 'PURIFY',
+        ['ABYSS_CANNON', 'TIDAL_WAVE'], 'PURIFY', 'WATER_PACT',
         null, 'LEGEND', 1),
 
     // =========================================
     // 🌿 草属性 — 自然・農耕 (5人)
     // =========================================
     // ID 11: 薬草摘み — ヒーラー/サポート, 薬師系の見習い(G1)
-    makeChar(11, '薬草摘み', 'grass', SHAPE.S1, 280, 'SUPPORT',
+    makeChar(11, '薬草摘み', 'F', 'grass', SHAPE.S1, 280, 'SUPPORT',
         {hp:310, atk:28, def:40, spd:40, res:52},
-        ['HEAL_LIGHT'], 'REGEN',
+        ['HEAL_LIGHT'], 'REGEN', 'NOVICE_BOND',
         null, 'G1', 1),
 
     // ID 12: 森の隠者 — 物理壁+反撃, 昇格なし
-    makeChar(12, '森の隠者', 'grass', SHAPE.S1, 450, 'PHY_WALL',
+    makeChar(12, '森の隠者', 'M', 'grass', SHAPE.S1, 450, 'PHY_WALL',
         {hp:500, atk:50, def:115, spd:20, res:55},
-        ['VINE_WHIP', 'SHIELD_WALL'], 'COUNTER',
+        ['VINE_WHIP', 'SHIELD_WALL'], 'COUNTER', 'GRASS_GUARD',
         null, null, 1),
 
     // ID 13: 弓の見習い — 速攻物理+毒, 弓の達人系の見習い(G3)
-    makeChar(13, '弓の見習い', 'grass', SHAPE.S1, 350, 'SPEED',
+    makeChar(13, '弓の見習い', 'F', 'grass', SHAPE.S1, 350, 'SPEED',
         {hp:250, atk:65, def:28, spd:95, res:28},
-        ['POISON_STING', 'NEEDLE_STORM'], 'SWIFT',
+        ['POISON_STING', 'NEEDLE_STORM'], 'SWIFT', 'PRINCESS_CMD',
         null, 'G4', 1),
 
     // ID 14: 薬師 — サポート, 薬師系の正規(G1)
-    makeChar(14, '薬師', 'grass', SHAPE.V2, 420, 'SUPPORT',
+    makeChar(14, '薬師', 'F', 'grass', SHAPE.V2, 420, 'SUPPORT',
         {hp:420, atk:42, def:58, spd:58, res:78},
-        ['HEAL_ALL_LIGHT', 'SLEEP_SPORE'], 'MIND_BARRIER',
+        ['HEAL_ALL_LIGHT', 'SLEEP_SPORE'], 'MIND_BARRIER', 'HEAL_FORMATION',
         null, 'G1', 2),
 
     // ID 15: 大樹の番人 — 両壁型, 昇格なし
-    makeChar(15, '大樹の番人', 'grass', SHAPE.S1, 500, 'BOTH_WALL',
+    makeChar(15, '大樹の番人', 'M', 'grass', SHAPE.S1, 500, 'BOTH_WALL',
         {hp:580, atk:35, def:85, spd:50, res:85},
-        ['VINE_WHIP', 'SHIELD_WALL'], 'IRON_WALL',
+        ['VINE_WHIP', 'SHIELD_WALL'], 'IRON_WALL', 'GRASS_GUARD',
         null, null, 1),
 
     // =========================================
     // ☀️ 光属性 — 信仰・王権 (5人)
     // =========================================
     // ID 16: 従騎士 — 物理アタッカー, 白銀の騎士系の見習い(L5)
-    makeChar(16, '従騎士', 'light', SHAPE.S1, 300, 'PHY_ATK',
+    makeChar(16, '従騎士', 'M', 'light', SHAPE.S1, 300, 'PHY_ATK',
         {hp:290, atk:82, def:30, spd:78, res:32},
-        ['HOLY_STRIKE'], 'POWER_UP',
+        ['HOLY_STRIKE'], 'POWER_UP', 'NOVICE_BOND',
         null, 'L5', 1),
 
     // ID 17: 金の盾持ち — 物理壁+回復, 昇格なし
-    makeChar(17, '金の盾持ち', 'light', SHAPE.S1, 450, 'PHY_WALL',
+    makeChar(17, '金の盾持ち', 'M', 'light', SHAPE.S1, 450, 'PHY_WALL',
         {hp:500, atk:50, def:110, spd:22, res:55},
-        ['HOLY_STRIKE', 'HEAL_LIGHT'], 'GUTS',
+        ['HOLY_STRIKE', 'HEAL_LIGHT'], 'GUTS', 'KNIGHT_VOW',
         null, null, 1),
 
     // ID 18: 祝福の修道女 — ヒーラー, 昇格なし
-    makeChar(18, '祝福の修道女', 'light', SHAPE.S1, 380, 'SUPPORT',
+    makeChar(18, '祝福の修道女', 'F', 'light', SHAPE.S1, 380, 'SUPPORT',
         {hp:380, atk:38, def:52, spd:55, res:70},
-        ['HEAL_ALL_LIGHT', 'INSPIRE'], 'REGEN',
+        ['HEAL_ALL_LIGHT', 'INSPIRE'], 'REGEN', 'HEAL_FORMATION',
         null, null, 1),
 
     // ID 19: 大司教 — エース バフ+回復, 聖職者系の英雄級(L1)
-    makeChar(19, '大司教', 'light', SHAPE.V2, 540, 'SUPPORT',
+    makeChar(19, '大司教', 'M', 'light', SHAPE.V2, 540, 'SUPPORT',
         {hp:540, atk:55, def:75, spd:78, res:100},
-        ['HEAL_ALL_LIGHT', 'INSPIRE'], 'PURIFY',
+        ['HEAL_ALL_LIGHT', 'INSPIRE'], 'PURIFY', 'LIGHT_VOW',
         null, 'L1', 3),
 
     // ID 20: 聖剣の騎士 — 物理アタッカー, 昇格なし
-    makeChar(20, '聖剣の騎士', 'light', SHAPE.S1, 480, 'PHY_ATK',
+    makeChar(20, '聖剣の騎士', 'M', 'light', SHAPE.S1, 480, 'PHY_ATK',
         {hp:420, atk:135, def:48, spd:118, res:55},
-        ['HOLY_STRIKE', 'JUDGMENT'], 'CRIT_EYE',
+        ['HOLY_STRIKE', 'JUDGMENT'], 'CRIT_EYE', 'DIVERSE',
         null, null, 1),
 
     // =========================================
     // 🌑 闇属性 — 裏社会・諜報 (5人)
     // =========================================
     // ID 21: スリ — 速攻アタッカー, 盗賊系の見習い(D1)
-    makeChar(21, 'スリ', 'dark', SHAPE.S1, 300, 'SPEED',
+    makeChar(21, 'スリ', 'M', 'dark', SHAPE.S1, 300, 'SPEED',
         {hp:220, atk:55, def:25, spd:82, res:25},
-        ['SHADOW_CLAW'], 'SWIFT',
+        ['SHADOW_CLAW'], 'SWIFT', 'NOVICE_BOND',
         null, 'D1', 1),
 
     // ID 22: 墓守の少年 — 物理壁+反撃, 死霊術師系の見習い(D8)
-    makeChar(22, '墓守の少年', 'dark', SHAPE.S1, 350, 'PHY_WALL',
+    makeChar(22, '墓守の少年', 'M', 'dark', SHAPE.S1, 350, 'PHY_WALL',
         {hp:400, atk:38, def:90, spd:15, res:42},
-        ['SHADOW_CLAW', 'DARK_CURSE'], 'COUNTER',
+        ['SHADOW_CLAW', 'DARK_CURSE'], 'COUNTER', 'DARK_CODE',
         null, 'D8', 1),
 
     // ID 23: 影の暗殺者 — 速攻物理, 昇格なし
-    makeChar(23, '影の暗殺者', 'dark', SHAPE.S1, 470, 'SPEED',
+    makeChar(23, '影の暗殺者', 'F', 'dark', SHAPE.S1, 470, 'SPEED',
         {hp:300, atk:85, def:38, spd:128, res:38},
-        ['SHADOW_CLAW', 'DARK_PULSE'], 'EVASION',
+        ['SHADOW_CLAW', 'DARK_PULSE'], 'EVASION', 'PRINCESS_CMD',
         null, null, 1),
 
     // ID 24: 影の支配者 — エース 吸血型, 暗殺者系の英雄級(D2)
-    makeChar(24, '影の支配者', 'dark', SHAPE.V2, 550, 'SKL_ATK',
+    makeChar(24, '影の支配者', 'M', 'dark', SHAPE.V2, 550, 'SKL_ATK',
         {hp:470, atk:140, def:60, spd:108, res:68},
-        ['VAMP_BITE', 'DARK_PULSE'], 'ABSORB',
+        ['VAMP_BITE', 'DARK_PULSE'], 'ABSORB', 'DARK_DOMINION',
         null, 'D2', 3),
 
     // ID 25: 影の宰相 — 伝説, BST600, 王国崩壊の黒幕
-    makeChar(25, '影の宰相', 'dark', SHAPE.L4, 600, 'SKL_ATK',
+    makeChar(25, '影の宰相', 'M', 'dark', SHAPE.L4, 600, 'SKL_ATK',
         {hp:530, atk:168, def:55, spd:140, res:72},
-        ['VOID_BURST', 'DARK_PULSE'], 'SKILL_MASTER',
+        ['VOID_BURST', 'DARK_PULSE'], 'SKILL_MASTER', 'DARK_DOMINION',
         null, 'LEGEND', 1),
 
     // =========================================
     // ⚪ 無属性 — 市民・技術 (5人)
     // =========================================
     // ID 26: 旅の少年 — バランス型, 冒険者系の見習い(N1)
-    makeChar(26, '旅の少年', 'neutral', SHAPE.S1, 270, 'BALANCE',
+    makeChar(26, '旅の少年', 'M', 'neutral', SHAPE.S1, 270, 'BALANCE',
         {hp:280, atk:42, def:42, spd:42, res:42},
-        ['BODY_SLAM'], 'REGEN',
+        ['BODY_SLAM'], 'REGEN', 'TRAVEL_BOND',
         null, 'N1', 1),
 
     // ID 27: 老練の重装兵 — 超物理壁, 昇格なし
-    makeChar(27, '老練の重装兵', 'neutral', SHAPE.S1, 460, 'PHY_WALL',
+    makeChar(27, '老練の重装兵', 'M', 'neutral', SHAPE.S1, 460, 'PHY_WALL',
         {hp:530, atk:48, def:130, spd:18, res:55},
-        ['BODY_SLAM', 'SHIELD_WALL'], 'IRON_WALL',
+        ['BODY_SLAM', 'SHIELD_WALL'], 'IRON_WALL', 'ELITE_SQUAD',
         null, null, 1),
 
     // ID 28: 放浪の剣豪 — 物理アタッカー, 昇格なし
-    makeChar(28, '放浪の剣豪', 'neutral', SHAPE.S1, 500, 'PHY_ATK',
+    makeChar(28, '放浪の剣豪', 'M', 'neutral', SHAPE.S1, 500, 'PHY_ATK',
         {hp:430, atk:140, def:52, spd:125, res:55},
-        ['QUICK_SLASH', 'WIND_SLASH'], 'CRIT_EYE',
+        ['QUICK_SLASH', 'WIND_SLASH'], 'CRIT_EYE', 'NEUTRAL_MIND',
         null, null, 1),
 
     // ID 29: 突撃騎兵 — エース物理, 騎兵系の昇格後(N3)
-    makeChar(29, '突撃騎兵', 'neutral', SHAPE.H2, 480, 'PHY_ATK',
+    makeChar(29, '突撃騎兵', 'M', 'neutral', SHAPE.H2, 480, 'PHY_ATK',
         {hp:410, atk:135, def:48, spd:118, res:55},
-        ['BODY_SLAM', 'WIND_SLASH'], 'POWER_UP',
+        ['BODY_SLAM', 'WIND_SLASH'], 'POWER_UP', 'MANLY_PRIDE',
         null, 'N3', 2),
 
     // ID 30: 旅の道化師 — 超回避型, 昇格なし (特殊)
-    makeChar(30, '旅の道化師', 'neutral', SHAPE.S1, 350, 'SPEED',
+    makeChar(30, '旅の道化師', 'N', 'neutral', SHAPE.S1, 350, 'SPEED',
         {hp:150, atk:40, def:150, spd:120, res:150},
-        ['QUICK_SLASH', 'METAL_GUARD'], 'NIMBLE',
+        ['QUICK_SLASH', 'METAL_GUARD'], 'NIMBLE', 'CHAOS_FEST',
         null, null, 1),
 ];
 

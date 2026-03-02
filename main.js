@@ -32,8 +32,10 @@ class MapSelectScreen {
             const maxCleared = (app.data && app.data.maxClearedStage) ? app.data.maxClearedStage : 0;
             const currentSlots = (app.data && app.data.maxSlots) ? app.data.maxSlots : 4;
             
-             // すべてのステージを常時解放（ジム挑戦型）
-            const isLocked = false;
+            // =========================================
+            // ▼ 修正: クリア済みステージ ＋ 1（次のステージ）まで解放
+            // =========================================
+            const isLocked = id > maxCleared + 1;
             const isCleared = id <= maxCleared; // クリア済みかどうか
 
             const div = document.createElement('div');
@@ -46,7 +48,7 @@ class MapSelectScreen {
                 ? `<div style="position:absolute;top:6px;right:6px;background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:10px;box-shadow:0 2px 6px rgba(76,175,80,0.4);z-index:5;">✅ ${cc}回クリア</div>`
                 : '';
 
-            // ★追加: 初回報酬のHTML生成（未クリア かつ 枠が8未満のとき）
+            // 初回報酬のHTML生成（未クリア かつ 枠が8未満のとき）
             let rewardHtml = '';
             if (!isCleared && currentSlots < 8) {
                 rewardHtml = `
@@ -56,16 +58,32 @@ class MapSelectScreen {
             }
 
             if (isLocked) {
+                // =========================================
+                // ▼ 修正: ロック時の見た目と動作
+                // モノクロにして、ステージ名は「???」と隠す
+                // =========================================
+                div.style.filter = 'grayscale(100%) brightness(0.6)'; // 暗くして白黒に
+                div.style.opacity = '0.8';
+
                 div.innerHTML = `
-                    <div class="lock-cover">🔒 LOCKED</div>
-                    <div class="stage-card-overlay" style="opacity:0.3">
-                        <div class="stage-title">Stage ${id}: ???</div>
+                    <div class="lock-cover" style="position:absolute; top:5px; left:5px; background:rgba(0,0,0,0.7); color:#ff6666; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:bold; z-index:5;">🔒 LOCKED</div>
+                    <div class="stage-card-overlay" style="opacity:0.8; justify-content:center;">
+                        <div class="stage-level">推奨Lv: ${stage.level || 1}</div>
+                        <div class="stage-title" style="color:#ccc;">Stage ${id}: ???</div>
+                        <div class="stage-desc" style="color:#aaa;">前のステージをクリアすると<br>解放されます</div>
                     </div>
                 `;
-                // ロック時はクリック音(エラー)だけ鳴らす
-                div.onclick = () => { if(app.sound) app.sound.play('sys_danger'); };
+                
+                // ロック時はクリック音(エラー)を鳴らし、理由をアラートで出す
+                div.onclick = () => { 
+                    if(app.sound) app.sound.play('sys_danger'); 
+                    alert("このステージはまだ解放されていません！\n前のステージをクリアしてください。");
+                };
 
             } else {
+                // =========================================
+                // ▼ 解放済みのステージ
+                // =========================================
                 div.innerHTML = `
                     ${badgeHtml}
                     <div class="stage-card-overlay">

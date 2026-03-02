@@ -47,8 +47,6 @@ class TowerScreen {
 
         const result = [];
         const occupied = [];
-        // 【修正前】 const lv = 10 + (floor * 2);
-        // 【修正後】 1階＝Lv1、階層が上がるごとにレベルアップさせたい場合
         const lv = floor;
         const isBoss = (floor % 5 === 0);
 
@@ -70,8 +68,17 @@ class TowerScreen {
             if (floor >= 40) maxUnits = 8;
         }
 
+        // ★v2.2: テーマ編成 — リーダーバフが活きるよう属性を統一
+        const elements = ['fire','water','grass','light','dark','neutral'];
+        const teamElement = elements[Math.floor(Math.random() * elements.length)];
+        const elementPool = DB.filter(u => u.element === teamElement);
+        const allPool = DB;
+
         if (isBoss) {
-            const bossBase = DB.find(u => u.cost >= 5) || DB[0];
+            // ボス: 同属性の高BST or 伝説キャラをリーダーに
+            const bossPool = elementPool.filter(u => u.cost >= 5) || allPool.filter(u => u.cost >= 5);
+            const bossBase = (bossPool.length > 0) ? bossPool[Math.floor(Math.random() * bossPool.length)] 
+                           : (elementPool.length > 0 ? elementPool.reduce((a,b) => a.bst > b.bst ? a : b) : DB[0]);
             const leaderLv = lv + 5;
             const maxLv = Math.max(leaderLv, 50 + (lbCount * 5));
             const tryAnchors = [1, 2, 5, 6, 0, 3, 4, 7];
@@ -86,20 +93,28 @@ class TowerScreen {
             }
         }
 
+        // 残りは同属性70% + ランダム30% で埋める (リーダーバフ条件が満たされやすい)
         for (let k = 0; k < 50; k++) {
             if (result.length >= maxUnits) break;
             if (occupied.length >= 8) break;
 
             let base;
+            const useSameElement = Math.random() < 0.70 && elementPool.length > 0;
             if (isBoss) {
-                const midPool = DB.filter(u => u.cost >= 3);
-                if (Math.random() < 0.7 && midPool.length > 0) {
+                const midPool = elementPool.filter(u => u.cost >= 3);
+                if (useSameElement && midPool.length > 0) {
                     base = midPool[Math.floor(Math.random() * midPool.length)];
+                } else if (useSameElement && elementPool.length > 0) {
+                    base = elementPool[Math.floor(Math.random() * elementPool.length)];
                 } else {
-                    base = DB[Math.floor(Math.random() * DB.length)];
+                    base = allPool[Math.floor(Math.random() * allPool.length)];
                 }
             } else {
-                base = DB[Math.floor(Math.random() * DB.length)];
+                if (useSameElement) {
+                    base = elementPool[Math.floor(Math.random() * elementPool.length)];
+                } else {
+                    base = allPool[Math.floor(Math.random() * allPool.length)];
+                }
             }
 
             const myMaxLv = Math.max(lv, 50 + (lbCount * 5));
@@ -208,20 +223,24 @@ class TowerScreen {
         if (!grid) return;
         grid.innerHTML = '';
 
-        const TYPES = [
-            { id: 0, name: '神', icon: '😇' },
-            { id: 1, name: '覇王', icon: '👑' },
-            { id: 2, name: '姫', icon: '👸' },
-            { id: 3, name: '武将', icon: '⚔️' },
-            { id: 4, name: '豪族', icon: '💰' },
-            { id: 5, name: '妖怪', icon: '👻' }
-        ];
+        const ELEM_ICONS = { fire:'🔥', water:'💧', grass:'🌿', light:'☀️', dark:'🌑', neutral:'⚪' };
+
+        // ★リーダースキル表示
+        if (this.enemyUnits.length > 0) {
+            const leader = this.enemyUnits.reduce((a,b) => (a._anchor <= b._anchor) ? a : b);
+            const ls = leader.base && leader.base.leaderSkill;
+            if (ls) {
+                const lsDiv = document.createElement('div');
+                lsDiv.style.cssText = 'text-align:center;margin:4px 0;padding:4px 8px;background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.4);border-radius:6px;font-size:12px;color:#ffd700;';
+                lsDiv.innerHTML = '👑 ' + leader.base.name + '「' + ls.name + '」<br><span style="font-size:11px;color:#ccc;">' + ls.desc + '</span>';
+                grid.parentNode.insertBefore(lsDiv, grid);
+            }
+        }
 
         this.enemyUnits.forEach(unit => {
             const card = document.createElement('div');
             card.className = 'tower-enemy-card';
 
-            // カード背景 (タイプ×レアリティ)
             const bgUrl = this._getCardBgUrl(unit.base.type, unit.base.cost);
             const charImg = (typeof IMG_DATA !== 'undefined' && IMG_DATA[unit.base.id])
                 ? 'url(' + IMG_DATA[unit.base.id] + ')'
@@ -230,42 +249,33 @@ class TowerScreen {
             card.style.backgroundSize = 'cover, cover';
             card.style.backgroundPosition = 'center, center';
 
-            // URの光沢エフェクト
             if (unit.base.cost >= 5) card.classList.add('rarity-ur');
 
-            // Lvバッジ
             const lvBadge = document.createElement('div');
             lvBadge.className = 'tec-lv-badge';
             lvBadge.textContent = 'Lv' + unit.save.lv;
             card.appendChild(lvBadge);
 
-            // タイプバッジ
-            const typeInfo = TYPES[unit.base.type] || TYPES[0];
+            // ★属性アイコン (旧typeバッジの代替)
+            const elemIcon = ELEM_ICONS[unit.base.element] || '⚪';
             const typeBadge = document.createElement('div');
             typeBadge.className = 'tec-type-badge';
-            typeBadge.textContent = typeInfo.icon;
+            typeBadge.textContent = elemIcon;
             card.appendChild(typeBadge);
 
-            // フッター (星)
             const footer = document.createElement('div');
             footer.className = 'tec-footer';
-
             const cost = unit.base.cost;
             const lbCount = unit.lbCount || 0;
             let starsHtml = '';
             for (let i = 0; i < 5; i++) {
-                if (i < lbCount) {
-                    starsHtml += '<span style="color:#ff0055;text-shadow:0 0 5px #ff0055;">★</span>';
-                } else if (i < cost) {
-                    starsHtml += '<span style="color:#ffd700;text-shadow:1px 1px 0 #000;">★</span>';
-                } else {
-                    starsHtml += '<span style="color:#444;">★</span>';
-                }
+                if (i < lbCount) starsHtml += '<span style="color:#ff0055;text-shadow:0 0 5px #ff0055;">★</span>';
+                else if (i < cost) starsHtml += '<span style="color:#ffd700;text-shadow:1px 1px 0 #000;">★</span>';
+                else starsHtml += '<span style="color:#444;">★</span>';
             }
             footer.innerHTML = starsHtml;
             card.appendChild(footer);
 
-            // テキストなし画像のフォールバック
             if (charImg === 'none') {
                 const nameFallback = document.createElement('div');
                 nameFallback.className = 'tec-name-fallback';
