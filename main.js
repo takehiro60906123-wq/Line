@@ -1,22 +1,31 @@
 /**
- * main.js - マップ選択・ステージ解放対応版
- * ★フッター黒帯修正完全版（padding計算式の修正）
+ * main.js - アプリケーションエントリーポイント
+ * 
+ * v3 リファクタリング:
+ *  - シーンレジストリパターン（if-else地獄の解消）
+ *  - ViewportManager分離 (viewport_manager.js)
+ *  - CSS-in-JS除去 (style-theme.css)
+ *  - グローバル関数のファサード化
  */
 
-// 読み込みエラー回避用のダミー定義
+// ============================================================
+// 1. 安全ガード（読み込み順序に依存しないための定義）
+//    正式定義: scene_formation_redesign.js, scene_enhance.js,
+//    scene_gacha.js, scene_zukan.js, scene_card_equip.js
+// ============================================================
 if (typeof FormationScreenRedesign === 'undefined') window.FormationScreenRedesign = class { onEnter(){} clear(){} refresh(){} };
 if (typeof EnhanceScreen === 'undefined') window.EnhanceScreen = class { onEnter(){} levelUp(){} skillUp(){} limitBreak(){} };
 if (typeof GachaScreen === 'undefined') window.GachaScreen = class { onEnter(){} };
 if (typeof ZukanScreen === 'undefined') window.ZukanScreen = class { onEnter(){} };
 if (typeof CardEquipScreen === 'undefined') window.CardEquipScreen = class { onEnter(){} render(){} };
 
-/**
- * マップ選択画面クラス
- */
+// ============================================================
+// 2. マップ選択画面
+// ============================================================
 class MapSelectScreen {
     onEnter() {
         const list = document.getElementById('stage-list');
-        if(!list) return;
+        if (!list) return;
         list.innerHTML = '';
 
         if (typeof SUGOROKU_STAGES === 'undefined') {
@@ -27,28 +36,20 @@ class MapSelectScreen {
         Object.keys(SUGOROKU_STAGES).forEach(key => {
             const id = parseInt(key);
             const stage = SUGOROKU_STAGES[id];
-            
-            // 安全にデータ取得
             const maxCleared = (app.data && app.data.maxClearedStage) ? app.data.maxClearedStage : 0;
             const currentSlots = (app.data && app.data.maxSlots) ? app.data.maxSlots : 4;
-            
-            // =========================================
-            // ▼ 修正: クリア済みステージ ＋ 1（次のステージ）まで解放
-            // =========================================
             const isLocked = id > maxCleared + 1;
-            const isCleared = id <= maxCleared; // クリア済みかどうか
+            const isCleared = id <= maxCleared;
 
             const div = document.createElement('div');
             div.className = `stage-card ${isLocked ? 'locked' : ''}`;
-            if(stage.bg) div.style.backgroundImage = `url('${stage.bg}')`;
+            if (stage.bg) div.style.backgroundImage = `url('${stage.bg}')`;
 
-            // クリア回数バッジ
             const cc = (app.data && app.data.stageClearCounts) ? (app.data.stageClearCounts[id] || 0) : 0;
             const badgeHtml = cc > 0
                 ? `<div style="position:absolute;top:6px;right:6px;background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:10px;box-shadow:0 2px 6px rgba(76,175,80,0.4);z-index:5;">✅ ${cc}回クリア</div>`
                 : '';
 
-            // 初回報酬のHTML生成（未クリア かつ 枠が8未満のとき）
             let rewardHtml = '';
             if (!isCleared && currentSlots < 8) {
                 rewardHtml = `
@@ -58,13 +59,8 @@ class MapSelectScreen {
             }
 
             if (isLocked) {
-                // =========================================
-                // ▼ 修正: ロック時の見た目と動作
-                // モノクロにして、ステージ名は「???」と隠す
-                // =========================================
-                div.style.filter = 'grayscale(100%) brightness(0.6)'; // 暗くして白黒に
+                div.style.filter = 'grayscale(100%) brightness(0.6)';
                 div.style.opacity = '0.8';
-
                 div.innerHTML = `
                     <div class="lock-cover" style="position:absolute; top:5px; left:5px; background:rgba(0,0,0,0.7); color:#ff6666; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:bold; z-index:5;">🔒 LOCKED</div>
                     <div class="stage-card-overlay" style="opacity:0.8; justify-content:center;">
@@ -73,17 +69,11 @@ class MapSelectScreen {
                         <div class="stage-desc" style="color:#aaa;">前のステージをクリアすると<br>解放されます</div>
                     </div>
                 `;
-                
-                // ロック時はクリック音(エラー)を鳴らし、理由をアラートで出す
                 div.onclick = () => { 
-                    if(app.sound) app.sound.play('sys_danger'); 
+                    if (app.sound) app.sound.play('sys_danger'); 
                     alert("このステージはまだ解放されていません！\n前のステージをクリアしてください。");
                 };
-
             } else {
-                // =========================================
-                // ▼ 解放済みのステージ
-                // =========================================
                 div.innerHTML = `
                     ${badgeHtml}
                     <div class="stage-card-overlay">
@@ -94,7 +84,7 @@ class MapSelectScreen {
                     </div>
                 `;
                 div.onclick = () => {
-                    if(app.sound) app.sound.tap();
+                    if (app.sound) app.sound.tap();
                     app.changeScene('screen-sugoroku', { stageId: id });
                 };
             }
@@ -103,14 +93,71 @@ class MapSelectScreen {
     }
 }
 
+// ============================================================
+// 3. シーンレジストリ（ID解決 + onEnter/onLeave を一元管理）
+// ============================================================
+class SceneRegistry {
+    constructor() {
+        /** ID短縮名 → 正式ID */
+        this._aliases = new Map([
+            ['edit',       'screen-edit'],
+            ['quest',      'screen-edit'],
+            ['enhance',    'screen-enhance'],
+            ['battle',     'screen-battle'],
+            ['home',       'screen-home'],
+            ['gacha',      'screen-gacha'],
+            ['zukan',      'screen-zukan'],
+            ['cards',      'screen-cards'],
+            ['sugoroku',   'screen-sugoroku'],
+            ['tower',      'screen-tower'],
+            ['map-select', 'screen-map-select'],
+        ]);
+
+        /** sceneId → { enterFn?, leaveFn? } */
+        this._handlers = new Map();
+    }
+
+    /**
+     * シーンハンドラを登録
+     * @param {string} sceneId  - 'screen-edit' 等
+     * @param {object} handler  - { enterFn?: (options)=>void, leaveFn?: ()=>void }
+     */
+    register(sceneId, handler) {
+        this._handlers.set(sceneId, handler);
+    }
+
+    /** 短縮名を正式IDに解決 */
+    resolveId(id) {
+        return this._aliases.get(id) || id;
+    }
+
+    /** シーン退場処理 */
+    triggerLeave(sceneId) {
+        const h = this._handlers.get(sceneId);
+        if (h && h.leaveFn) h.leaveFn();
+    }
+
+    /** シーン入場処理 */
+    triggerEnter(sceneId, options) {
+        const h = this._handlers.get(sceneId);
+        if (h && h.enterFn) h.enterFn(options);
+    }
+}
+
+// ============================================================
+// 4. GameApp（スリム版）
+// ============================================================
 class GameApp {
     constructor() {
+        // --- コアマネージャー ---
         this.sound = new SoundManager();
         this.data = new DataManager();
-        this.deckManager = new DeckManager(); 
+        this.deckManager = new DeckManager();
         this.sceneManager = new SceneManager();
-        
-        this.formationScreen = new FormationScreenRedesign(); 
+        this.viewport = new ViewportManager();
+
+        // --- 各画面インスタンス ---
+        this.formationScreen = new FormationScreenRedesign();
         this.enhanceScreen = new EnhanceScreen();
         this.battleScreen = new BattleScreen();
         this.gachaScreen = new GachaScreen();
@@ -122,244 +169,156 @@ class GameApp {
 
         this._homeSpriteTimer = null;
         this._homeSpriteKey = '';
-        this.detectPWAMode();
-        this.updateViewportHeight();
 
-        // リサイズ監視の最適化
-        let resizeTimer;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => this.handleResize(), 100);
+        // --- シーンレジストリ ---
+        this.sceneRegistry = new SceneRegistry();
+        this._registerScenes();
+
+        // --- リサイズ時のシーン固有処理 ---
+        this.viewport.onResize(() => this._onResize());
+    }
+
+    /** 全シーンのonEnter/onLeaveをレジストリに登録 */
+    _registerScenes() {
+        const r = this.sceneRegistry;
+
+        r.register('screen-home', {});
+
+        r.register('screen-edit', {
+            enterFn: (opts) => this.formationScreen.onEnter(opts),
         });
-        window.addEventListener('pageshow', () => this.scheduleViewportSync());
-        if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', () => this.updateViewportHeight());
-            
-       
-        }
-        // 初期表示時にも複数フレームで再計算して黒帯発生を抑制
-        this.scheduleViewportSync();
-        // ★修正ポイント: テーマ適用を実行
-        this.injectPowerProTheme();
-    }
 
-    detectPWAMode() {
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
-            || window.navigator.standalone 
-            || document.referrer.includes('android-app://');
-        
-        if (isStandalone) {
-            document.documentElement.classList.add('pwa-standalone');
-            document.documentElement.style.setProperty('--browser-top-offset', '0px');
-            console.log('PWA Standalone Mode Detected');
-        } else {
-            document.documentElement.classList.add('pwa-browser');
-            console.log('Browser Mode Detected');
-        }
-        
-        window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
-            if (e.matches) {
-                document.documentElement.classList.remove('pwa-browser');
-                document.documentElement.classList.add('pwa-standalone');
-            } else {
-                document.documentElement.classList.remove('pwa-standalone');
-                document.documentElement.classList.add('pwa-browser');
-            }
-            this.updateViewportHeight();
+        r.register('screen-enhance', {
+            enterFn: (opts) => this.enhanceScreen.onEnter(opts),
+            leaveFn: () => { if (this.enhanceScreen.onLeave) this.enhanceScreen.onLeave(); },
+        });
+
+        r.register('screen-gacha', {
+            enterFn: (opts) => this.gachaScreen.onEnter(opts),
+        });
+
+        r.register('screen-zukan', {
+            enterFn: (opts) => this.zukanScreen.onEnter(opts),
+            leaveFn: () => { if (this.zukanScreen.onLeave) this.zukanScreen.onLeave(); },
+        });
+
+        r.register('screen-cards', {
+            enterFn: (opts) => this.cardScreen.onEnter(opts),
+        });
+
+        r.register('screen-map-select', {
+            enterFn: (opts) => this.mapSelectScreen.onEnter(opts),
+        });
+
+        r.register('screen-sugoroku', {
+            enterFn: (opts) => {
+                if (opts && opts.stageId) {
+                    this.sugorokuScreen.currentStageId = opts.stageId;
+                }
+                this.sugorokuScreen.onEnter(opts);
+            },
+        });
+
+        r.register('screen-tower', {
+            enterFn: () => {
+                if (!this.towerScreen) this.towerScreen = new TowerScreen();
+                this.towerScreen.onEnter();
+            },
+        });
+
+        r.register('screen-battle', {
+            enterFn: (opts) => this.battleScreen.start(opts),
         });
     }
 
-   // ★★★ デザイン強制適用（フッター修正版） ★★★
-    injectPowerProTheme() {
-        if(document.getElementById('power-pro-theme-v3')) return; 
-        
-        const old1 = document.getElementById('power-pro-theme-v1');
-        const old2 = document.getElementById('power-pro-theme-v2');
-        if(old1) old1.remove();
-        if(old2) old2.remove();
-
-        const style = document.createElement('style');
-        style.id = 'power-pro-theme-v3';
-        style.innerHTML = `
-            /* ==================================================
-               【強制適用】パワプロ風 ヘッダー＆フッター設定 (v3改)
-               ================================================== */
-
-            .header-bar {
-                background: linear-gradient(to bottom, #0055aa 0%, #003366 100%) !important;
-                border-bottom: 3px solid #ffd700 !important;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.4) !important;
-                min-height: 40px !important;
-                height: auto !important;
-                padding: 8px 10px !important;
-                padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
-                z-index: 99999 !important;
-                display: flex !important;
-                align-items: center !important;
-            }
-            .header-bar::after { content: none !important; display: none !important; }
-
-            /* 編成画面(screen-edit)を追加して、ヘッダーを確実に消す */
-            #screen-enhance > .header-bar,
-            #screen-gacha > .header-bar,
-            #screen-zukan > .header-bar,
-            #screen-edit > .header-bar,
-            #screen-cards > .header-bar,
-            #screen-map-select > .header-bar {
-                display: none !important;
-            }
-
-            .global-header {
-                background: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.9) 80%, rgba(0,0,0,0.7) 100%) !important;
-                height: calc(var(--header-h, 50px) + env(safe-area-inset-top, 0px)) !important;
-                padding-top: env(safe-area-inset-top, 0px) !important;
-            }
-
-            .btn-back {
-                background: linear-gradient(to bottom, #ffd700 0%, #ff8c00 100%) !important;
-                border: 2px solid #fff !important;
-                color: #5d3a00 !important;
-                border-radius: 20px !important;
-                padding: 4px 15px !important;
-                font-weight: 900 !important;
-                font-size: 13px !important;
-                box-shadow: 0 3px 0 #b8860b !important;
-                transform: skewX(-10deg) !important;
-            }
-            .btn-back span { display:inline-block; transform: skewX(10deg); }
-
-            .header-title {
-                color: #fff !important;
-                font-style: italic !important;
-                text-shadow: 2px 2px 0 #002244, -1px -1px 0 #002244 !important;
-                font-size: 18px !important;
-            }
-
-            /* --- ★共通フッター (修正箇所) --- */
-            .global-footer {
-                position: fixed !important;
-                bottom: 0 !important;
-                left: 0 !important;
-                width: 100% !important;
-
-                background: linear-gradient(to bottom, #0055aa 0%, #003366 100%) !important;
-                border-top: 3px solid #ffd700 !important;
-                box-shadow: 0 -4px 10px rgba(0,0,0,0.5) !important;
-                
-                /* 高さを固定せず、paddingで確保する */
-                height: auto !important;
-                
-                /* ★ここを修正しました★ */
-                /* 「-15px」を削除し、セーフエリア分をそのまま確保 */
-                padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-                
-                
-                z-index: 99999 !important;
-            }
-
-            .gf-btn {
-                color: #fff !important; 
-                background: transparent !important;
-                opacity: 0.8 !important;
-                transition: all 0.2s !important;
-                /* ボタンの高さ */
-                height: 55px !important;
-                /* ボタン内の余白調整 */
-                padding-bottom: 5px !important;
-            }
-            .gf-btn:active {
-                opacity: 1 !important;
-                transform: scale(0.95) !important;
-            }
-
-            .gf-btn.active {
-                opacity: 1 !important;
-                color: #ffe066 !important;
-                text-shadow: 0 0 6px rgba(255, 224, 102, 0.9) !important;
-                border-top: 2px solid #ffe066 !important;
-                background: rgba(255,255,255,0.08) !important;
-            }
-            .gf-btn.active .gf-icon { transform: translateY(-1px); }
-            .gf-btn.main-btn.active {
-                box-shadow: 0 0 18px rgba(255, 215, 0, 0.95) !important;
-            }
-            
-            .gf-btn.main-btn {
-                background: radial-gradient(circle, #ffd700, #ff8c00) !important;
-                border: 2px solid #fff !important;
-                box-shadow: 0 0 15px rgba(255, 215, 0, 0.5) !important;
-                color: #5d3a00 !important;
-                opacity: 1 !important;
-                margin-bottom: 5px !important;
-                height: 60px !important;
-                width: 60px !important;
-                border-radius: 50% !important;
-            }
-
-            /* ★★★ 画面のpadding調整 ★★★ */
-            #screen-map-select,
-            #screen-tower,
-            #screen-edit,
-            #screen-enhance,
-            #screen-gacha,
-            #screen-zukan,
-            #screen-home {
-                padding-top: calc(var(--header-h, 50px) + env(safe-area-inset-top, 0px)) !important;
-                /* フッター+セーフエリア分の余白を確保して、コンテンツが隠れないようにする */
-              padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
-            }
-            #screen-sugoroku,
-            #screen-battle {
-                padding-top: env(safe-area-inset-top, 0px) !important;
-                padding-bottom: 0 !important;
-            }
-
-            #screen-battle {
-              padding-bottom: 0 !important;
-            }
-
-
-            .screen {
-                padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    init() { 
-        this.sound.init(); 
-        this.changeScene('screen-home'); 
+    init() {
+        this.sound.init();
+        this.changeScene('screen-home');
         this.startHomeSpriteAnimation();
-        if(this.data) {
-            if(this.data.gems < 3000) this.data.gems = 3000;
-            if(this.data.saveStats) this.data.saveStats();
+        if (this.data) {
+            if (this.data.gems < 3000) this.data.gems = 3000;
+            if (this.data.saveStats) this.data.saveStats();
         }
-        
-        if(window.updateGlobalHeader) window.updateGlobalHeader();
+        if (window.updateGlobalHeader) window.updateGlobalHeader();
     }
 
-     startHomeSpriteAnimation() {
+    // ==========================================================
+    // changeScene — レジストリベース
+    // ==========================================================
+    changeScene(id, options = {}) {
+        const targetId = this.sceneRegistry.resolveId(id);
+
+        this.updateFooterActive(targetId);
+
+        // 旧シーンのonLeave
+        const currentSceneId = this.sceneManager
+            ? this.sceneManager.currentSceneId
+            : (document.querySelector('.screen.active')?.id || null);
+
+        if (currentSceneId && currentSceneId !== targetId) {
+            this.sceneRegistry.triggerLeave(currentSceneId);
+        }
+
+        // シーン切替完了後のコールバック
+        const onSceneReady = () => {
+            this.sceneRegistry.triggerEnter(targetId, options);
+            this.viewport.updateHeight();
+            setTimeout(() => window.scrollTo(0, 0), 100);
+        };
+
+        if (this.sceneManager) {
+            this.sceneManager.change(targetId, onSceneReady);
+        } else {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            const t = document.getElementById(targetId);
+            if (t) t.classList.add('active');
+            onSceneReady();
+        }
+    }
+
+    updateFooterActive(targetSceneId) {
+        document.querySelectorAll('#global-footer .gf-btn[data-scene]').forEach(btn => {
+            const isActive = btn.dataset.scene === targetSceneId;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-current', isActive ? 'page' : 'false');
+        });
+    }
+
+    /** リサイズ時のシーン固有処理 */
+    _onResize() {
+        const activeScene = this.sceneManager.currentSceneId;
+
+        if (activeScene === 'screen-battle' && this.battleScreen.active) {
+            if (this.battleScreen.visuals && this.battleScreen.visuals.fitToScreen) {
+                this.battleScreen.visuals.fitToScreen();
+            }
+        }
+        if (activeScene === 'screen-sugoroku' && this.sugorokuScreen.isGameActive) {
+            this.sugorokuScreen.updateCamera(false);
+        }
+        setTimeout(() => window.scrollTo(0, 0), 100);
+    }
+
+    // ==========================================================
+    // ホーム画面スプライトアニメーション（変更なし）
+    // ==========================================================
+    startHomeSpriteAnimation() {
         const el = document.querySelector('.home-char-anim');
         if (!el) return;
 
         const cfg = {
             src: 'images/player_main_idle_sheet.png',
-            cols: 4,
-            rows: 4,
-            frames: 7,
-            fps: 8,
-            loop: true
+            cols: 4, rows: 4, frames: 7, fps: 8, loop: true
         };
 
-        const cols = Math.max(1, Math.floor(cfg.cols || 1));
-        const rows = Math.max(1, Math.floor(cfg.rows || 1));
-        const frames = Math.max(1, Math.floor(cfg.frames || (cols * rows)));
-        const fps = Math.max(1, Math.floor(cfg.fps || 8));
+        const cols = Math.max(1, Math.floor(cfg.cols));
+        const rows = Math.max(1, Math.floor(cfg.rows));
+        const frames = Math.max(1, Math.floor(cfg.frames));
+        const fps = Math.max(1, Math.floor(cfg.fps));
         const loop = cfg.loop !== false;
         const key = `${cfg.src}|${cols}|${rows}|${frames}|${fps}|${loop}`;
 
         if (this._homeSpriteKey === key && this._homeSpriteTimer) return;
-
         this.stopHomeSpriteAnimation();
 
         el.style.backgroundImage = `url('${cfg.src}')`;
@@ -372,10 +331,10 @@ class GameApp {
 
         const applyFrame = (idx) => {
             const safeIdx = Math.max(0, Math.min(frames - 1, idx));
-            const col = safeIdx % cols;
-            const row = Math.floor(safeIdx / cols);
-            const xPct = cols <= 1 ? 0 : (col / (cols - 1)) * 100;
-            const yPct = rows <= 1 ? 0 : (row / (rows - 1)) * 100;
+            const c = safeIdx % cols;
+            const r = Math.floor(safeIdx / cols);
+            const xPct = cols <= 1 ? 0 : (c / (cols - 1)) * 100;
+            const yPct = rows <= 1 ? 0 : (r / (rows - 1)) * 100;
             el.style.backgroundPosition = `${xPct}% ${yPct}%`;
         };
 
@@ -389,11 +348,7 @@ class GameApp {
             frame += 1;
             if (frame >= frames) {
                 frame = loop ? 0 : frames - 1;
-                if (!loop) {
-                    applyFrame(frame);
-                    this.stopHomeSpriteAnimation();
-                    return;
-                }
+                if (!loop) { applyFrame(frame); this.stopHomeSpriteAnimation(); return; }
             }
             applyFrame(frame);
         }, frameMs);
@@ -406,214 +361,86 @@ class GameApp {
         }
         this._homeSpriteKey = '';
     }
-
-    updateViewportHeight() {
-        // 端末によっては初期表示時の innerHeight が小さく、下部に黒帯が出ることがある。
-        // visualViewport が利用可能な場合はその値も比較して、より安定した高さを採用する。
-        const vv = window.visualViewport;
-        const vvHeight = vv ? Math.round(vv.height) : 0;
-        const innerHeight = Math.round(window.innerHeight || 0);
-        const vh = Math.max(innerHeight, vvHeight, 1);
-        const vw = Math.round(window.innerWidth || (vv ? vv.width : 0) || 1);
-        
-        document.documentElement.style.setProperty('--vh', (vh * 0.01) + 'px');
-        document.documentElement.style.setProperty('--app-height', vh + 'px');
-        document.documentElement.style.setProperty('--app-width', vw + 'px');
-    }
-
-     scheduleViewportSync() {
-        this.updateViewportHeight();
-        requestAnimationFrame(() => this.updateViewportHeight());
-        setTimeout(() => this.updateViewportHeight(), 120);
-        setTimeout(() => this.updateViewportHeight(), 360);
-    }
-
-     updateFooterActive(targetSceneId) {
-        const footerButtons = document.querySelectorAll('#global-footer .gf-btn[data-scene]');
-        footerButtons.forEach(btn => {
-            const isActive = btn.dataset.scene === targetSceneId;
-            btn.classList.toggle('active', isActive);
-            btn.setAttribute('aria-current', isActive ? 'page' : 'false');
-        });
-    }
-
-
-    handleResize() {
-        this.updateViewportHeight();
-        
-        const activeScene = this.sceneManager.currentSceneId;
-        
-        if(activeScene === 'screen-battle' && this.battleScreen.active) {
-            if(this.battleScreen.visuals && this.battleScreen.visuals.fitToScreen) {
-                this.battleScreen.visuals.fitToScreen();
-            }
-        }
-        
-        if(activeScene === 'screen-sugoroku' && this.sugorokuScreen.isGameActive) {
-            this.sugorokuScreen.updateCamera(false);
-        }
-
-        setTimeout(() => window.scrollTo(0, 0), 100);
-    }
-
-    changeScene(id, options = {}) {
-        let targetId = id;
-        
-        if(id === 'edit' || id === 'quest') targetId = 'screen-edit';
-        if(id === 'enhance') targetId = 'screen-enhance';
-        if(id === 'battle') targetId = 'screen-battle';
-        if(id === 'home') targetId = 'screen-home';
-        if(id === 'gacha') targetId = 'screen-gacha';
-        if(id === 'zukan') targetId = 'screen-zukan';
-        if(id === 'cards') targetId = 'screen-cards';
-        if(id === 'sugoroku') targetId = 'screen-sugoroku';
-        if(id === 'tower') targetId = 'screen-tower';
-        if(id === 'map-select') targetId = 'screen-map-select';
-
-        this.updateFooterActive(targetId);
-         const currentSceneId = this.sceneManager ? this.sceneManager.currentSceneId : (document.querySelector('.screen.active')?.id || null);
-        if (currentSceneId === 'screen-zukan' && targetId !== 'screen-zukan' && this.zukanScreen && this.zukanScreen.onLeave) {
-            this.zukanScreen.onLeave();
-        }
-
-        if (currentSceneId === 'screen-enhance' && targetId !== 'screen-enhance' && this.enhanceScreen && this.enhanceScreen.onLeave) {
-            this.enhanceScreen.onLeave();
-        }
-
-          if (currentSceneId === 'screen-enhance' && targetId !== 'screen-enhance' && this.enhanceScreen && this.enhanceScreen.onLeave) {
-            this.enhanceScreen.onLeave();
-        }
-        
-        const onSceneReady = () => {
-            if(targetId === 'screen-edit' && this.formationScreen) this.formationScreen.onEnter(options);
-            if(targetId === 'screen-enhance' && this.enhanceScreen) this.enhanceScreen.onEnter(options);
-            if(targetId === 'screen-gacha' && this.gachaScreen) this.gachaScreen.onEnter(options);
-            if(targetId === 'screen-zukan' && this.zukanScreen) this.zukanScreen.onEnter(options);
-            if(targetId === 'screen-cards' && this.cardScreen) this.cardScreen.onEnter(options);
-            if(targetId === 'screen-map-select' && this.mapSelectScreen) this.mapSelectScreen.onEnter(options);
-
-            if(targetId === 'screen-sugoroku' && this.sugorokuScreen) {
-                if(options && options.stageId) {
-                    this.sugorokuScreen.currentStageId = options.stageId;
-                }
-                this.sugorokuScreen.onEnter(options);
-            }
-            
-            if(targetId === 'screen-tower') {
-                if (!this.towerScreen) this.towerScreen = new TowerScreen();
-                this.towerScreen.onEnter();
-            }
-
-            if(targetId === 'screen-battle' && this.battleScreen) this.battleScreen.start(options);
-            
-            this.handleResize();
-        };
-
-        if(this.sceneManager) {
-            this.sceneManager.change(targetId, onSceneReady);
-        } else {
-            const screens = document.querySelectorAll('.screen');
-            screens.forEach(s => s.classList.remove('active'));
-            const t = document.getElementById(targetId);
-            if(t) t.classList.add('active');
-            onSceneReady();
-        }
-    }
 }
 
+// ============================================================
+// 5. アプリ起動
+// ============================================================
 window.app = new GameApp();
 
 window.addEventListener('DOMContentLoaded', () => {
     app.init();
 });
 
+// ============================================================
+// 6. グローバルユーティリティ（ファサード）
+// ============================================================
 function getSafeImageUrl(id) {
-    if (typeof IMG_DATA !== 'undefined' && IMG_DATA[id]) {
-        return IMG_DATA[id];
-    }
-    return '';
+    return (typeof IMG_DATA !== 'undefined' && IMG_DATA[id]) ? IMG_DATA[id] : '';
 }
 
 window.updateGlobalHeader = () => {
-    if(!app || !app.data) return;
+    if (!app || !app.data) return;
     const elGem = document.getElementById('gh-gem');
     const elGold = document.getElementById('gh-gold');
-    if(elGem) elGem.innerText = (app.data.gems || 0).toLocaleString();
-    if(elGold) elGold.innerText = (app.data.gold || 0).toLocaleString();
+    if (elGem) elGem.innerText = (app.data.gems || 0).toLocaleString();
+    if (elGold) elGold.innerText = (app.data.gold || 0).toLocaleString();
     const slotInfo = document.getElementById('home-slot-info');
-    if(slotInfo) slotInfo.textContent = (app.data.deck ? app.data.deck.length : 0) + ' / ' + (app.data.maxSlots || 4);
+    if (slotInfo) slotInfo.textContent = (app.data.deck ? app.data.deck.length : 0) + ' / ' + (app.data.maxSlots || 4);
 };
 
-window.changeScene = (id, options) => { if(app) app.changeScene(id, options); };
+// --- シーン遷移ショートカット（HTMLのonclick用） ---
+window.changeScene    = (id, opts) => app.changeScene(id, opts);
+window.goHome         = () => app.changeScene('screen-home');
+window.goToQuest      = () => app.changeScene('screen-edit');
+window.goToFormation   = () => app.changeScene('screen-edit');
+window.goToEnhance     = () => app.changeScene('screen-enhance');
+window.goToSugoroku    = () => app.changeScene('screen-map-select');
 
-window.goHome = () => app.changeScene('screen-home');
-window.goToQuest = () => app.changeScene('screen-edit');
-window.goToFormation = () => app.changeScene('screen-edit');
-window.goToEnhance = () => app.changeScene('screen-enhance');
+// --- 編成操作 ---
+window.clearFormation = () => { if (app.formationScreen) app.formationScreen.clear(); };
+window.startBattle    = () => app.changeScene('screen-sugoroku');
 
-window.goToSugoroku = () => app.changeScene('screen-map-select');
+// --- 強化操作 ---
+window.execLevelUp    = () => { if (app.enhanceScreen) app.enhanceScreen.levelUp(); };
+window.execSkillUp    = () => { if (app.enhanceScreen) app.enhanceScreen.skillUp(); };
+window.execLimitBreak = () => { if (app.enhanceScreen) app.enhanceScreen.limitBreak(); };
 
-window.clearFormation = () => { if(app.formationScreen) app.formationScreen.clear(); };
-window.startBattle = () => app.changeScene('screen-sugoroku'); 
-
-window.execLevelUp = () => { if(app.enhanceScreen) app.enhanceScreen.levelUp(); };
-window.execSkillUp = () => { if(app.enhanceScreen) app.enhanceScreen.skillUp(); };
-window.execLimitBreak = () => { if(app.enhanceScreen) app.enhanceScreen.limitBreak(); };
-
+// --- バトル操作 ---
 window.backToEdit = () => {
-    if(app.battleScreen && app.battleScreen.backToEdit) {
+    if (app.battleScreen && app.battleScreen.backToEdit) {
         app.battleScreen.backToEdit();
     } else {
         app.changeScene('screen-edit');
     }
 };
-window.toggleSpeed = () => { if(app.battleScreen) app.battleScreen.toggleSpeed(); };
-/* main.js の一番下（既存のsimulateNotchをこれで上書き） */
+window.toggleSpeed = () => { if (app.battleScreen) app.battleScreen.toggleSpeed(); };
 
-// ★テスター用：URLに ?notch=1 がある場合のみ、強制的にiPhoneのノッチを再現する
+// ============================================================
+// 7. テスター用ノッチシミュレーション（URLに ?notch=1）
+// ============================================================
 (function simulateNotch() {
-    if (window.location.search.includes('notch=1')) {
-        console.log("Simulating iPhone Notch...");
-        const style = document.createElement('style');
-        style.innerHTML = `
-            /* ヘッダー自体の高さを拡張（ノッチ分59px追加） */
-            .global-header {
-                padding-top: 59px !important;
-                height: calc(var(--header-h, 50px) + 59px) !important;
-            }
-
-            /* ★修正ポイント: クラス(.screen)ではなくIDを列挙して優先度を勝たせる */
-            /* これでコンテンツ全体がググッと下に下がります */
-            #screen-home,
-            #screen-map-select,
-            #screen-edit,
-            #screen-enhance,
-            #screen-gacha,
-            #screen-zukan,
-            #screen-tower,
-            #screen-sugoroku {
-                padding-top: calc(var(--header-h, 50px) + 59px) !important;
-                /* 下部のバー対応（必要な場合） */
-                padding-bottom: calc(60px + 34px) !important;
-            }
-
-            /* バトル画面など特殊な画面の調整 */
-            #screen-battle {
-                padding-top: 59px !important;
-                padding-bottom: 0 !important;
-            }
-
-            /* フッターの下に余白を追加 */
-            .global-footer {
-                padding-bottom: 34px !important;
-                height: auto !important;
-            }
-
-            /* ノッチの横調整 */
-            .gh-right {
-                margin-right: 15px !important;
-            }
-        `;
-        document.head.appendChild(style);
-    }
+    if (!window.location.search.includes('notch=1')) return;
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .global-header {
+            padding-top: 59px !important;
+            height: calc(var(--header-h, 50px) + 59px) !important;
+        }
+        #screen-home, #screen-map-select, #screen-edit, #screen-enhance,
+        #screen-gacha, #screen-zukan, #screen-tower, #screen-sugoroku {
+            padding-top: calc(var(--header-h, 50px) + 59px) !important;
+            padding-bottom: calc(60px + 34px) !important;
+        }
+        #screen-battle {
+            padding-top: 59px !important;
+            padding-bottom: 0 !important;
+        }
+        .global-footer {
+            padding-bottom: 34px !important;
+            height: auto !important;
+        }
+        .gh-right { margin-right: 15px !important; }
+    `;
+    document.head.appendChild(style);
 })();

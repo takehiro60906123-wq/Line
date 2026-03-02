@@ -923,4 +923,39 @@ class DeckManager {
     clear() { 
         if(confirm("全部隊を解除しますか？")) { app.sound.tap(); app.data.deck = []; app.data.saveDeck(); app.formationScreen.refresh(); } 
     }
+
+    
+}
+
+// ==========================================
+// ★ アセットプリローダー (画像の事前読み込み)
+// ==========================================
+class AssetLoader {
+    /**
+     * 与えられたURLの画像をすべて裏でダウンロードし、完了を待つPromiseを返します。
+     * @param {string[]} urls - 読み込む画像のURL配列
+     * @returns {Promise<void>}
+     */
+    static preloadImages(urls) {
+        // 重複や空のURLを除外
+        const uniqueUrls = [...new Set(urls.filter(url => url))];
+        
+        if (uniqueUrls.length === 0) return Promise.resolve();
+
+        console.log(`[AssetLoader] ${uniqueUrls.length}個の画像をプリロード中...`);
+
+        const promises = uniqueUrls.map(url => {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve();
+                img.onerror = () => {
+                    console.warn(`[AssetLoader] 画像の読み込みに失敗しました: ${url}`);
+                    resolve(); // エラーでも進行を止めないためにresolveする
+                };
+                img.src = url;
+            });
+        });
+
+        return Promise.all(promises);
+    }
 }

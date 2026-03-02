@@ -15,16 +15,13 @@ class BattleScreen {
 
         window.toggleSpeed = () => this.toggleSpeed();
         window.backToEdit = () => this.backToEdit();
-        
-        // CSS注入
-        this.injectStyles();
+        // CSS は style-battle-v2.css に外部化済み
     }
 
    async start(options = {}) {
         if (this.active) return; 
         this.currentOptions = options;
         
-        // ログで強さ設定が来ているか確認（F12コンソールで見れます）
         console.log("Battle Options:", options); 
 
         if (!app.data.deck || app.data.deck.length === 0) {
@@ -42,14 +39,8 @@ class BattleScreen {
             const oldRes = document.getElementById('battle-result-overlay');
             if(oldRes) oldRes.remove();
 
-            const screen = document.getElementById('screen-battle');
-            if (screen) {
-                const bg = options.bgImg || "images/bg_battle.webp";
-                screen.style.setProperty('background-image', `url('${bg}')`, 'important');
-                screen.style.backgroundSize = 'cover';
-                screen.style.backgroundPosition = 'center bottom';
-                screen.style.backgroundRepeat = 'no-repeat';
-            }
+            // ※背景の設定は後で行うため、一旦スキップ（ロード完了後に設定します）
+            const bg = options.bgImg || "images/bg_battle.webp";
 
             this.state.init(app.data.deck);
             this.state.units = this.state.units.filter(u => u.side === 'player');
@@ -66,35 +57,24 @@ class BattleScreen {
             }
 
             const enemyOccupied = [];
-
-            // ====================================================
-            // ★ここが重要：双六から渡されたレベル(enemyLv)を取得
-            // なければ最低値10を設定
-            // ====================================================
             const lv = options.enemyLv || 10;
 
-            // ★塔モード
+            // ★敵の生成処理 (塔モード、双六・固定敵モード、通常戦闘)
             if (options.mode === 'tower') {
-                // ★事前に生成された敵データがあればそれを使う
                 if (options.pregenEnemies && options.pregenEnemies.length > 0) {
-                    console.log('[Tower] Using pregen enemies:', options.pregenEnemies.length, 'units');
                     this._spawnPregenEnemies(options.pregenEnemies, enemyOccupied);
                 } else {
-                    console.log('[Tower] No pregen data, fallback to generateTowerEnemy');
                     this.state.generateTowerEnemy(options.floor, enemyOccupied);
                 }
             }
-            // ★双六・固定敵モード（ここを重点的に修正）
             else if (options.fixedEnemyId) {
+                // ... (既存の敵生成ロジックそのまま) ...
                 const pid = options.fixedEnemyId;
                 const pc = options.playerCount || 4;
-
-                // ★ プレイヤー枠数に応じて敵数をスケーリング
                 const bossBase = DB.find(u => u.id === pid) || DB.find(u => u.cost >= 3) || DB[0];
                 const isBossType = bossBase.cost >= 4;
 
                 if (isBossType) {
-                    // ボス + 取り巻き（プレイヤー数の60-80%）
                     this.spawnEnemy(bossBase, 1, enemyOccupied, lv + 5);
                     const minionCount = Math.max(1, Math.floor(pc * 0.6) + Math.floor(Math.random() * 2));
                     const minions = DB.filter(u => u.cost <= 3);
@@ -105,7 +85,6 @@ class BattleScreen {
                         }
                     }
                 } else {
-                    // 雑魚戦（プレイヤー数の50-75%）
                     const count = Math.max(2, Math.floor(pc * 0.5) + Math.floor(Math.random() * Math.ceil(pc * 0.25)) + 1);
                     const pool = DB.filter(u => u.cost <= 2);
                     const elitePool = DB.filter(u => u.cost >= 3 && u.cost <= 4);
@@ -117,12 +96,37 @@ class BattleScreen {
                     }
                 }
             }
-            // ★通常戦闘（デバッグ用など）
             else {
-                // こちらも lv を渡すように修正
                 this.state.generateEnemy(enemyOccupied, lv);
             }
 
+            // ====================================================
+            // ★追加：アセットのプリロード（事前読み込み）処理
+            // 敵も味方も出揃ったこのタイミングで画像をかき集めます
+            // ====================================================
+            const imagesToLoad = [bg]; // まず背景画像をリストに追加
+            
+            // 参加する全ユニット（味方＋敵）の画像をリストに追加
+            this.state.units.forEach(u => {
+                if (typeof IMG_DATA !== 'undefined' && IMG_DATA[u.base.id]) {
+                    imagesToLoad.push(IMG_DATA[u.base.id]);
+                }
+            });
+
+            // プリローダーを実行して待機 (ローディング画面の裏で処理される)
+            if (typeof AssetLoader !== 'undefined') {
+                await AssetLoader.preloadImages(imagesToLoad);
+            }
+            // ====================================================
+
+            // ロードが完了してから、背景を画面に適用する (これで真っ黒にならない)
+            const screen = document.getElementById('screen-battle');
+            if (screen) {
+                screen.style.setProperty('background-image', `url('${bg}')`, 'important');
+                screen.style.backgroundSize = 'cover';
+                screen.style.backgroundPosition = 'center bottom';
+                screen.style.backgroundRepeat = 'no-repeat';
+            }
             // --- 以下変更なし ---
             this.battleLogs = {};
             this.state.units.forEach(u => {
@@ -1660,65 +1664,4 @@ closeResult() {
             v.innerText = "x" + this.speed.toFixed(1);
         }
     }
-   injectStyles() {
-    if(document.getElementById('battle-style-v21')) return;
-    const style = document.createElement('style');
-    style.id = 'battle-style-v21';
-    style.innerHTML = `
-        #screen-battle { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            z-index: 100; display: none; flex-direction: column; overflow: hidden; 
-        }
-        #screen-battle.active { display: flex !important; }
-        
-        .battle-field { 
-            flex: 1; 
-            width: 100%; 
-            position: relative; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between; 
-            padding: 0; 
-        }
-        
-        .battle-status-bar { 
-            width: 100%; 
-            height: 32px; 
-            background: linear-gradient(to bottom, #222, #000); 
-            border-top: 1px solid #555; 
-            border-bottom: 1px solid #555; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: 0 10px; 
-            box-sizing: border-box; 
-            color: #fff; 
-            z-index: 50; 
-        }
-        .bs-enemy { border-bottom: 2px solid #f00; }
-        .bs-player { border-top: 2px solid #00ced1; }
-        .bs-label-side { font-weight: 900; font-size: 14px; letter-spacing: 1px; }
-        .bs-enemy .bs-label-side { color: #ff6666; text-shadow: 0 0 5px #f00; }
-        .bs-player .bs-label-side { color: #66ffff; text-shadow: 0 0 5px #0ff; }
-        
-       .battle-area-enemy { position: absolute; top: 180px; left: 0; right: 0; }
-        .battle-area-player { position: absolute; bottom: 70px; left: 0; right: 0; }
-        
-        .hp-plate { width: 80%; height: 6px; background: rgba(0,0,0,0.8); border: 1px solid #555; border-radius: 3px; overflow: hidden; }
-        .hp-fill { height: 100%; transition: width 0.2s; }
-        
-        .dmg-pop { position: fixed; z-index: 9999; font-family: 'Impact', sans-serif; font-size: 28px; color: #fff; -webkit-text-stroke: 1px #000; text-shadow: 2px 2px 0 #b00; pointer-events: none; animation: popUp 1.4s forwards; }
-        .dmg-pop.crit { font-size: 34px; color: #ffeb3b; text-shadow: 2px 2px 0 #f00; }
-        .dmg-pop.heal { color: #00ffaa; text-shadow: 1px 1px 0 #004d40; -webkit-text-stroke: 0; }
-        
-        @keyframes popUp { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 15% { transform: translateY(-25px) scale(1.15); opacity: 1; } 100% { transform: translateY(-50px) scale(1.0); opacity: 0; } }
-        
-        .cutin-box { position: fixed; top: 35%; width: 320px; height: 60px; display: block; z-index: 99999; transform: skewX(-20deg); box-shadow: 0 4px 15px rgba(0,0,0,0.6); opacity: 0; pointer-events: none; border: none !important; }
-        .cutin-main { color: #fff; font-weight: 900; font-size: 18px; transform: skewX(20deg); text-shadow: 2px 2px 0 #000; white-space: nowrap; line-height: 1.2; }
-        .cutin-sub { color: #eee; font-size: 11px; font-weight: bold; transform: skewX(20deg); text-shadow: 1px 1px 0 #000; white-space: nowrap; margin-top: 2px; background: rgba(0,0,0,0.3); padding: 1px 6px; border-radius: 4px; }
-        
-        @keyframes slideInLeft { 0% { transform: translateX(-120%) skewX(-20deg); opacity: 0; } 15% { transform: translateX(5%) skewX(-20deg); opacity: 1; } 100% { transform: translateX(-120%) skewX(-20deg); opacity: 0; } }
-    `;
-    document.head.appendChild(style);
-}
 }

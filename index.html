@@ -26,9 +26,11 @@
 <link rel="stylesheet" href="style-base.css">
 <link rel="stylesheet" href="style-gacha.css">
 <link rel="stylesheet" href="style-battle.css">
+<link rel="stylesheet" href="style-battle-v2.css">
 <link rel="stylesheet" href="style-sugoroku.css">
 <link rel="stylesheet" href="style-panel-battle.css">
 <link rel="stylesheet" href="style-formation.css">
+<link rel="stylesheet" href="style-theme.css">
 
 <link rel="icon" href="data:,">
 
@@ -137,7 +139,12 @@
 
 <script src="data.js"></script>
 <script src="card_system.js"></script>
-<script src="managers.js"></script>
+<!-- managers.js分割 (unit → data_manager → tips_data → scene_manager → deck_manager) -->
+<script src="unit.js"></script>
+<script src="data_manager.js"></script>
+<script src="tips_data.js"></script>
+<script src="scene_manager.js"></script>
+<script src="deck_manager.js"></script>
 <script src="scene_card_equip.js"></script>
 <script src="scene_formation_redesign.js"></script>
 <script src="scene_enhance.js"></script>
@@ -153,6 +160,7 @@
 <script src="panel_battle_ui.js"></script>
 <script src="scene_sugoroku.js"></script>
 <script src="sugoroku_ui.js"></script>
+<script src="viewport_manager.js"></script>
 <script src="main.js"></script>
 
 
