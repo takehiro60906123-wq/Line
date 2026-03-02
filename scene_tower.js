@@ -288,7 +288,10 @@ class TowerScreen {
     }
 
     _getCardBgUrl(typeId, cost) {
-        const colors = ['purple', 'gold', 'pink', 'green', 'blue', 'red'];
+      // 編成画面と同じ属性→背景色マッピング
+        // 火:赤 / 水:青 / 草:緑 / 闇:紫 / 光:金 / 無:白
+        if (typeId === 5) return 'images/bg/bg_white_ur.webp';
+        const colors = ['red', 'blue', 'green', 'purple', 'gold', 'white'];
         const color = colors[typeId] || 'red';
         let rarity = 'r';
         if (cost >= 5) rarity = 'ur';

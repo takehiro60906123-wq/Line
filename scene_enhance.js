@@ -507,7 +507,7 @@ class EnhanceScreen {
             
             // バッジ類
            
-            const lockHtml = isLocked ? '<div class="lc-lock-icon">🔒</div>' : '';
+           const lockHtml = isLocked ? '<div class="card-lock-mark">🔒</div>' : '';
             const checkHtml = (this.isBulkMode && this.bulkSelection.has(unit.uid)) 
                 ? '<div class="lc-bulk-selected-label"><div>✔</div>選択済</div>' : '';
 
@@ -1056,7 +1056,7 @@ class EnhanceScreen {
                 filter: brightness(0.7); 
             }
             .lc-lv-badge { position: absolute; top:0; right:0; background:rgba(0,0,0,0.7); color:#fff; font-size:9px; padding:0 2px; }
-            .lc-lock-icon { position: absolute; top:0; left:0; font-size:10px; text-shadow:0 0 2px #000; }
+            .card-lock-mark { position:absolute; top:3px; left:3px; font-size:12px; z-index:22; text-shadow:0 0 2px #000; }
 
                 /* 編成画面と統一したカード表示（所持一覧） */
             #enhance-list .list-card.portrait-style {

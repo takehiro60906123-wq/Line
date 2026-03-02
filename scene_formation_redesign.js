@@ -678,6 +678,15 @@ class FormationScreenRedesign {
             .card-item-horizontal .list-card.portrait-style.in-deck {
                 filter: saturate(0.85) brightness(0.85);
             }
+
+            .card-item-horizontal .list-card.portrait-style .card-lock-mark {
+                position: absolute;
+                top: 2px;
+                right: 2px;
+                font-size: 11px;
+                z-index: 5;
+                text-shadow: 0 0 2px #000;
+            }
             `;
             document.head.appendChild(style);
         }
@@ -1173,7 +1182,7 @@ class FormationScreenRedesign {
 
         units.forEach(unit => {
             const inDeck = (app.data.deck || []).some(d => d.uid === unit.uid);
-            
+            const isLocked = !!unit.isLocked;
             const wrapper = document.createElement('div');
             wrapper.className = 'card-item-horizontal';
 
@@ -1205,6 +1214,7 @@ class FormationScreenRedesign {
                 <div class="lc-card-stars-bottom">
                     <div class="footer-stars">${starsHtml}</div>
                 </div>
+                ${isLocked ? '<div class="card-lock-mark">🔒</div>' : ''}
             `;
 
             if (inDeck) {

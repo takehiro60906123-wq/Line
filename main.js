@@ -120,6 +120,8 @@ class GameApp {
         this.panelBattleScreen = new PanelBattleScreen();
         this.mapSelectScreen = new MapSelectScreen();
 
+        this._homeSpriteTimer = null;
+        this._homeSpriteKey = '';
         this.detectPWAMode();
         this.updateViewportHeight();
 
@@ -269,6 +271,18 @@ class GameApp {
                 opacity: 1 !important;
                 transform: scale(0.95) !important;
             }
+
+            .gf-btn.active {
+                opacity: 1 !important;
+                color: #ffe066 !important;
+                text-shadow: 0 0 6px rgba(255, 224, 102, 0.9) !important;
+                border-top: 2px solid #ffe066 !important;
+                background: rgba(255,255,255,0.08) !important;
+            }
+            .gf-btn.active .gf-icon { transform: translateY(-1px); }
+            .gf-btn.main-btn.active {
+                box-shadow: 0 0 18px rgba(255, 215, 0, 0.95) !important;
+            }
             
             .gf-btn.main-btn {
                 background: radial-gradient(circle, #ffd700, #ff8c00) !important;
@@ -315,13 +329,82 @@ class GameApp {
     init() { 
         this.sound.init(); 
         this.changeScene('screen-home'); 
-        
+        this.startHomeSpriteAnimation();
         if(this.data) {
             if(this.data.gems < 3000) this.data.gems = 3000;
             if(this.data.saveStats) this.data.saveStats();
         }
         
         if(window.updateGlobalHeader) window.updateGlobalHeader();
+    }
+
+     startHomeSpriteAnimation() {
+        const el = document.querySelector('.home-char-anim');
+        if (!el) return;
+
+        const cfg = {
+            src: 'images/player_main_idle_sheet.png',
+            cols: 4,
+            rows: 4,
+            frames: 7,
+            fps: 8,
+            loop: true
+        };
+
+        const cols = Math.max(1, Math.floor(cfg.cols || 1));
+        const rows = Math.max(1, Math.floor(cfg.rows || 1));
+        const frames = Math.max(1, Math.floor(cfg.frames || (cols * rows)));
+        const fps = Math.max(1, Math.floor(cfg.fps || 8));
+        const loop = cfg.loop !== false;
+        const key = `${cfg.src}|${cols}|${rows}|${frames}|${fps}|${loop}`;
+
+        if (this._homeSpriteKey === key && this._homeSpriteTimer) return;
+
+        this.stopHomeSpriteAnimation();
+
+        el.style.backgroundImage = `url('${cfg.src}')`;
+        el.style.backgroundRepeat = 'no-repeat';
+        el.style.backgroundSize = `${cols * 100}% ${rows * 100}%`;
+
+        let frame = 0;
+        const frameMs = Math.max(40, Math.floor(1000 / fps));
+        this._homeSpriteKey = key;
+
+        const applyFrame = (idx) => {
+            const safeIdx = Math.max(0, Math.min(frames - 1, idx));
+            const col = safeIdx % cols;
+            const row = Math.floor(safeIdx / cols);
+            const xPct = cols <= 1 ? 0 : (col / (cols - 1)) * 100;
+            const yPct = rows <= 1 ? 0 : (row / (rows - 1)) * 100;
+            el.style.backgroundPosition = `${xPct}% ${yPct}%`;
+        };
+
+        applyFrame(frame);
+        this._homeSpriteTimer = setInterval(() => {
+            const currentEl = document.querySelector('.home-char-anim');
+            if (!currentEl || currentEl !== el || this._homeSpriteKey !== key) {
+                this.stopHomeSpriteAnimation();
+                return;
+            }
+            frame += 1;
+            if (frame >= frames) {
+                frame = loop ? 0 : frames - 1;
+                if (!loop) {
+                    applyFrame(frame);
+                    this.stopHomeSpriteAnimation();
+                    return;
+                }
+            }
+            applyFrame(frame);
+        }, frameMs);
+    }
+
+    stopHomeSpriteAnimation() {
+        if (this._homeSpriteTimer) {
+            clearInterval(this._homeSpriteTimer);
+            this._homeSpriteTimer = null;
+        }
+        this._homeSpriteKey = '';
     }
 
     updateViewportHeight() {
@@ -344,6 +427,16 @@ class GameApp {
         setTimeout(() => this.updateViewportHeight(), 120);
         setTimeout(() => this.updateViewportHeight(), 360);
     }
+
+     updateFooterActive(targetSceneId) {
+        const footerButtons = document.querySelectorAll('#global-footer .gf-btn[data-scene]');
+        footerButtons.forEach(btn => {
+            const isActive = btn.dataset.scene === targetSceneId;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-current', isActive ? 'page' : 'false');
+        });
+    }
+
 
     handleResize() {
         this.updateViewportHeight();
@@ -375,7 +468,9 @@ class GameApp {
         if(id === 'cards') targetId = 'screen-cards';
         if(id === 'sugoroku') targetId = 'screen-sugoroku';
         if(id === 'tower') targetId = 'screen-tower';
-        if(id === 'map-select') targetId = 'screen-map-select'; 
+        if(id === 'map-select') targetId = 'screen-map-select';
+
+        this.updateFooterActive(targetId);
          const currentSceneId = this.sceneManager ? this.sceneManager.currentSceneId : (document.querySelector('.screen.active')?.id || null);
         if (currentSceneId === 'screen-zukan' && targetId !== 'screen-zukan' && this.zukanScreen && this.zukanScreen.onLeave) {
             this.zukanScreen.onLeave();

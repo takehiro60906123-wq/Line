@@ -104,30 +104,32 @@
 /* ホーム画面キャラクター配置 */
 .home-char-anim {
     position: absolute;
-    
-    /* ★修正1: 位置を少し下げる（床に足を着けるため） */
-    bottom: 200px; 
-    
-    /* ★修正2: 左端からの距離（少し左に寄せる） */
-    left: 10px;
-    
-    /* ★修正3: サイズを小さくする（160px → 90px くらいに） */
-    width: 140px; 
-    height: auto;
-    
-    /* 重なり順などの設定はそのまま */
+    bottom: 120px;
+
+    left: 40px;
+    width: 192px;
+    height: 192px;
     z-index: 20;
     pointer-events: none;
-    /* 影をつけて馴染ませる（お好みで） */
+    background-image: url('images/player_main_idle_sheet.png');
+    background-repeat: no-repeat;
+    background-size: 400% 200%;
+    image-rendering: pixelated;
+
+    transform: scaleX(-1);
+    transform-origin: center;
     filter: drop-shadow(4px 7px 5px rgba(0,0,0,0.8));
 }
 
 /* 画面サイズに応じた微調整（必要な場合） */
 @media (max-width: 380px) {
     .home-char-anim {
-        width: 140px;
-        bottom: 120px;
-        left: 0;
+
+        width: 128px;
+        height: 128px;
+        bottom: 80px;
+
+        left: 8px;
     }
 
 }
@@ -178,19 +180,18 @@
 </div>
 
 <div id="global-footer" class="global-footer">
-    <button class="gf-btn" onclick="changeScene('edit')"><div class="gf-icon">🏯</div><div class="gf-text">編成</div></button>
-    <button class="gf-btn" onclick="changeScene('enhance')"><div class="gf-icon">✨</div><div class="gf-text">強化</div></button>
-    <button class="gf-btn main-btn" onclick="changeScene('home')"><div class="gf-icon">🏠</div><div class="gf-text">ホーム</div></button>
-    <button class="gf-btn" onclick="changeScene('cards')"><div class="gf-icon">🃏</div><div class="gf-text">装備</div></button>
-    <button class="gf-btn" onclick="changeScene('gacha')"><div class="gf-icon">🛒</div><div class="gf-text">召喚</div></button>
-    <button class="gf-btn" onclick="changeScene('zukan')"><div class="gf-icon">📜</div><div class="gf-text">記録</div></button>
+    <button class="gf-btn" data-scene="screen-edit" onclick="changeScene('edit')"><div class="gf-icon">🏯</div><div class="gf-text">編成</div></button>
+    <button class="gf-btn" data-scene="screen-enhance" onclick="changeScene('enhance')"><div class="gf-icon">✨</div><div class="gf-text">強化</div></button>
+    <button class="gf-btn main-btn" data-scene="screen-home" onclick="changeScene('home')"><div class="gf-icon">🏠</div><div class="gf-text">ホーム</div></button>
+    <button class="gf-btn" data-scene="screen-cards" onclick="changeScene('cards')"><div class="gf-icon">🃏</div><div class="gf-text">装備</div></button>
+    <button class="gf-btn" data-scene="screen-gacha" onclick="changeScene('gacha')"><div class="gf-icon">🛒</div><div class="gf-text">召喚</div></button>
+    <button class="gf-btn" data-scene="screen-zukan" onclick="changeScene('zukan')"><div class="gf-icon">📜</div><div class="gf-text">記録</div></button>
 </div>
 
 <div id="screen-home" class="screen active">
 
     <div class="home-logo-area"></div>
-    <img src="images/my_character.webp" class="home-char-anim" alt="Home Character">
-    
+    <div class="home-char-anim" aria-label="Home Character"></div>
     <div class="home-quest-btn-container">
 
         <button class="btn-quest-big" style="margin-bottom: 15px; background: linear-gradient(135deg, #4a00e0, #8e2de2); border-color: #c0c0ff;" onclick="changeScene('tower')">

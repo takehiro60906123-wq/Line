@@ -92,6 +92,8 @@ body {
     cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .gf-btn:active { transform: scale(0.95); color: #fff; }
+.gf-btn.active { color: #ffe066; text-shadow: 0 0 6px rgba(255,224,102,0.9); border-top: 2px solid #ffe066; background: rgba(255,255,255,0.08); }
+.gf-btn.active .gf-icon { transform: translateY(-1px); }
 .gf-icon { font-size: 24px; margin-bottom: 2px; } 
 .gf-text { font-size: 10px; font-weight: bold; }
 
