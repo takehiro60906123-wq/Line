@@ -1,27 +1,9 @@
-@charset "UTF-8";
-
 /* =========================================
-   ガチャ画面 統合CSS
-   旧: style-gacha.css + scene_gacha.js injectStyles()
+   style-gacha-v2.css
+   旧: scene_gacha.js injectStyles() (id: gacha-style-v17)
+   ガチャ画面の詳細スタイル（style-gacha.cssの後に読み込む）
    ========================================= */
-
-/* --- 旧style-gacha.css固有（v2に含まれないセレクタ）--- */
-.gacha-banner { 
-    width: 90%; height: 200px; background: url('images/home_bg.webp') center/cover; 
-    border: 2px solid #ffd700; border-radius: 8px; display: flex; align-items: center; justify-content: center; 
-    margin-bottom: 30px; box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); 
-}
-.banner-text { font-size: 24px; font-weight: 900; color: #fff; text-shadow: 0 0 10px #000, 2px 2px 0 #f00; text-align: center; letter-spacing: 5px; }
-.g-label { font-size: 18px; font-weight: bold; }
-.g-cost { font-size: 12px; color: #ffeb3b; }
-.gacha-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    align-items: center;
-}
-
-/* --- 旧scene_gacha.js injectStyles()（メイン定義）--- */
+/* メイン画面背景 */
 #screen-gacha {
     background: linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.5)), url('images/bg_gacha.webp') center/cover no-repeat !important;
 }

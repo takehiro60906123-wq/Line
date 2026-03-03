@@ -1474,49 +1474,7 @@ class BattleScreen {
                 </div>
             </div>`;
 
-        // ★リザルト専用CSSの注入 (ここが重要)
-        if(!document.getElementById('result-style-v8')) {
-            const style = document.createElement('style');
-            style.id = 'result-style-v8';
-            style.innerHTML = `
-                .result-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10000; display: flex; align-items: center; justify-content: center; background-color: rgba(0,0,0,0.7); background-size: cover; }
-                .result-panel-v7 { position: relative; z-index: 10; width: 95%; max-width: 650px; max-height: 95vh; background: rgba(0,0,0,0.85); border: 2px solid #555; border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 0 30px rgba(0,0,0,1); overflow: hidden; padding-bottom: 10px; }
-                .result-title { font-size: 36px; font-weight: 900; text-align: center; padding: 10px 0; letter-spacing: 5px; }
-                .result-title.win { color: #ffd700; text-shadow: 0 0 15px #f00; }
-                .result-title.lose { color: #888; text-shadow: 0 0 10px #000; }
-                .mvp-container-fixed { position: relative; width: 100%; height: 160px; background: radial-gradient(circle, #333 0%, #000 90%); border-top: 1px solid #444; border-bottom: 2px solid #ffd700; flex-shrink: 0; }
-                .mvp-bg-ray { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, rgba(255,215,0,0.1) 0, rgba(255,215,0,0.1) 10px, transparent 10px, transparent 20px); opacity: 0.5; }
-                .mvp-char-layer { position: absolute; bottom: 0; left: 50%; width: 200px; height: 150px; transform: translateX(-50%); background-size: contain; background-repeat: no-repeat; background-position: center bottom; z-index: 5; }
-                .mvp-ribbon { position: absolute; top: -5px; left: 10px; z-index: 10; background: linear-gradient(135deg, #ffd700, #ff8c00); color: #fff; font-weight: bold; font-size: 16px; padding: 5px 15px; transform: rotate(-5deg); border: 2px solid #fff; }
-                .mvp-name-label { position: absolute; bottom: 5px; right: 10px; z-index: 10; background: rgba(0,0,0,0.8); border: 1px solid #ffd700; color: #fff; font-size: 18px; font-weight: bold; padding: 2px 15px; border-radius: 4px; }
-                .result-lists-wrapper { flex: 1; display: flex; gap: 5px; padding: 10px; min-height: 200px; overflow: hidden; }
-                .r-list-col { flex: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.3); border-radius: 4px; }
-                .r-col-head { text-align: center; font-size: 12px; font-weight: 900; padding: 4px; border-bottom: 2px solid #444; }
-                .p-head { color: #00ced1; border-color: #00ced1; }
-                .e-head { color: #ff5555; border-color: #ff5555; }
-                .r-center-divider { width: 20px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #666; font-size: 14px; writing-mode: vertical-rl; }
-                .r-scroll-box { flex: 1; overflow-y: auto; padding: 5px; display: flex; flex-direction: column; gap: 5px; }
-                .score-row-enhanced { display: flex; align-items: center; gap: 8px; background: rgba(20, 20, 20, 0.8); border: 1px solid #444; border-radius: 4px; padding: 6px; }
-                .score-icon-box { width: 40px; height: 40px; background-size: cover; background-position: top center; border: 1px solid #666; border-radius: 4px; flex-shrink: 0; }
-                .score-info-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-                .unit-name-row { font-size: 13px; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                .stats-row { display: flex; gap: 4px; }
-                .stat-badge { font-size: 10px; padding: 1px 4px; border-radius: 3px; font-weight: bold; }
-                .stat-badge.dmg { background: #300; color: #f99; border: 1px solid #600; }
-                .stat-badge.heal { background: #030; color: #9f9; border: 1px solid #060; }
-                .stat-badge.kill { background: #203; color: #e9f; border: 1px solid #406; }
-                .damage-bar-track { width: 100%; height: 6px; background: #333; border-radius: 3px; margin-top: 4px; overflow: hidden; }
-                .damage-bar-fill { height: 100%; transition: width 1.5s ease-out; }
-                .reward-section { background: rgba(0,0,0,0.6); padding: 5px 10px; border-top: 1px solid #444; }
-                .reward-title { color: #ffd700; font-size: 12px; font-weight: 900; text-align: center; letter-spacing: 2px; }
-                .reward-list { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-                .reward-item { display: flex; flex-direction: column; align-items: center; width: 40px; }
-                .reward-icon { width: 32px; height: 32px; background-size: contain; background-repeat: no-repeat; background-position: center; border: 1px solid #666; background-color: #222; }
-                .reward-val { font-size: 11px; font-weight: bold; color: #fff; margin-top: -8px; z-index: 2; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000; }
-                .btn-return { background: linear-gradient(to bottom, #d32f2f, #b71c1c); border: 1px solid #f55; color: #fff; font-size: 16px; font-weight: bold; padding: 10px 40px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 0 #800; }
-            `;
-            document.head.appendChild(style);
-        }
+        // リザルトCSS は style-battle-v2.css に外部化済み
 
         document.body.appendChild(overlay);
         

@@ -392,9 +392,7 @@ window.updateGlobalHeader = () => {
 // --- シーン遷移ショートカット（HTMLのonclick用） ---
 window.changeScene    = (id, opts) => app.changeScene(id, opts);
 window.goHome         = () => app.changeScene('screen-home');
-window.goToQuest      = () => app.changeScene('screen-edit');
-window.goToFormation   = () => app.changeScene('screen-edit');
-window.goToEnhance     = () => app.changeScene('screen-enhance');
+
 window.goToSugoroku    = () => app.changeScene('screen-map-select');
 
 // --- 編成操作 ---
@@ -402,9 +400,7 @@ window.clearFormation = () => { if (app.formationScreen) app.formationScreen.cle
 window.startBattle    = () => app.changeScene('screen-sugoroku');
 
 // --- 強化操作 ---
-window.execLevelUp    = () => { if (app.enhanceScreen) app.enhanceScreen.levelUp(); };
-window.execSkillUp    = () => { if (app.enhanceScreen) app.enhanceScreen.skillUp(); };
-window.execLimitBreak = () => { if (app.enhanceScreen) app.enhanceScreen.limitBreak(); };
+
 
 // --- バトル操作 ---
 window.backToEdit = () => {
