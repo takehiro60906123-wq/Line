@@ -1693,6 +1693,36 @@ class PanelBattleUI {
         }
     }
 
+      setGridBackground(basePath, layerFile = 'layer6.webp') {
+        const hasPath = typeof basePath === 'string' && basePath.length > 0;
+        if (hasPath) {
+            const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
+            const target = `${normalizedBase}${layerFile || 'layer6.webp'}`;
+            // 下部パネル背面は必ず stage 前景(layer6)で埋め、HOME画面が透けないようにする
+            this._gridBaseBackground = `url('${target}') center bottom / auto 100% repeat-x`;
+        } else {
+            this._gridBaseBackground = '#000';
+        }
+        const gridArea = document.querySelector('.pb-container');
+        if (gridArea) {
+             gridArea.style.setProperty('background', this._gridBaseBackground, 'important');
+        }
+    }
+
+    _restoreGridBaseBackground() {
+        const gridArea = document.querySelector('.pb-container');
+        if (!gridArea) return;
+
+        if (this._gridBaseBackground) {
+            gridArea.style.setProperty('background', this._gridBaseBackground, 'important');
+        } else {
+            gridArea.style.setProperty('background', 'transparent', 'important');
+        }
+        gridArea.style.removeProperty('backdrop-filter');
+        gridArea.style.removeProperty('-webkit-backdrop-filter');
+        gridArea.style.removeProperty('box-shadow');
+    }
+
   // ========================================
     // 背景の演出を開始する機能
     // ========================================
@@ -1731,12 +1761,8 @@ class PanelBattleUI {
         }
         
         if (gridArea) {
-            // ▼ 修正: 透明だと「黒い下地」が見える罠があるため、
-            // RPGらしい「透明感のあるクリスタルブルー（すりガラス風）」の背景を敷いて明るくする！
-            gridArea.style.setProperty('background', 'linear-gradient(to bottom, rgba(70, 130, 200, 0.5), rgba(30, 70, 130, 0.8))', 'important');
-            gridArea.style.setProperty('backdrop-filter', 'blur(4px)', 'important');
-            gridArea.style.setProperty('-webkit-backdrop-filter', 'blur(4px)', 'important'); // iOS対応
-            gridArea.style.setProperty('box-shadow', 'inset 0 2px 10px rgba(255, 255, 255, 0.2)', 'important'); // 上部にうっすら光るフチ
+           // 通常時はステージ前景（layer6）を下部コンテナにも復元する
+            this._restoreGridBaseBackground();
         }
         
         if (battleScreen) {

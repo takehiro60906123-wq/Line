@@ -277,12 +277,31 @@ class BattleScreen {
         await this.sleep(2500);
         
         while (this.active) {
+            // ▼ 先頭でも勝敗チェックを行う
+            let currentResult = this.state.checkResult();
+            if (currentResult) { 
+                this.endBattle(currentResult); 
+                break; 
+            }
+
             let queue = this.state.getQueue();
-            if (queue.length === 0) break;
+            if (queue.length === 0) {
+                // 行動できるキャラがいなくなったら引き分け扱いにするか再度判定
+                this.endBattle('lose'); // 進行不能を防ぐためのフェイルセーフ
+                break;
+            }
             
             for (const actor of queue) {
                 if (!this.active) break;
-                if (actor.isDead) continue; 
+                
+                // ▼ ここでも毎度勝敗チェック
+                currentResult = this.state.checkResult();
+                if (currentResult) { 
+                    this.endBattle(currentResult); 
+                    break; 
+                }
+
+                if (actor.isDead) continue;
                 
                 const result = this.state.checkResult();
                 if (result) { this.endBattle(result); break; }

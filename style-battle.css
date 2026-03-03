@@ -88,9 +88,9 @@
 .order-bar-container { display: none !important; }
 
 .battle-area-container { width: 100%; height: 220px; display: flex; justify-content: center; pointer-events: none; }
-.battle-area-enemy { position: fixed; top: 300px; left: 0; right: 0; }
+.battle-area-enemy { position: fixed; top: 150px; left: 0; right: 0; }
          
-.battle-area-player { position: fixed; bottom: 170px; left: 0; right: 0; }
+.battle-area-player { position: fixed; bottom: 100px; left: 0; right: 0; }
 .battle-board { border: none !important; background: transparent !important; }
 .unit-container { position: absolute; pointer-events: auto; background: transparent !important; border: none !important; }
 .unit-container.size-S1x1 { width: 100px; height: 120px; }
@@ -237,8 +237,7 @@
     z-index: 20;
     white-space: nowrap;
 }
-        `;
-
+        
 /* =========================================
    バトルリザルト画面
    旧: scene_battle.js showResultPanel() 内 (id: result-style-v8)

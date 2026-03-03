@@ -26,7 +26,7 @@ const PANEL_TYPES = {
     heal:    { id: 'heal',    icon: '💚', label: '回復',       color: '#44cc44', weight: 20, image: panelImageCandidates('heal') },
     lvup:    { id: 'lvup',    icon: '😈', label: 'モンスター', color: '#8844aa', weight: 20, image: panelImageCandidates('lvup') },
     chick:   { id: 'chick',   icon: '🎫', label: 'チケット',   color: '#ffdd44', weight: 4, image: panelImageCandidates('chick') },
-    diamond: { id: 'diamond', icon: '💎', label: 'ダイア',     color: '#66e0ff', weight: 2, image: panelImageCandidates('diamond') }
+    diamond: { id: 'diamond', icon: '💎', label: 'ダイア',     color: '#66e0ff', weight: 0, image: panelImageCandidates('diamond') }
 };
 const MAX_CHICK_PANELS_ON_BOARD = 2;
 
@@ -831,7 +831,7 @@ class PanelBattleScreen {
             
             if (this.enemy.isStrong) {
                 // 強敵撃破の確定報酬パネル (必要であれば diamond を coin に変えてもOKです)
-                rewards.guaranteedPanels = ['chick', 'diamond'];
+                rewards.guaranteedPanels = ['chick', 'coin'];
 
                 // =========================================
                 // ▼ 修正: モンスターパネル(lvup)をコイン(coin)に変換

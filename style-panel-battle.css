@@ -389,7 +389,7 @@ background: linear-gradient(to right, #ff0000 0 var(--pb-enemy-hp-pct, 100%), #f
     bottom: 0;
     top: calc(56px + clamp(140px, 35%, 240px));
     z-index: 80;
-    background: rgba(0, 0, 0, 0.4);
+    background: transparent;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -400,7 +400,7 @@ background: linear-gradient(to right, #ff0000 0 var(--pb-enemy-hp-pct, 100%), #f
 /* --- カウンターバー --- */
 .pb-counter-bar {
     flex-shrink: 0;
-    background: linear-gradient(to bottom, #1a1a2e, #0a0a1a);
+    background: linear-gradient(to bottom, rgba(26, 26, 46, 0.72), rgba(10, 10, 26, 0.56));
     border-bottom: 2px solid #444;
 }
 .pb-counter-bar-inner {
@@ -454,12 +454,12 @@ background: linear-gradient(to right, #ff0000 0 var(--pb-enemy-hp-pct, 100%), #f
     content: "";
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.34);
+    background: transparent;
     pointer-events: none;
     z-index: 2;
 }
 .pb-container.pb-input-locked .pb-grid {
-    filter: brightness(0.62) saturate(0.78);
+   filter: none;
 }
 .pb-container.pb-input-locked .pb-panel {
     pointer-events: none;

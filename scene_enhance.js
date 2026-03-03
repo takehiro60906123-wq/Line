@@ -393,19 +393,19 @@ class EnhanceScreen {
             ${unit.isLocked ? 'ロック中' : (isInDeck ? '編成中' : '博士に送る (🍬+)')}
         </button>`;
       const bulkStartBtn = `<button class="btn-bulk-start" onclick="app.enhanceScreen.startBulkFromDetail()">一括整理</button>`;
-        // ★★★ レイアウト構築 ★★★
+       // ★★★ レイアウト構築 ★★★
         const detailHtml = `
             <div class="enh-new-layout">
                 
-                <div class="enh-col-left" style="background-image: ${bgUrl}; background-size: cover; background-position: center;">
+                <div class="enh-col-left">
                     
                     <div class="enh-name-header">
                         <div class="f-name-center">${unit.base.name}</div>
                     </div>
 
-                    <div class="enh-visual-box${rarityClass}">
-                        <div class="enh-bg-base" style="background-image:${bgUrl};"></div>
-                        <div class="enh-chara-img" style="background-image:${imgUrl}"></div>
+                    <div class="enh-visual-box${rarityClass}" style="background-image: ${imgUrl}, url('${bgUrl}'); background-size: contain, cover; background-position: center bottom, center; background-repeat: no-repeat, no-repeat;">
+                        
+                        <div class="visual-top-left">${gridHtml}</div>
                         
                         <div class="visual-top-left">${gridHtml}</div>
                         <div class="visual-top-right">${lockBtnHtml}</div>
@@ -499,11 +499,14 @@ class EnhanceScreen {
             }
             el.className = className;
             
-            // 背景画像（編成画面と統一）
+            // 背景画像（編成画面と完全に統一）
             const charImg = IMG_DATA[base.id] ? `url('${IMG_DATA[base.id]}')` : 'none';
             const bgImg = `url('${this.getCardBgUrl(base.type, base.cost)}')`;
             el.style.backgroundImage = `${charImg}, ${bgImg}`;
-            el.style.backgroundSize = "cover, cover";
+            // ▼ サイズと位置を調整
+            el.style.backgroundPosition = "center 34%, center";
+            el.style.backgroundSize = "92% 92%, cover";
+            el.style.backgroundRepeat = "no-repeat, no-repeat";
             
             // バッジ類
            
@@ -540,7 +543,9 @@ class EnhanceScreen {
     }
     
     getCardBgUrl(typeId, cost) {
-        const colors = ['purple', 'gold', 'pink', 'green', 'blue', 'red'];
+        // ★編成画面のロジックに統一
+        if (typeId === 5) return 'images/bg/bg_white_ur.webp';
+        const colors = ['red', 'blue', 'green', 'purple', 'gold', 'white'];
         const color = colors[typeId] || 'red';
         let rarity = 'r';
         if (cost >= 5) rarity = 'ur';

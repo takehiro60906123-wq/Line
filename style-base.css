@@ -68,6 +68,8 @@ body {
 /* ホーム画面だけは背景を透過して壁紙を見せる */
 #screen-home { background: transparent !important; }
 
+/* クエスト（パネルバトル含む）は暗幕を敷かず、ステージ背景をそのまま表示 */
+#screen-sugoroku { background: transparent !important; }
 
 /* =========================================
    フッター (共通)

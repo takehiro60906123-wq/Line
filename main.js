@@ -23,7 +23,7 @@ if (typeof CardEquipScreen === 'undefined') window.CardEquipScreen = class { onE
 // 2. マップ選択画面
 // ============================================================
 class MapSelectScreen {
-    onEnter() {
+   onEnter() {
         const list = document.getElementById('stage-list');
         if (!list) return;
         list.innerHTML = '';
@@ -36,7 +36,14 @@ class MapSelectScreen {
         Object.keys(SUGOROKU_STAGES).forEach(key => {
             const id = parseInt(key);
             const stage = SUGOROKU_STAGES[id];
-            const maxCleared = (app.data && app.data.maxClearedStage) ? app.data.maxClearedStage : 0;
+            
+            // ▼ 修正: maxClearedStage がない場合は stageClearCounts から算出する
+            let maxCleared = (app.data && app.data.maxClearedStage) ? app.data.maxClearedStage : 0;
+            if (maxCleared === 0 && app.data && app.data.stageClearCounts) {
+                const clearedIds = Object.keys(app.data.stageClearCounts).map(Number);
+                if (clearedIds.length > 0) maxCleared = Math.max(...clearedIds);
+            }
+            
             const currentSlots = (app.data && app.data.maxSlots) ? app.data.maxSlots : 4;
             const isLocked = id > maxCleared + 1;
             const isCleared = id <= maxCleared;
@@ -56,6 +63,12 @@ class MapSelectScreen {
                     <div style="color:#00ffaa; font-size:11px; font-weight:bold; margin-top:2px; text-shadow:0 1px 2px #000; background:rgba(0,0,0,0.5); padding:2px 6px; border-radius:4px; width:fit-content; display:flex; align-items:center; gap:4px;">
                         <span>🎁</span> 初回報酬：<span style="color:#ffff00;">編成枠解放 (+1)</span>
                     </div>`;
+            }
+
+            // ▼ 追加: 1回でもクリアしていれば、エンドレスモードの説明を表示する
+            let descText = stage.desc || '';
+            if (cc > 0) {
+                descText = `<span style="color:#ffd700; font-weight:bold; line-height:1.4;">【ENDLESS MODE 開放】</span><br><span style="font-size:11px;">100階層への挑戦が可能になりました。<br>深層には他エリアの敵も出現します。</span>`;
             }
 
             if (isLocked) {
@@ -80,11 +93,16 @@ class MapSelectScreen {
                         <div class="stage-level">推奨Lv: ${stage.level || 1}</div>
                         ${rewardHtml}
                         <div class="stage-title">Stage ${id}: ${stage.name}</div>
-                        <div class="stage-desc">${stage.desc || ''}</div>
+                        <div class="stage-desc">${descText}</div>
                     </div>
                 `;
                 div.onclick = () => {
                     if (app.sound) app.sound.tap();
+                    // ▼ 修正: デッキが空かどうかのチェックをここに追加
+                    if (!app.data.deck || app.data.deck.length === 0) {
+                        alert("部隊にキャラクターが編成されていません。\n「編成」画面からキャラクターを配置してください。");
+                        return;
+                    }
                     app.changeScene('screen-sugoroku', { stageId: id });
                 };
             }

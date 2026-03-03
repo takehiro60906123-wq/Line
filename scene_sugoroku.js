@@ -71,8 +71,11 @@ class SugorokuScreen {
             // ==========================================
             const c = this.stageConfigs[this.currentStageId] || this.stageConfigs[1];
             if (c && c.bgPath && typeof app.panelBattleScreen.ui.setGridBackground === 'function') {
-                // パネルバトルUIに背景画像を設定するメソッド（例：setGridBackground）があると想定
-                app.panelBattleScreen.ui.setGridBackground(c.bgPath);
+                const frontLayer = Array.isArray(c.layers)
+                    ? (c.layers.find(l => l && l.isFront && l.file) || c.layers[c.layers.length - 1])
+                    : null;
+                const frontLayerFile = (frontLayer && frontLayer.file) ? frontLayer.file : 'layer6.webp';
+                app.panelBattleScreen.ui.setGridBackground(c.bgPath, frontLayerFile);
             }
         }
     }
@@ -120,11 +123,18 @@ class SugorokuScreen {
         setTimeout(() => this.advanceToNext(), 400);
     }
 
-    _generateEncounters(config) {
+   _generateEncounters(config) {
+        // ▼ 追加: このステージのクリア回数を取得して、エンドレスモードか判定
+        const thisStageClearCount = (app.data && app.data.stageClearCounts) ? (app.data.stageClearCounts[this.currentStageId] || 0) : 0;
+        const isEndlessMode = thisStageClearCount > 0; // 1回でもクリアしていれば100Fモード
+
         const baseTotal = config.totalEncounters || 10;
-        const total = Math.max(baseTotal + 6, Math.floor(baseTotal * 1.8));
+        // クリア済みなら100階層、未クリアなら元の長さ
+        const total = isEndlessMode ? 100 : Math.max(baseTotal + 6, Math.floor(baseTotal * 1.8)); 
+        
         const midbossRatio = Math.max(0.25, Math.min(0.8, (config.midbossAt || Math.floor(baseTotal / 2)) / Math.max(1, baseTotal)));
         const midbossAt = Math.max(3, Math.min(total - 2, Math.round(total * midbossRatio)));
+        
         const list = [];
         const clearCount = this._getClearedStageCount();
 
@@ -142,22 +152,36 @@ class SugorokuScreen {
             return 'gold';
         };
 
-        // 共有モンスター + ステージ固有モンスターを混ぜる。
-        // 固有モンスターは「10戦ごとに2体ずつ」解放していく。
+        // ▼ 追加: 全ステージの敵を収集（エンドレスモードの深層用）
+        const allStageEnemies = [];
+        if (typeof SUGOROKU_STAGES !== 'undefined') {
+            Object.values(SUGOROKU_STAGES).forEach(stg => {
+                if (stg.panelEnemies) allStageEnemies.push(...stg.panelEnemies);
+            });
+        }
+
         const stageEnemies = Array.isArray(config.panelEnemies) ? config.panelEnemies : [];
         const sharedEnemies = (typeof PANEL_BATTLE_ENEMIES !== 'undefined' && Array.isArray(PANEL_BATTLE_ENEMIES))
             ? PANEL_BATTLE_ENEMIES
             : [];
 
-        const pickEnemy = (encounterIndex = 0, totalEncounters = total) => {
+        // ▼ 敵をピックアップする関数
+        const pickEnemy = (encounterIndex = 0, totalEncounters = total, forceStrong = false) => {
             const scaledLv = this._scaledEnemyLv(config.enemyLv || 5);
             const progressRatio = totalEncounters > 1 ? (encounterIndex / (totalEncounters - 1)) : 0;
-           const strongRate = Math.min(0.72, 0.2 + progressRatio * 0.4 + clearCount * 0.05);
-            const isStrong = Math.random() < strongRate;
-            // クリア周回と現在遭遇位置を合算して、10戦ごとに固有枠を2体解放
+            const strongRate = Math.min(0.72, 0.2 + progressRatio * 0.4 + clearCount * 0.05);
+            
+            const isStrong = forceStrong || Math.random() < strongRate; 
+            
+            // ★ エンドレスモードの深層（50階以降）は、他ステージの敵も混ざり始める
+            let currentPoolEnemies = stageEnemies;
+            if (isEndlessMode && encounterIndex > 50) {
+                currentPoolEnemies = allStageEnemies;
+            }
+
             const battleProgress = clearCount * Math.max(1, config.totalEncounters || 10) + encounterIndex + 1;
-            const unlockedStageCount = Math.max(0, Math.min(stageEnemies.length, Math.floor(battleProgress / 10) * 2));
-            const unlockedStageEnemies = stageEnemies.slice(0, unlockedStageCount);
+            const unlockedStageCount = Math.max(0, Math.min(currentPoolEnemies.length, Math.floor(battleProgress / 10) * 2));
+            const unlockedStageEnemies = currentPoolEnemies.slice(0, unlockedStageCount);
 
             const mergedPool = [];
             const seenIds = new Set();
@@ -168,7 +192,7 @@ class SugorokuScreen {
             }
 
             let enemy;
-             if (mergedPool.length > 0) {
+            if (mergedPool.length > 0) {
                 const template = mergedPool[Math.floor(Math.random() * mergedPool.length)];
                 enemy = JSON.parse(JSON.stringify(template));
                 const stageScale = 1 + (scaledLv - 1) * 0.14 + clearCount * 0.06;
@@ -179,20 +203,22 @@ class SugorokuScreen {
                 enemy = PanelBattleScreen.generateEnemy(config.enemyLv || 5, clearCount);
             }
 
-         const combatHpMul = 1.45 + progressRatio * 0.55 + clearCount * 0.08;
-            const combatAtkMul = 1.22 + progressRatio * 0.34 + clearCount * 0.05;
-           // =========================================
-            // ▼ 修正: 最後に「* 1.2」を追加して、全体のHPを20%アップさせる！
-            // =========================================
-            enemy.hp = Math.floor(enemy.hp * combatHpMul * 2);
-
+            // ★ エンドレスモードでは進むほど倍率が劇的に上がる（100Fで非常に強くなる）
+            const endlessMul = isEndlessMode ? (1 + progressRatio * 2.5) : 1;
+            
+            const combatHpMul = (1.45 + progressRatio * 0.55 + clearCount * 0.08) * endlessMul;
+            const combatAtkMul = (1.22 + progressRatio * 0.34 + clearCount * 0.05) * endlessMul;
+            
+            enemy.hp = Math.floor(enemy.hp * combatHpMul * 1.2);
             enemy.atk = Math.floor(enemy.atk * combatAtkMul);
-            enemy.expBase = Math.floor((enemy.expBase || 30) * (1.05 + progressRatio * 0.2));
-            enemy.goldBase = Math.floor((enemy.goldBase || 50) * (1.05 + progressRatio * 0.2));
+            enemy.expBase = Math.floor((enemy.expBase || 30) * (1.05 + progressRatio * 0.2) * endlessMul);
+            enemy.goldBase = Math.floor((enemy.goldBase || 50) * (1.05 + progressRatio * 0.2) * endlessMul);
 
             const monsterPanelBonus = Math.floor(Math.max(0, scaledLv - 5) * 1.1 + progressRatio * 7 + clearCount * 0.8);
             enemy.monsterPanelBonus = monsterPanelBonus;
-            enemy.level = Math.max(1, scaledLv + (isStrong ? 3 : 0));
+            
+            // レベルも進行度に応じて上昇
+            enemy.level = Math.max(1, scaledLv + Math.floor(progressRatio * 40) + (isStrong ? 3 : 0));
             enemy.isStrong = isStrong;
 
             if (isStrong) {
@@ -203,32 +229,51 @@ class SugorokuScreen {
                 enemy.name = `強敵${enemy.name}`;
             }
             
-             return enemy;
+            return enemy;
         };
 
+        // ▼ マスの生成ループ
         let battlesSinceEvent = 0;
         for (let i = 0; i < total; i++) {
-            if (i === midbossAt - 1) {
-                
-                list.push({ type: 'midboss' });
-            } else if (i === total - 1) {
-                
-                list.push({ type: 'boss' });
-            } else {
-                 const forceEvent = battlesSinceEvent >= 5;
-                const shouldEvent = forceEvent || (battlesSinceEvent >= 3 && Math.random() < 0.18);
-                if (shouldEvent) {
-                    list.push({ type: pickEvent() });
-                    battlesSinceEvent = 0;
+            if (isEndlessMode) {
+                // エンドレスモード：10階層ごとに中ボス、100階層で大ボス
+                if (i === total - 1) {
+                    list.push({ type: 'boss', enemyData: pickEnemy(i, total, true) });
+                } else if ((i + 1) % 10 === 0) {
+                    list.push({ type: 'midboss', enemyData: pickEnemy(i, total, true) });
                 } else {
-                    list.push({ type: 'enemy', enemyData: pickEnemy(i, total) });
-                    battlesSinceEvent++;
+                    const forceEvent = battlesSinceEvent >= 5;
+                    const shouldEvent = forceEvent || (battlesSinceEvent >= 3 && Math.random() < 0.18);
+                    if (shouldEvent) {
+                        list.push({ type: pickEvent() });
+                        battlesSinceEvent = 0;
+                    } else {
+                        list.push({ type: 'enemy', enemyData: pickEnemy(i, total) });
+                        battlesSinceEvent++;
+                    }
+                }
+            } else {
+                // 通常モード（初回クリアまで）
+                if (i === midbossAt - 1) {
+                    list.push({ type: 'midboss', enemyData: pickEnemy(i, total, true) });
+                } else if (i === total - 1) {
+                    list.push({ type: 'boss', enemyData: pickEnemy(i, total, true) });
+                } else {
+                    const forceEvent = battlesSinceEvent >= 5;
+                    const shouldEvent = forceEvent || (battlesSinceEvent >= 3 && Math.random() < 0.18);
+                    if (shouldEvent) {
+                        list.push({ type: pickEvent() });
+                        battlesSinceEvent = 0;
+                    } else {
+                        list.push({ type: 'enemy', enemyData: pickEnemy(i, total) });
+                        battlesSinceEvent++;
+                    }
                 }
             }
         }
 
-        // 最低1つギャンブルが入るようにする（まだ無ければ）
-       if (!list.some(e => e.type === 'gamble') && list.length > 6) {
+        // 最低1つギャンブルが入るようにする
+        if (!list.some(e => e.type === 'gamble') && list.length > 6) {
             const idx = 3 + Math.floor(Math.random() * (list.length - 5));
             if (list[idx].type !== 'midboss' && list[idx].type !== 'boss' && list[idx].type !== 'enemy') {
                 list[idx] = { type: 'gamble' };
@@ -259,14 +304,18 @@ class SugorokuScreen {
     async processEncounter(enc) {
         switch (enc.type) {
             case 'enemy':
-                       this._applyQuestDefaultLayout('敵と遭遇！');
+                this._applyQuestDefaultLayout('敵と遭遇！');
                 await this.doEnemyPanelBattle(enc.enemyData);
                 break;
             case 'midboss':
-                await this.doMidbossBattle();
+                // ▼ 修正: デッキバトルを廃止し、パネルバトルを呼ぶ
+                this._applyQuestDefaultLayout('強敵と遭遇！');
+                await this.doEnemyPanelBattle(enc.enemyData);
                 break;
             case 'boss':
-                await this.doBossBattle();
+                // ▼ 修正: デッキバトルを廃止し、パネルバトルを呼ぶ（第2引数にtrueを渡してボス判定）
+                this._applyQuestDefaultLayout('ボスと遭遇！');
+                await this.doEnemyPanelBattle(enc.enemyData, true); 
                 break;
             case 'gold':    await this.doGoldGacha(); this._nextEncounter(); break;
             case 'diamond': await this.doDiamondGacha(); this._nextEncounter(); break;
@@ -321,7 +370,7 @@ class SugorokuScreen {
     // ========================================
     // パネルバトル（雑魚戦）
     // ========================================
-    async doEnemyPanelBattle(enemyData) {
+    async doEnemyPanelBattle(enemyData, isBoss = false) {
         const pStats = this._getPlayerStats();
         pStats.hp = Math.max(1, Math.min(this._panelBattleHp || pStats.maxHp, pStats.maxHp));
 
@@ -330,6 +379,16 @@ class SugorokuScreen {
         // ==========================================
         if (enemyData.isStrong && app.panelBattleScreen && app.panelBattleScreen.ui && typeof app.panelBattleScreen.ui.startGridEffect === 'function') {
             app.panelBattleScreen.ui.startGridEffect('strong_enemy');
+        }
+
+         const stageConfig = this.stageConfigs[this.currentStageId] || this.stageConfigs[1];
+        if (stageConfig && stageConfig.bgPath && app.panelBattleScreen && app.panelBattleScreen.ui
+            && typeof app.panelBattleScreen.ui.setGridBackground === 'function') {
+            const frontLayer = Array.isArray(stageConfig.layers)
+                ? (stageConfig.layers.find(l => l && l.isFront && l.file) || stageConfig.layers[stageConfig.layers.length - 1])
+                : null;
+            const frontLayerFile = (frontLayer && frontLayer.file) ? frontLayer.file : 'layer6.webp';
+            app.panelBattleScreen.ui.setGridBackground(stageConfig.bgPath, frontLayerFile);
         }
 
         // パネルバトル開始
@@ -379,6 +438,11 @@ class SugorokuScreen {
                         if (!this.adventureLog.cardsDropped) this.adventureLog.cardsDropped = [];
                         this.adventureLog.cardsDropped.push({ name, color: card.color, level: card.level });
                     }
+                }
+                // ▼ 追加: ボス戦に勝利した場合はクリア画面に進む！
+                if (isBoss) {
+                    this.gameClear();
+                    return;
                 }
 
                 this._nextEncounter();

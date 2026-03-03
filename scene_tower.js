@@ -168,17 +168,15 @@ class TowerScreen {
         this.render();
     }
 
+   // =============================================
+    // 画面レンダリング (編成ボードと同じデザインで構築)
     // =============================================
-    // 画面レンダリング
-    // =============================================
-    render() {
+   render() {
         const floorNum = document.getElementById('tower-floor-num');
         const enemyInfo = document.getElementById('tower-enemy-info');
 
-        if (floorNum) floorNum.innerText = '第 ' + this.floor + ' 階層';
+        if (floorNum) floorNum.style.display = 'none'; // 古い上部テキストは隠し、新しいヘッダーに統合
 
-       // 【修正前】 const estLv = 10 + (this.floor * 2);
-        // 【修正後】 生成部分の計算式と同じにする
         const estLv = this.floor;
         const isBoss = (this.floor % 5 === 0);
         const rewardGem = isBoss ? 500 : 500;
@@ -188,103 +186,202 @@ class TowerScreen {
         this.enemyUnits.forEach(u => { totalHp += u.maxHp; totalAtk += u.atk; });
 
         if (enemyInfo) {
-            enemyInfo.innerHTML = ''
-                + '<div class="tower-info-row" style="margin-bottom:6px;">'
-                + '  敵Lv.' + estLv + ' '
-                + (isBoss ? '<span style="color:#ff4444;font-weight:bold;">⚠ BOSS階層</span>' : '(通常階層)')
-                + '</div>'
-                + '<div class="tower-section-label">敵 編成</div>'
-                + '<div class="tower-card-grid" id="tower-card-grid"></div>'
-                + '<div class="tower-enemy-stats">'
-                + '  <span class="tes-item">❤️ ' + totalHp.toLocaleString() + '</span>'
-                + '  <span class="tes-item">⚔️ ' + totalAtk.toLocaleString() + '</span>'
-                + '  <span class="tes-item">👥 ' + this.enemyUnits.length + '体</span>'
-                + '</div>'
-                + '<button class="btn-tower-reroll" onclick="app.towerScreen.rerollEnemy()">'
-                + '  🔄 敵を入替え <span style="font-size:11px;opacity:0.8;">(💎10)</span>'
-                + '</button>'
-                + '<div class="tower-reward">'
-                + '  <div style="font-size:11px;color:#aaa;margin-bottom:3px;">クリア報酬</div>'
-                + '  <div style="display:flex;align-items:center;gap:15px;justify-content:center;font-size:14px;">'
-                + '    <span>💎 ' + rewardGem + '</span>'
-                + '    <span>💰 ' + rewardGold.toLocaleString() + '</span>'
-                + '  </div>'
-                + '</div>';
+            // 空マスのデザイン (少し暗く、リッチな質感に)
+            let cellsHtml = '';
+            for (let i = 0; i < 8; i++) {
+                let label = i < 4 ? 'FRONT ' + (i + 1) : 'BACK ' + (i - 3);
+                cellsHtml += `<div class="grid-cell" data-idx="${i}" style="position:relative; background:rgba(20, 25, 35, 0.8); border:1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 12px rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.15); font-size:10px; font-weight:900; font-family:Arial, sans-serif; letter-spacing:1px; border-radius:4px; box-sizing:border-box;">${label}</div>`;
+            }
+
+            const headerColor = isBoss ? '#ff4444' : '#00ced1';
+            const headerText = isBoss ? '⚠ BOSS BATTLE' : 'ENEMY FORMATION';
+
+         enemyInfo.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid ${headerColor}; padding-bottom: 4px; margin-bottom: 6px; position:relative;">
+                    
+                    <button onclick="app.changeScene('screen-home')" style="position:absolute; top:-2px; right:0; z-index:10; background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.3); color:#fff; border-radius:50%; width:30px; height:30px; font-size:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.5);">🏠</button>
+
+                    <div style="position:absolute; bottom:0; left:0; width:60%; height:2px; background:linear-gradient(90deg, #fff, transparent); z-index:2;"></div>
+                    
+                    <div style="font-size: 15px; font-weight: 900; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8), 0 0 10px ${headerColor}; letter-spacing: 1px; line-height: 1.1; padding-top:2px;">
+                        <span style="font-size: 9px; color: ${headerColor}; text-shadow:none; font-family: Arial, sans-serif;">FLOOR ${this.floor}</span><br>
+                        ${headerText}
+                    </div>
+                    <div style="text-align:right; padding-right: 36px;">
+                        <div style="font-size: 9px; color: #aaa; font-weight: bold;">敵Lv目安</div>
+                        <div style="font-size: 15px; color: #fff; font-weight: 900; font-family: 'Arial Black', sans-serif; text-shadow: 1px 1px 0 #000, 0 0 5px rgba(255,255,255,0.4);">Lv.${estLv}</div>
+                    </div>
+                </div>
+
+                <div class="formation-board-large" style="margin: 0 auto 6px auto !important; width: 80% !important; aspect-ratio: 2 / 1; position: relative;">
+                    <div class="grid-bg" id="tower-grid-bg" style="display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(2,1fr); width:100%; height:100%; gap:2px; padding:2px; box-sizing:border-box; background:rgba(10, 15, 25, 0.8);">
+                        ${cellsHtml}
+                    </div>
+                    <div id="tower-enemy-board-layer" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></div>
+                </div>
+
+                <div id="tower-leader-skill-area" style="margin-bottom: 6px;"></div>
+
+                <div style="background: linear-gradient(135deg, rgba(20,25,35,0.95), rgba(10,15,25,0.95)); border: 1px solid rgba(100, 120, 150, 0.3); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.6);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed rgba(255,255,255,0.15); padding-bottom: 4px; margin-bottom: 4px;">
+                        <div style="font-size: 9px; color: #88c0d0; font-weight: bold; letter-spacing: 0.5px;">ENEMY STATS</div>
+                        <div style="display: flex; gap: 12px; font-size: 11px; font-weight: 900; font-family: Arial, sans-serif; text-shadow: 1px 1px 0 #000;">
+                            <span style="color:#ff6b6b; display:flex; align-items:center; gap:2px;"><span style="font-size:8px; color:#aaa;">HP</span> ${totalHp.toLocaleString()}</span>
+                            <span style="color:#f6c177; display:flex; align-items:center; gap:2px;"><span style="font-size:8px; color:#aaa;">ATK</span> ${totalAtk.toLocaleString()}</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="font-size: 9px; color: #d8dee9; font-weight: bold; letter-spacing: 0.5px;">CLEAR REWARD</div>
+                        <div style="display: flex; gap: 12px; font-size: 12px; font-weight: 900; font-family: Arial, sans-serif; text-shadow: 1px 1px 0 #000;">
+                            <span style="color: #55ffff; filter: drop-shadow(0 0 2px rgba(0,255,255,0.6));">💎 ${rewardGem}</span>
+                            <span style="color: #ffdd55; filter: drop-shadow(0 0 2px rgba(255,221,0,0.6));">💰 ${rewardGold.toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="app.towerScreen.rerollEnemy()" style="width: 100%; padding: 8px; background: linear-gradient(180deg, #4a2b4d, #25162b); border: 1px solid #c678dd; border-radius: 6px; color: #fff; font-size: 12px; font-weight: 900; box-shadow: 0 2px 5px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.2); cursor: pointer; text-shadow: 1px 1px 2px #000; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <span>🔄 敵部隊を再探索する</span>
+                    <span style="background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 10px; font-size: 9px; border: 1px solid rgba(255,255,255,0.2); color: #e06c75; font-weight: bold;">消費 💎10</span>
+                </button>
+            `;
         }
 
         this.renderEnemyCards();
     }
 
+   // =============================================
+    // ★カードグリッド表示 (編成画面の配置ロジック)
     // =============================================
-    // ★カードグリッド表示 (編成画面と同じスタイル)
-    // =============================================
-    renderEnemyCards() {
-        const grid = document.getElementById('tower-card-grid');
-        if (!grid) return;
-        grid.innerHTML = '';
+   renderEnemyCards() {
+        const layer = document.getElementById('tower-enemy-board-layer');
+        const bg = document.getElementById('tower-grid-bg');
+        if (!layer || !bg) return;
+        layer.innerHTML = '';
 
-        const ELEM_ICONS = { fire:'🔥', water:'💧', grass:'🌿', light:'☀️', dark:'🌑', neutral:'⚪' };
-
-        // ★リーダースキル表示
+        // ★高品質なリーダースキル装飾
         if (this.enemyUnits.length > 0) {
             const leader = this.enemyUnits.reduce((a,b) => (a._anchor <= b._anchor) ? a : b);
             const ls = leader.base && leader.base.leaderSkill;
-            if (ls) {
-                const lsDiv = document.createElement('div');
-                lsDiv.style.cssText = 'text-align:center;margin:4px 0;padding:4px 8px;background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.4);border-radius:6px;font-size:12px;color:#ffd700;';
-                lsDiv.innerHTML = '👑 ' + leader.base.name + '「' + ls.name + '」<br><span style="font-size:11px;color:#ccc;">' + ls.desc + '</span>';
-                grid.parentNode.insertBefore(lsDiv, grid);
+            const lsArea = document.getElementById('tower-leader-skill-area');
+            
+            if (ls && lsArea) {
+                lsArea.innerHTML = `
+                    <div style="background: linear-gradient(90deg, rgba(40,30,10,0.95) 0%, rgba(80,60,15,0.85) 50%, rgba(40,30,10,0.95) 100%); border: 1px solid #e5c07b; border-radius: 6px; padding: 6px 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.7), inset 0 0 15px rgba(229,192,123,0.15); display: flex; align-items: center; gap: 8px;">
+                        <div style="font-size: 24px; filter: drop-shadow(0 0 5px #e5c07b); line-height:1;">👑</div>
+                        <div style="flex: 1; text-align: left;">
+                            <div style="font-size: 9px; color: #e5c07b; font-weight: 900; margin-bottom: 2px; letter-spacing: 0.5px;">LEADER EFFECT</div>
+                            <div style="font-size: 12px; color: #fff; font-weight: bold; text-shadow: 1px 1px 0 #000; margin-bottom: 2px;">${ls.name} <span style="font-size:9px; color:#aaa; font-weight:normal;">(${leader.base.name})</span></div>
+                            <div style="font-size: 10px; color: #ddd; line-height: 1.3; text-shadow: 1px 1px 0 #000;">${ls.desc}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // リーダーマスの枠を光らせる
+            const cell = bg.querySelector(`.grid-cell[data-idx="${leader._anchor}"]`);
+            if (cell) {
+                cell.innerHTML = '<span style="font-size:14px; filter:drop-shadow(0 0 2px #e5c07b);">👑</span>';
+                cell.style.borderColor = 'rgba(229, 192, 123, 0.9)';
+                cell.style.boxShadow = 'inset 0 0 15px rgba(229, 192, 123, 0.4)';
+                cell.style.background = 'rgba(80, 60, 15, 0.6)';
             }
         }
 
         this.enemyUnits.forEach(unit => {
+            const anchor = unit._anchor;
+            
+            // マスの色付け (属性カラー)
+            const occupiedCells = unit.getOccupiedCells ? unit.getOccupiedCells(anchor) : [anchor];
+            occupiedCells.forEach(idx => {
+                const cellEl = bg.querySelector(`.grid-cell[data-idx="${idx}"]`);
+                if (cellEl) cellEl.classList.add('type-color-' + unit.base.type);
+            });
+
+            // キャラ画像 (盤面用)
             const card = document.createElement('div');
-            card.className = 'tower-enemy-card';
+            card.className = `board-unit size-${unit.base.shape.code}`;
+            card.style.pointerEvents = 'auto'; // クリック可能に
+            card.style.cursor = 'pointer';
 
-            const bgUrl = this._getCardBgUrl(unit.base.type, unit.base.cost);
-            const charImg = (typeof IMG_DATA !== 'undefined' && IMG_DATA[unit.base.id])
-                ? 'url(' + IMG_DATA[unit.base.id] + ')'
-                : 'none';
-            card.style.backgroundImage = charImg + ', url(\'' + bgUrl + '\')';
-            card.style.backgroundSize = 'cover, cover';
-            card.style.backgroundPosition = 'center, center';
-
-            if (unit.base.cost >= 5) card.classList.add('rarity-ur');
-
-            const lvBadge = document.createElement('div');
-            lvBadge.className = 'tec-lv-badge';
-            lvBadge.textContent = 'Lv' + unit.save.lv;
-            card.appendChild(lvBadge);
-
-            // ★属性アイコン (旧typeバッジの代替)
-            const elemIcon = ELEM_ICONS[unit.base.element] || '⚪';
-            const typeBadge = document.createElement('div');
-            typeBadge.className = 'tec-type-badge';
-            typeBadge.textContent = elemIcon;
-            card.appendChild(typeBadge);
-
-            const footer = document.createElement('div');
-            footer.className = 'tec-footer';
-            const cost = unit.base.cost;
-            const lbCount = unit.lbCount || 0;
-            let starsHtml = '';
-            for (let i = 0; i < 5; i++) {
-                if (i < lbCount) starsHtml += '<span style="color:#ff0055;text-shadow:0 0 5px #ff0055;">★</span>';
-                else if (i < cost) starsHtml += '<span style="color:#ffd700;text-shadow:1px 1px 0 #000;">★</span>';
-                else starsHtml += '<span style="color:#444;">★</span>';
-            }
-            footer.innerHTML = starsHtml;
-            card.appendChild(footer);
-
-            if (charImg === 'none') {
-                const nameFallback = document.createElement('div');
-                nameFallback.className = 'tec-name-fallback';
-                nameFallback.textContent = unit.base.name;
-                card.appendChild(nameFallback);
+            if (typeof IMG_DATA !== 'undefined' && IMG_DATA[unit.base.id]) {
+                card.style.backgroundImage = `url(${IMG_DATA[unit.base.id]})`;
+            } else {
+                card.innerHTML = `<div style="color:#fff;font-size:10px;text-align:center;">${unit.base.name}</div>`;
             }
 
-            grid.appendChild(card);
+            // 位置計算 (編成画面と同じ計算式)
+            const row = Math.floor(anchor / 4);
+            const col = anchor % 4;
+            const cellW = 25; 
+            const cellH = 50; 
+            card.style.left = `calc(${col * cellW}% + 2px)`;
+            card.style.top = `calc(${row * cellH}% + 2px)`;
+
+            // 星の表示
+            const starEl = document.createElement('div');
+            starEl.className = 'board-unit-stars';
+            starEl.innerHTML = this._renderRarityStars(unit.base.cost, unit.lbCount || 0, 5);
+            card.appendChild(starEl);
+
+            // ★クリック＆長押しで詳細パネルを表示
+            const showDetail = () => {
+                if (app.sound) app.sound.tap();
+                if (app.formationScreen && app.formationScreen.showLongPressUnitDetail) {
+                    app.formationScreen.showLongPressUnitDetail(unit);
+                }
+            };
+
+            let pressTimer = null;
+            let longPressed = false;
+            
+            const startPress = (e) => {
+                if (e.type === 'mousedown' && e.button !== 0) return;
+                longPressed = false;
+                if (pressTimer) clearTimeout(pressTimer);
+                pressTimer = setTimeout(() => {
+                    longPressed = true;
+                    showDetail();
+                }, 450);
+            };
+            const cancelPress = () => {
+                if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                }
+            };
+
+            card.addEventListener('touchstart', startPress, { passive: true });
+            card.addEventListener('touchend', cancelPress);
+            card.addEventListener('touchcancel', cancelPress);
+            card.addEventListener('touchmove', cancelPress, { passive: true });
+            card.addEventListener('mousedown', startPress);
+            card.addEventListener('mouseup', cancelPress);
+            card.addEventListener('mouseleave', cancelPress);
+            card.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            card.onclick = () => {
+                if (!longPressed) showDetail();
+            };
+
+            layer.appendChild(card);
         });
+    }
+
+    // 編成画面と同じ星アイコン生成ロジック
+   _getStarIconPath(kind = 'normal') {
+        return kind === 'awaken' ? 'images/icons/star_awaken.webp' : 'images/icons/star_normal.webp';
+    }
+
+   _renderRarityStars(cost = 0, awakenCount = 0, total = 5) {
+        let html = '';
+        for (let i = 0; i < total; i++) {
+            let kind = 'normal';
+            let cls = 'empty';
+            if (i < awakenCount) { kind = 'awaken'; cls = 'filled'; } 
+            else if (i < cost)   { kind = 'normal'; cls = 'filled'; }
+            html += `<span class="star-icon ${kind} ${cls}"><img src="${this._getStarIconPath(kind)}" alt="*"></span>`;
+        }
+        return html;
     }
 
     _getCardBgUrl(typeId, cost) {
@@ -306,17 +403,16 @@ class TowerScreen {
         return { label: 'R', color: '#cd7f32', stars: '★'.repeat(Math.max(1, cost)) };
     }
 
-    // =============================================
+   // =============================================
     // ★戦闘開始 (事前生成データをそのまま渡す)
     // =============================================
-    startBattle() {
+   startBattle() {
         if (!app.data.deck || app.data.deck.length === 0) {
             alert("部隊を編成してください");
             return;
         }
         if (app.sound) app.sound.tap();
 
-        // 保存済みの敵データをそのまま渡す
         const saved = app.data.towerEnemyData;
         app.changeScene('screen-battle', {
             mode: 'tower',
